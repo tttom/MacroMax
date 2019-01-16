@@ -7,7 +7,7 @@ The material properties are defined on a rectangular grid (1D, 2D, or 3D) for wh
 
 The method iteratively corrects an estimated solution for the electric field (default: all zero). Its memory requirements are on the order of the storage requirements for the material properties and the electric field within the calculation volume. Full details can be found in the manuscript "Calculating coherent light-wave propagation in large heterogeneous media."
 
-**License: [LGPL-3.0](https://opensource.org/licenses/lgpl-3.0.html)**
+**[MIT License](https://opensource.org/licenses/MIT): [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)**
 
 ## Installation
 
