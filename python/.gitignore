@@ -31,6 +31,11 @@ MANIFEST
 *.manifest
 *.spec
 
+# Python egg metadata, regenerated from source files by setuptools.
+/*.egg-info
+/*.eggs
+/*.egg
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
@@ -102,3 +107,6 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# IDE files
+/.idea/workspace.xml
