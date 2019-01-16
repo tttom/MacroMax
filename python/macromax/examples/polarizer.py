@@ -34,6 +34,7 @@ def show_polarizer(center_polarizer=True):
     eps_pol = np.eye(3, dtype=np.complex64)
     eps_pol[2, 2] = 1.0 + 0.1j
     rot_x = lambda a: np.array([[1, 0, 0], [0, np.cos(a), np.sin(a)], [0, -np.sin(a), np.cos(a)]], dtype=np.complex64)
+
     permittivity = np.tile(np.eye(3, dtype=np.complex64)[:, :, np.newaxis], [1, 1, nb_samples])
     for pos_idx, pos in enumerate(x_range):
         if abs(pos - 30e-6) < 5e-6:
@@ -159,5 +160,5 @@ if __name__ == "__main__":
     start_time = time.time()
     show_polarizer(center_polarizer=False)
     show_polarizer(center_polarizer=True)
-    print("Total time: %0.3fs." % (time.time() - start_time))
+    log.debug("Total time: %0.3fs." % (time.time() - start_time))
     plt.show(block=True)

@@ -33,12 +33,8 @@ def calc_ranges(range_lengths, sample_pitches=[], center_offsets=[]):
     # Make sure the vectors are of the same length
     nb_dims = np.max((np.array(range_lengths).size, np.array(sample_pitches).size, np.array(center_offsets).size))
 
-    # Convenience function:
-    def pad_to_length(V, length, value=0):
-        return np.pad(V, (0, length - np.array(V).size), 'constant', constant_values=value)
-
     range_lengths = pad_to_length(range_lengths, nb_dims, 1)
-    sample_pitches = np.pad(sample_pitches, (0, nb_dims - np.array(sample_pitches).size), 'edge')
+    sample_pitches = extend_to_length(sample_pitches, nb_dims)
     center_offsets = pad_to_length(center_offsets, nb_dims, 0)
 
     ranges = [co + sp * (np.arange(0, rl) - np.floor(rl / 2)) for co, sp, rl in
@@ -196,6 +192,18 @@ def hsv2rgb(HSV):
     RGB = np.concatenate((R[:, :, np.newaxis], G[:, :, np.newaxis], B[:, :, np.newaxis]), axis=2)
 
     return RGB
+
+
+def pad_to_length(V, length, padding_value=0):
+    values = np.array(V).flatten()
+
+    return np.pad(values, (0, length - values.size), 'constant', constant_values=padding_value)
+
+
+def extend_to_length(V, length):
+    values = np.array(V).flatten()
+
+    return np.pad(values, (0, length - values.size), 'edge')
 
 
 def ranges2extent(*ranges):
