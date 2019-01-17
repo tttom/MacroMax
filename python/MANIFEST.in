@@ -17,5 +17,6 @@ include macromax/examples/rutile.py
 include macromax/tests/__init__.py
 include macromax/tests/test_solution.py
 include macromax/tests/test_parallelOperations.py
+include macromax/tests/test_utils.py
 
 prune *.log
