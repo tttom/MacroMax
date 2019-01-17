@@ -81,8 +81,8 @@ def show_scatterer(vectorial=True):
         ax.set_ylabel('x [$\mu$m]')
         ax.set_aspect('equal')
 
-    images = [axs.flatten()[idx].imshow(utils.complex2RGB(np.zeros(data_shape), 1, inverted=True),
-                                     extent=utils.ranges2extent(*ranges)*1e6)
+    images = [axs.flatten()[idx].imshow(utils.complex2rgb(np.zeros(data_shape), 1, inverted=True),
+                                        extent=utils.ranges2extent(*ranges)*1e6)
               for idx in range(4)]
 
     axs[0][1].set_title('$||E||^2$')
@@ -102,7 +102,7 @@ def show_scatterer(vectorial=True):
         log.info('Displaying iteration %d: error %0.1f%%' % (s.iteration, 100 * s.residue))
         nb_dims = s.E.shape[0]
         for dim_idx in range(nb_dims):
-            images[dim_idx].set_data(utils.complex2RGB(s.E[dim_idx], 1, inverted=True))
+            images[dim_idx].set_data(utils.complex2rgb(s.E[dim_idx], 1, inverted=True))
             figure_title = '$E_' + 'xyz'[dim_idx] + "$ it %d: rms error %0.1f%% " % (s.iteration, 100 * s.residue)
             add_rectangle_to_axes(axs.flatten()[dim_idx])
             axs.flatten()[dim_idx].set_title(figure_title)
@@ -152,7 +152,7 @@ def show_scatterer(vectorial=True):
     # Save the individual images
     log.info('Saving results to folder %s...' % os.getcwd())
     for dim_idx in range(solution.E.shape[0]):
-        plt.imsave(output_name + '_E%s.png' % chr(ord('x') + dim_idx), utils.complex2RGB(solution.E[dim_idx], 1, inverted=True),
+        plt.imsave(output_name + '_E%s.png' % chr(ord('x') + dim_idx), utils.complex2rgb(solution.E[dim_idx], 1, inverted=True),
                    vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600)
     # Save the figure
     plt.ioff()
@@ -183,7 +183,7 @@ if __name__ == "__main__":
     axs_summary[0].set_xlabel('t [s]')
     axs_summary[0].set_ylabel(r'$||\Delta E|| / ||E||$')
     colormap_ranges = [-(np.arange(256) / 256 * 2 * np.pi - np.pi), np.linspace(0, 1, 256)]
-    colormap_image = utils.complex2RGB(
+    colormap_image = utils.complex2rgb(
         colormap_ranges[1][np.newaxis, :] * np.exp(1j * colormap_ranges[0][:, np.newaxis]),
         inverted=True)
     axs_summary[1].imshow(colormap_image, extent=utils.ranges2extent(*colormap_ranges))

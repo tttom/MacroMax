@@ -694,6 +694,7 @@ class ParallelOperations:
 
         return D
 
+
     def __get_k_ranges(self, input_shape=None, imaginary=False):
         """
         Prepare a set of vectors, one for each dimension, with the k-values along the respective dimension.
@@ -809,7 +810,7 @@ class ParallelOperations:
             del b, c
 
             S2 = R ** 2 - Q ** 3
-            complex_root = is_significant(R.imag) | is_significant(Q.imag) | (S2 >= 0)
+            complex_root = True  #TODO: fix numerical issues with real roots.  is_significant(R.imag) | is_significant(Q.imag) | (S2 >= 0)
             not_around_origin = is_significant(Q)  # avoiding division by zero in case the roots are centered around zero
             RQm32 = sm.power(R, 1/3) / (not_around_origin * sm.sqrt(Q) + (1 - not_around_origin))
             AB_all_real_roots = -sm.sqrt(Q) * (RQm32 + 1j * sm.sqrt(1.0 - RQm32**2))

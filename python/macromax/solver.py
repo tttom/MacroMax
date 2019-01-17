@@ -130,8 +130,8 @@ class Solution(object):
         self.__last_update_norm = np.inf
 
         self.__field_mat = None
-        self.__Chi_dot = None
-        self.__Gamma_dot = None
+        self.__chi_op = None
+        self.__gamma_op = None
 
         # Convert functions to arrays.
         # This is not strictly necessary for the source, though it simplifies the code.
@@ -161,14 +161,14 @@ class Solution(object):
             self.sample_pitch, self.wavenumber
         )
         # Now we can forget epsilon, xi, zeta, mu, and source_distribution. Their information is encapsulated
-        # in the newly created operator methods __Chi_dot, and __Gamma_dot
+        # in the newly created operator methods __chi_op, and __gamma_op
         self.__residue = None  # Invalidate residue
 
     def __prepare_preconditioner(self, source_distribution, epsilon, xi, zeta, mu, sample_pitch, wavenumber):
         """
-        Sets or updates the private value for self.__source, and the methods __Chi_dot, __Gamma_dot, __G_dot
+        Sets or updates the private value for self.__source, and the methods __chi_op, __gamma_op, __green_function_op
         This uses the values for source_distribution, epsilon, xi, zeta, mu, as well as
-        the sample_pitch and wavenumber
+        the sample_pitch and wavenumber.
 
         :param source_distribution: A 1+N-D array representing the source vector field.
         :param epsilon: A 2+N-D array representing the permittivity distribution.
@@ -185,18 +185,6 @@ class Solution(object):
         xi = self.__PO.to_simple_matrix(xi)
         zeta = self.__PO.to_simple_matrix(zeta)
         mu = self.__PO.to_simple_matrix(mu)
-
-        # Find regions marked as metal and set material to normal values there
-        # metal = np.sum(np.sum(np.abs(epsilon), axis=0), axis=1) > 1e6
-        self.__dielectric = np.max(np.abs(self.__PO.mat3_eig(epsilon)), axis=0) < 1e6
-        self.__conductive = not np.all(self.__dielectric)
-        if self.conductive:
-            log.debug('Medium is found to be conductive.')
-            epsilon *= self.__dielectric
-            epsilon += self.__PO.eye[:epsilon.shape[0], :epsilon.shape[1]] * (1.0 - self.__dielectric)
-        else:
-            log.debug('Medium is entirely dielectric.')
-            del self.__dielectric
 
         # Determine if the media is magnetic
         self.__magnetic = np.any(xi.ravel() != 0.0) or np.any(zeta.ravel() != 0.0) or np.any(mu.ravel() != mu.ravel()[0])
@@ -219,7 +207,11 @@ class Solution(object):
         if has_gain(epsilon) or has_gain(xi) or has_gain(zeta) or has_gain(mu):
             def max_gain(a):
                 return np.max(-self.__PO.mat3_eig(-0.5j * (a - self.__PO.conjugate_transpose(a))).real)
-            log.warning('Convergence not guaranteed!\nPermittivity has a gain of up to %0.3g, xi up to %0.3g, zeta up to %0.3g, and the permeability up to %0.3g.' % (max_gain(epsilon), max_gain(xi), max_gain(zeta), max_gain(mu)))
+            log.warning("Convergence not guaranteed!\n"
+                        "Permittivity has a gain as large as %0.3g, xi up to %0.3g, zeta up to %0.3g,"
+                        " and the permeability up to %0.3g." %
+                        (max_gain(epsilon), max_gain(xi), max_gain(zeta), max_gain(mu))
+                        )
         else:
             log.debug('Media has no gain, safe to proceed.')
 
@@ -320,8 +312,6 @@ class Solution(object):
         # Store the modified source distribution
         self.__source = self.__PO.to_simple_matrix(source_distribution) / self.__beta  # Adjust for magnetic bias
         del source_distribution
-        if self.conductive:
-            self.__source *= self.__dielectric
 
         alpha = self.__increase_bias_to_limit_kernel_width(alpha)
         log.info('alpha = %0.4g + %0.4gi, beta = %0.4g' % (alpha.real, alpha.imag, self.__beta))
@@ -343,7 +333,7 @@ class Solution(object):
 
         :param alpha: The new value for alpha.
 
-        returns Nothing. Side effect is setting of properties __alpha, __chi_dot, __gamma_dot, and  __G_dot
+        returns Nothing. Side effect is setting of properties __alpha, __chi_dot, __gamma_dot, and __green_function_op
         """
 
         # Once the susceptibility_offset is fixed, we can also calculate chiEE
@@ -352,9 +342,9 @@ class Solution(object):
 
         # Pick the right Chi operator
         if self.magnetic:
-            def Chi_dot(E):
+            def chi_op(E):
                 """
-                Applies the magnetic Chi operator to the input E-field.
+                Applies the magnetic :math:`\Chi` operator to the input E-field.
 
                 :param E: an array representing the E to apply the Chi operator to.
                 :return: an array with the result E of the same size as E or of the size of its singleton expansion.
@@ -375,7 +365,7 @@ class Solution(object):
 
                 return result  # chiE + D(chiH)
         else:
-            def Chi_dot(E):
+            def chi_op(E):
                 """
                 Applies the non-magnetic Chi operator to the input E-field.
 
@@ -391,40 +381,38 @@ class Solution(object):
         # Calculate the convolution filter just once
         g_scalar_ft = 1.0 / (self.__PO.calc_K2() - self.__alpha)
         if self.__PO.vectorial:
-            def g_ft_mul(FFt):  # No need to represent the full matrix in memory
+            def g_ft_op(FFt):  # No need to represent the full matrix in memory
                 PiL_FFt = self.__PO.longitudinal_projection_ft(FFt)  # Creates K^2 on-the-fly and still memory intensive
                 result = self.__PO.subtract(FFt, PiL_FFt)
                 result *= g_scalar_ft
                 result -= PiL_FFt / self.__alpha
                 return result  # g_scalar_ft * self.__PO.subtract(FFt, PiL_FFt) - PiL_FFt / self.__alpha
         else:
-            def g_ft_mul(FFt):
+            def g_ft_op(FFt):
                 result = FFt
                 result *= g_scalar_ft
                 return result  # g_scalar_ft * FFt
 
-        def dyadic_Green_function_convolve(F):
+        def dyadic_green_function_op(F):
             FFt = self.__PO.ft(F)  # Convert each component separately to frequency coordinates
-            FFt = g_ft_mul(FFt)  # Memory intensive
+            FFt = g_ft_op(FFt)  # Memory intensive
             return self.__PO.ift(FFt)  # Back to spatial coordinates
 
-        def Gamma_dot(E):
-            result = self.__Chi_dot(E)
+        def gamma_op(E):
+            result = self.__chi_op(E)
             result *= 1.0j / self.__alpha.imag
-            if self.conductive:
-                result *= self.__dielectric
-                # B = self.__PO.curl(result) / (1j * self.wavenumber)
-                # H = mu_inv = B / const.mu_0
-                # H *= self.__dielectric
-                # D = (J - self.__PO.curl(H)) / (1j * self.wavenumber)
-                # result = self.__PO.inv(epsilon, D) / const.epsilon_0
-            return result  # (1.0j / self.__alpha.imag) * self.__dielectric * self.__Chi_dot(E)
+            # Long description:
+            # B = self.__PO.curl(result) / (1j * self.wavenumber)
+            # H = mu_inv = B / const.mu_0
+            # D = (J - self.__PO.curl(H)) / (1j * self.wavenumber)
+            # result = self.__PO.inv(epsilon, D) / const.epsilon_0
+            return result  # (1.0j / self.__alpha.imag) * self.__chi_op(E)
 
         # Update the methods for the operators Chi and Gamma:
-        self.__Chi_dot = Chi_dot
-        self.__Gamma_dot = Gamma_dot
+        self.__chi_op = chi_op
+        self.__gamma_op = gamma_op
         # Set the Green function
-        self.__G_dot = dyadic_Green_function_convolve
+        self.__green_function_op = dyadic_green_function_op
 
     def __increase_bias_to_limit_kernel_width(self, alpha, max_kernel_width_in_px=None, max_kernel_residue=1.0 / 100):
         """
@@ -532,15 +520,6 @@ class Solution(object):
         :return: A boolean, True when magnetic, False otherwise.
         """
         return self.__magnetic
-
-    @property
-    def conductive(self):
-        """
-        Indicates if this media has conductive parts.
-
-        :return: A boolean, True when conductive, False otherwise.
-        """
-        return self.__conductive
 
     @property
     def j(self):
@@ -774,12 +753,12 @@ class Solution(object):
             self.__residue = None  # Invalidate residue
 
             # Calculate update
-            #d_field = self.__Gamma_dot(self.__G_dot(self.__Chi_dot(self.__field_mat) + self.__source) - self.__field_mat)
-            d_field = self.__Chi_dot(self.__field_mat)
+            #d_field = self.__gamma_op(self.__green_function_op(self.__chi_op(self.__field_mat) + self.__source) - self.__field_mat)
+            d_field = self.__chi_op(self.__field_mat)
             d_field = self.__PO.add(d_field, self.__source)
-            d_field = self.__G_dot(d_field)
+            d_field = self.__green_function_op(d_field)
             d_field -= self.__field_mat
-            d_field = self.__Gamma_dot(d_field)
+            d_field = self.__gamma_op(d_field)
 
             # Check if the iteration is diverging
             previous_update = self.__last_update_norm
@@ -800,7 +779,7 @@ class Solution(object):
 
                 log.debug('Updated field in iteration %d.' % self.iteration)
             else:
-                log.warn('The field update is scaled by %0.3f >= 1, so the maximum singular value of the update matrix',
+                log.warning('The field update is scaled by %0.3f >= 1, so the maximum singular value of the update matrix',
                          ' is larger than one. Convergence issues may occur.' % relative_update_norm)
                 log.info('Increasing the imaginary part of alpha from %0.3g...' % self.__alpha.imag)
                 self.__update_operators(self.__alpha.real + 1.10j * self.__alpha.imag)

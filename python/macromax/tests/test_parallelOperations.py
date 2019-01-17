@@ -131,8 +131,9 @@ class TestParallelOperations(unittest.TestCase):
         npt.assert_almost_equal(self.PO.mul(B_inv, B), self.PO.eye)
 
     # def test_curl(self):
+    #     # Test not implemented yet
     #     self.fail()
-    #
+
     def test_curl_ft(self):
         A = np.zeros([3, 1, *self.shape])
         A[:, 0, 0, 0, 5] = np.array([3.0, 0, 0])
@@ -142,9 +143,11 @@ class TestParallelOperations(unittest.TestCase):
         npt.assert_almost_equal(B, C)
 
     # def test_transversal_projection(self):
+    #     # Test not implemented yet
     #     self.fail()
-    #
+
     # def test_longitudinal_projection(self):
+    #     # Test not implemented yet
     #     self.fail()
 
     def test_transversal_projection_ft(self):
@@ -216,6 +219,10 @@ class TestParallelOperations(unittest.TestCase):
                                 err_msg='Three real eigenvalues around zero not detected correctly.')
 
     def test_calc_roots_of_low_order_polynomial(self):
+        C = np.array([0.0, 0.0, 0.100001, -1.0])
+        roots = self.PO.calc_roots_of_low_order_polynomial(C)
+        npt.assert_array_almost_equal(np.sort(roots), [0.0, 0.0, C[2]], err_msg='numerical accuracy test failed')
+
         C = np.array([1])
         root = self.PO.calc_roots_of_low_order_polynomial(C)
         npt.assert_equal(root, [], err_msg='failed root finding of constant equation')
@@ -343,6 +350,10 @@ class TestParallelOperations(unittest.TestCase):
         for root_idx in range(3):
             npt.assert_almost_equal(self.PO.evaluate_polynomial(C, roots[root_idx]), 0.0,
                                     err_msg='third order polynomial root %d not found' % root_idx)
+
+        C = np.array([0.0, 0.0, 0.100001, -1.0])
+        roots = self.PO.calc_roots_of_low_order_polynomial(C)
+        npt.assert_array_almost_equal(np.sort(roots), [0.0, 0.0, C[2]], err_msg='numerical accuracy test failed')
 
     def test_evaluate_polynomial(self):
         C = np.array([1, 2, 3, -4])[:, np.newaxis, np.newaxis, np.newaxis, np.newaxis]

@@ -38,7 +38,7 @@ def show_polarizer(center_polarizer=True):
     permittivity = np.tile(np.eye(3, dtype=np.complex64)[:, :, np.newaxis], [1, 1, nb_samples])
     for pos_idx, pos in enumerate(x_range):
         if abs(pos - 30e-6) < 5e-6:
-            permittivity[:, :, pos_idx] = rot_x(0) @ eps_pol @ rot_x(0)
+            permittivity[:, :, pos_idx] = eps_pol
         elif center_polarizer and abs(pos - 60e-6) < 5e-6:
             permittivity[:, :, pos_idx] = rot_x(-np.pi/4) @ eps_pol @ rot_x(np.pi/4)
         elif abs(pos - 90e-6) < 5e-6:

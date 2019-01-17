@@ -37,7 +37,7 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     boundary_thickness = 5e-6
     dist_in_boundary = np.maximum(0.0, np.maximum(-(x_range - (x_range[0] + boundary_thickness)),
                                                   x_range - (x_range[-1] - boundary_thickness)) / boundary_thickness)
-    permittivity[:, :, :] += - 1.0 + 1.0 + (0.5j * dist_in_boundary)
+    permittivity[:, :, :] += - 1.0 + 1.0 + (0.5j * dist_in_boundary)  # The first two dimensions are singleton dims
 
     if birefringent:
         permittivity = np.eye(3)[:, :, np.newaxis] * permittivity

@@ -4,24 +4,32 @@ import logging
 log = logging.getLogger('MacroMax')
 log.setLevel(logging.INFO)
 
+# create formatter and add it to the handlers
+formatter = logging.Formatter('%(asctime)s|%(name)s-%(levelname)s: %(message)s')
+
 # Clear all previously added handlers
 for h in log.handlers:
     log.removeHandler(h)
 
-# create file handler which logs even debug messages
-fh = logging.FileHandler('MacroMax.log')
-fh.setLevel(logging.DEBUG)
-# create console handler with a higher log level
+# create console handler
 ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-# create formatter and add it to the handlers
-formatter = logging.Formatter('%(asctime)s|%(name)s-%(levelname)s: %(message)s')
-fh.setFormatter(formatter)
+ch.setLevel(logging.INFO)
 ch.setFormatter(formatter)
-# add the handlers to the logger
-log.addHandler(fh)
+# add the handler to the logger
 log.addHandler(ch)
 
+# create file handler which logs debug messages
+try:
+    fh = logging.FileHandler(log.name + '.log')
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(formatter)
+    # add the handler to the logger
+    log.addHandler(fh)
+except IOError:
+    ch.setLevel(logging.DEBUG)
+    log.warning("Could not create log file. Redirecting messages to console output.")
 
+
+# Import in main name space
 from .solver import solve
 from .solver import Solution

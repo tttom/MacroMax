@@ -63,12 +63,12 @@ def show_birefringence():
         ax.set_ylabel('x [$\mu$m]')
         ax.set_aspect('equal')
 
-    images = [axs[dim_idx][0].imshow(utils.complex2RGB(np.zeros(data_shape), 1),
+    images = [axs[dim_idx][0].imshow(utils.complex2rgb(np.zeros(data_shape), 1),
                                      extent=np.array([*ranges[1][[0, -1]], *ranges[0][[0, -1]]]) * 1e6, origin='lower')
               for dim_idx in range(3)]
-    axs[0][1].imshow(utils.complex2RGB(permittivity[0, 0], 1),
+    axs[0][1].imshow(utils.complex2rgb(permittivity[0, 0], 1),
                      extent=np.array([*ranges[1][[0, -1]], *ranges[0][[0, -1]]]) * 1e6, origin='lower')
-    axs[2][1].imshow(utils.complex2RGB(source[0], 1),
+    axs[2][1].imshow(utils.complex2rgb(source[0], 1),
                      extent=np.array([*ranges[1][[0, -1]], *ranges[0][[0, -1]]]) * 1e6, origin='lower')
     axs[0][1].set_title('$\chi$')
     axs[1][1].axis('off')
@@ -95,7 +95,7 @@ def show_birefringence():
         log.info("Displaying iteration %d: error %0.1f%%" % (s.iteration, 100 * s.residue))
         nb_dims = s.E.shape[0]
         for dim_idx in range(nb_dims):
-            images[dim_idx].set_data(utils.complex2RGB(s.E[dim_idx], 1))
+            images[dim_idx].set_data(utils.complex2rgb(s.E[dim_idx], 1))
             figure_title = '$E_' + 'xyz'[dim_idx] + "$ it %d: rms error %0.1f%% " % (s.iteration, 100 * s.residue)
             axs[dim_idx][0].set_title(figure_title)
 
