@@ -669,6 +669,10 @@ class ParallelOperations:
         :return: The set of eigenvalue-triples contained in an ndarray with its first dimension of size 3,
                  and the remaining dimensions equal to all but the first two input dimensions.
         """
+        #
+        # TODO: Check if this could be implemented faster / more accurately with an iterative algorithm,
+        # e.g. Given's rotation to make Hermitian tridiagonal + power iteration.
+        #
         data_shape = np.array(A.shape[2:])
         matrix_shape = np.array(A.shape[:2])
         if np.all(matrix_shape == 3):
