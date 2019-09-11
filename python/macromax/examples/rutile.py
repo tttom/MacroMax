@@ -151,7 +151,7 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
         if np.mod(s.iteration, 10) == 1:
             display(s)
 
-        return s.residue > 1e-5 and s.iteration < 1e4
+        return s.residue > 1e-3 and s.iteration < 1e4
 
     # The actual work is done here:
     start_time = time.time()

@@ -5,7 +5,7 @@ This Python 3 module enables solving the macroscopic Maxwell equations in comple
 
 The material properties are defined on a rectangular grid (1D, 2D, or 3D) for which each voxel defines an isotropic or anistropic permittivity. Optionally, a heterogeneous (anisotropic) permeability as well as bi-anisotropic coupling factors may be specified (e.g. for chiral media). The source, such as an incident laser field, is specified as an oscillating current-density distribution.
 
-The method iteratively corrects an estimated solution for the electric field (default: all zero). Its memory requirements are on the order of the storage requirements for the material properties and the electric field within the calculation volume. Full details can be found in the manuscript "Calculating coherent light-wave propagation in large heterogeneous media."
+The method iteratively corrects an estimated solution for the electric field (default: all zero). Its memory requirements are on the order of the storage requirements for the material properties and the electric field within the calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript ["Calculating coherent light-wave propagation in large heterogeneous media."](https://doi.org/10.1364/OE.27.011946)
 
 **[MIT License](https://opensource.org/licenses/MIT): [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)**
 
@@ -13,9 +13,9 @@ The method iteratively corrects an estimated solution for the electric field (de
 
 ### Prerequisites
 
-This library requires Python 3 with the modules ````numpy```` and ````scipy```` for the main calculations.
-From the main library, the modules ````sys````, ````io````, ````os````, and ````multiprocessing```` are imported; as well as the modules ````logging```` and ````time```` for diagnostics.
-The ````pyfftw```` module can help speed up the calculations.
+This library requires Python 3 with the modules ````numpy```` and ````scipy```` for the main calculations. These modules will be automatically installed.
+From the core library, the modules ````sys````, ````io````, and ````os```` are imported; as well as the modules ````logging```` and ````time```` for diagnostics.
+The ````multiprocessing```` and ````pyfftw```` modules can help speed up the calculations.
 
 The examples require ````matplotlib```` for displaying the results.
 The ````pypandoc```` module is required for translating this document to other formats.
@@ -27,7 +27,7 @@ Installing the ````macromax```` module and its dependencies can be done by runni
 
 ````sh
 pip install macromax
-````
+```` 
 
 The module comes with a submodule containing example code.
 
@@ -320,3 +320,5 @@ Installing from the test repository is done as follows:
 ```sh
 pip install -i https://test.pypi.org/simple/ macromax
 ```
+
+The project IDEA IntelliJ 

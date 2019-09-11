@@ -11,7 +11,14 @@ try:
 except ModuleNotFoundError:
     import numpy.fft.fftpack as ft
     log.info('Module pyfftw for FFTW not found, using numpy Fast Fourier transform instead.')
-import multiprocessing
+
+try:
+    import multiprocessing
+    nb_threads = multiprocessing.cpu_count()
+    log.debug('Detected %d CPUs, using up to %d threads.' % (nb_threads, nb_threads))
+except ModuleNotFoundError:
+    nb_threads = 1
+    log.info('Module multiprocessing not found, assuming single-threaded environment.')
 
 
 class ParallelOperations:
@@ -52,7 +59,6 @@ class ParallelOperations:
             # ftflags = ('FFTW_DESTROY_INPUT', 'FFTW_PATIENT', )
             # ftflags = ('FFTW_DESTROY_INPUT', 'FFTW_MEASURE', )
             # ftflags = ('FFTW_DESTROY_INPUT', 'FFTW_EXHAUSTIVE', ) # very slow, little gain in general
-            nb_threads = multiprocessing.cpu_count()
             log.debug("Number of threads available for FFTW: %d" % nb_threads)
 
             self.__empty_word_aligned = \
