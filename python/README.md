@@ -302,7 +302,9 @@ python setup.py test
 ```
 
 ### Building and Distributing
-The code consists of pure Python 3, hence only packaging is required for distribution. To prepare a package for distribution, run:
+The code consists of pure Python 3, hence only packaging is required for distribution.
+
+To prepare a package for distribution, increase the version number in ```setup.py```, and run:
 
 ```sh
 python setup.py sdist bdist_wheel

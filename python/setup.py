@@ -35,7 +35,7 @@ except io.IOError:
 
 setup(
     name='macromax',
-    version='0.0.8',
+    version='0.0.9',
     keywords='light electromagnetic propagation anisotropy magnetic chiral optics Maxwell scattering heterogeneous',
     packages=['macromax'],
     include_package_data=True,

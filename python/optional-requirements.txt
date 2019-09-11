@@ -1,6 +1,6 @@
 # Faster implementation using FFTW
 # macromax\parallel_ops_column.py: 9,10
-pyFFTW == 0.10.5.dev0+d45d7fe
+pyFFTW == 0.11.1
 
 # setup.py
 pypandoc == 1.4 # To convert README.md to README.rst
