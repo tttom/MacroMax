@@ -17,11 +17,11 @@ try:
     import pypandoc
 
     print('pypandoc installed, converting README.md to rst...')
-    pypandoc.convert('README.md', 'rst', format='markdown_github', outputfile='README.rst')
+    pypandoc.convert_file('README.md', 'rst', format='markdown_github', outputfile='README.rst')
 
     print('Converting README.md also to html...')
-    pypandoc.convert('README.md', 'html', format='markdown_github', outputfile='README.html')
-    contents = pypandoc.convert('README.md', 'pdf', format='markdown_github', outputfile='README.pdf')
+    pypandoc.convert_file('README.md', 'html', format='markdown_github', outputfile='README.html')
+    contents = pypandoc.convert_file('README.md', 'pdf', format='markdown_github', outputfile='README.pdf')
     del contents
 except ModuleNotFoundError:
     print('Could not import pypandoc, will not regenerate README.')

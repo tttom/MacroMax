@@ -172,7 +172,6 @@ The first section of the code loads the ````macromax```` library module as well 
 import macromax
 
 import numpy as np
-import scipy.constants as const
 import matplotlib.pyplot as plt
 %matplotlib notebook
 
@@ -180,9 +179,7 @@ import matplotlib.pyplot as plt
 # Define the material properties
 #
 wavelength = 500e-9
-angular_frequency = 2 * const.pi * const.c / wavelength
-source_amplitude = 1j * angular_frequency * const.mu_0
-p_source = np.array([0, 1, 0])  # y-polarized
+source_polarization = np.array([0, 1, 0])[:, np.newaxis]  # y-polarized
 
 # Set the sampling grid
 nb_samples = 1024
@@ -202,15 +199,14 @@ permittivity[:, :, (x_range >= 10e-6) & (x_range < 20e-6)] = 1.5 ** 2
 # Define the illumination source
 #
 # point source at x = 0
-source = -source_amplitude * sample_pitch * (np.abs(x_range) < sample_pitch/4)
-source = p_source[:, np.newaxis] * source[np.newaxis, :]
+current_density = source_polarization * (np.abs(x_range) < sample_pitch/4)
 
 #
 # Solve Maxwell's equations
 #
 # (the actual work is done in this line)
 solution = macromax.solve(x_range, vacuum_wavelength=wavelength,
-    source_distribution=source, epsilon=permittivity)
+                current_density=current_density, epsilon=permittivity)
 
 #
 # Display the results
@@ -223,7 +219,7 @@ H = solution.H[2, :]  # Magnetizing field
 S = solution.S[0, :]  # Poynting vector
 f = solution.f[0, :]  # Optical force
 # Display the field for the polarization dimension
-field_to_display = angular_frequency * E
+field_to_display = E
 max_val_to_display = np.maximum(np.max(np.abs(field_to_display)),
                                 np.finfo(field_to_display.dtype).eps)
 poynting_normalization = np.max(np.abs(S)) / max_val_to_display
@@ -266,21 +262,21 @@ The source code is organized as follows:
 
 * ````/```` (root):   Module description and distribution files.
 
-* ````/macromax````:  The iterative solver.
+* ````macromax/````:  The iterative solver.
 
-* ````/macromax/examples````:  Examples of how the solver can be used.
+* ````examples/````:  Examples of how the solver can be used.
 
-* ````/macromax/tests````:     Automated unit tests of the solver's functionality. Use this after making modifications to the solver and extend it if new functionality is added.
+* ````tests/````:     Automated unit tests of the solver's functionality. Use this after making modifications to the solver and extend it if new functionality is added.
 
-The library functions are contained in ````/macromax````:
+The library functions are contained in ````macromax/````:
 
 * ````solver````: Defines the ````solve(...)```` function and the ````Solution```` class.
 
 * ````parallel_ops_column````: Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
 
-* ````utils````: Defines utility functions that can be used to prepare and interpret function arguments.
+* ````utils/````: Defines utility functions that can be used to prepare and interpret function arguments.
 
-The included examples in the ````/macromax/examples```` folder are:
+The included examples in the ````macromax/examples/```` folder are:
 
 * ````notebook_example.ipynb````: An iPython notebook demonstrating basic usage of the library.
 
@@ -293,6 +289,8 @@ The included examples in the ````/macromax/examples```` folder are:
 * ````polarizer.py````: Calculation of light wave traversing a set of two and a set of three polarizers as a demonstration of anisotropic absorption (non-Hermitian permittivity)
 
 * ````rutile.py````: Scattering from disordered collection of birefringent rutile (TiO2) particles.
+
+* ````benchmark.py````: Timing of a simple two-dimensional calculation for comparison between versions.
 
 ### Testing
 Unit tests are contained in ````macromax/tests````. The ````ParallelOperations```` class in

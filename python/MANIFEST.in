@@ -1,0 +1,26 @@
+include README.md
+include README.rst
+include README.html
+
+include LICENSE.txt
+
+include macromax/*.py
+include macromax/utils/*.py
+include macromax/utils/array/*.py
+include macromax/utils/display/*.py
+
+include examples/__init__.py
+include examples/notebook_example.ipynb
+include examples/air_glass_air_1D.py
+include examples/air_glass_air_2D.py
+include examples/birefringent_crystal.py
+include examples/polarizer.py
+include examples/rutile.py
+include examples/benchmark.py
+
+include tests/__init__.py
+include tests/test_solution.py
+include tests/test_parallelOperations.py
+include tests/test_grid.py
+
+prune *.log
