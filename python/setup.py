@@ -1,8 +1,9 @@
 import setuptools
 from setuptools import setup
-
 import os
 import io
+
+import macromax
 
 
 def update_file(file_path, contents):
@@ -22,20 +23,20 @@ try:
     pypandoc.convert('README.md', 'html', format='markdown_github', outputfile='README.html')
     contents = pypandoc.convert('README.md', 'pdf', format='markdown_github', outputfile='README.pdf')
     del contents
-except io.ImportError:
+except ModuleNotFoundError:
     print('Could not import pypandoc, will not regenerate README.')
-except io.IOError:
+except FileNotFoundError:
     print('Could not convert README.md, trying to read README.rst directly from disk.')
 
 try:
     long_description_rst = io.open('README.rst', encoding='utf-8').read()
     print('Read README.rst.')
-except io.IOError:
-    raise io.IOError('Failed to read README.rst file.')
+except FileNotFoundError:
+    raise IOError('Failed to read README.rst file.')
 
 setup(
     name='macromax',
-    version='0.0.9',
+    version=macromax.__version__,
     keywords='light electromagnetic propagation anisotropy magnetic chiral optics Maxwell scattering heterogeneous',
     packages=['macromax'],
     include_package_data=True,
