@@ -10,7 +10,7 @@ import scipy.constants as const
 import time
 
 import macromax
-from macromax import utils
+from macromax.utils.array import vector_to_axis, calc_frequency_ranges
 from examples import log
 
 
@@ -146,9 +146,9 @@ def bandpass_and_remove_gain(v, dims, ranges, periods):
         periods = [periods] * len(ranges)
     v_ft = np.fft.fftn(v, axes=dims)
     for dim_idx in range(v.ndim - 2):
-        f_range = utils.calc_frequency_ranges(ranges[dim_idx])[0]
+        f_range = calc_frequency_ranges(ranges[dim_idx])[0]
         lowpass_filter = np.exp(-0.5*(np.abs(f_range) * periods[dim_idx])**2)
-        v_ft *= utils.to_dim(lowpass_filter, v_ft.ndim, dims[dim_idx])
+        v_ft *= vector_to_axis(lowpass_filter, dims[dim_idx], v_ft.ndim)
     v = np.fft.ifftn(v_ft, axes=dims)
     v[v.imag < 0] = v.real[v.imag < 0]  # remove and gain (may be introduced by rounding errors)
     return v

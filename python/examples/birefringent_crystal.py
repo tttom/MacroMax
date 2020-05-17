@@ -10,7 +10,8 @@ import scipy.constants as const
 import time
 
 import macromax
-from macromax import utils
+from macromax.utils.array import vector_to_axis, calc_ranges
+from macromax.utils.display import complex2rgb, grid2extent
 from examples import log
 
 
@@ -26,7 +27,7 @@ def show_birefringence():
     angular_frequency = const.c * k0
     source_amplitude = 1j * angular_frequency * const.mu_0
     sample_pitch = np.array([1, 1]) * wavelength / 8
-    ranges = utils.calc_ranges(data_shape, sample_pitch)
+    ranges = calc_ranges(data_shape, sample_pitch)
     incident_angle = 0 * np.pi / 180
 
     def rot_Z(a): return np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
@@ -63,19 +64,19 @@ def show_birefringence():
         ax.set_ylabel('x [$\mu$m]')
         ax.set_aspect('equal')
 
-    images = [axs[dim_idx][0].imshow(utils.complex2rgb(np.zeros(data_shape), 1),
+    images = [axs[dim_idx][0].imshow(complex2rgb(np.zeros(data_shape), 1),
                                      extent=np.array([*ranges[1][[0, -1]], *ranges[0][[0, -1]]]) * 1e6, origin='lower')
               for dim_idx in range(3)]
-    axs[0][1].imshow(utils.complex2rgb(permittivity[0, 0], 1),
+    axs[0][1].imshow(complex2rgb(permittivity[0, 0], 1),
                      extent=np.array([*ranges[1][[0, -1]], *ranges[0][[0, -1]]]) * 1e6, origin='lower')
-    axs[2][1].imshow(utils.complex2rgb(source[0], 1),
+    axs[2][1].imshow(complex2rgb(source[0], 1),
                      extent=np.array([*ranges[1][[0, -1]], *ranges[0][[0, -1]]]) * 1e6, origin='lower')
     axs[0][1].set_title('$\chi$')
     axs[1][1].axis('off')
     axs[2][1].set_title('source and S')
     mesh_ranges = [0, 1]
     for dim_idx in range(len(ranges)):
-        mesh_ranges[dim_idx] = utils.to_dim(ranges[dim_idx].flatten(), len(ranges), axis=dim_idx)
+        mesh_ranges[dim_idx] = vector_to_axis(ranges[dim_idx].flatten(), len(ranges))
     X, Y = np.meshgrid(mesh_ranges[1], mesh_ranges[0])
     arrow_sep = np.array([1, 1], dtype=int) * 30
     quiver = axs[2][1].quiver(X[::arrow_sep[0], ::arrow_sep[1]]*1e6, Y[::arrow_sep[0], ::arrow_sep[1]]*1e6,
@@ -95,7 +96,7 @@ def show_birefringence():
         log.info("Displaying iteration %d: error %0.1f%%" % (s.iteration, 100 * s.residue))
         nb_dims = s.E.shape[0]
         for dim_idx in range(nb_dims):
-            images[dim_idx].set_data(utils.complex2rgb(s.E[dim_idx], 1))
+            images[dim_idx].set_data(complex2rgb(s.E[dim_idx], 1))
             figure_title = '$E_' + 'xyz'[dim_idx] + "$ it %d: rms error %0.1f%% " % (s.iteration, 100 * s.residue)
             axs[dim_idx][0].set_title(figure_title)
 

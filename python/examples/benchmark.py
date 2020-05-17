@@ -8,7 +8,7 @@ import scipy.constants as const
 
 import macromax
 from macromax import log
-from macromax.utils import calc_ranges
+from macromax.utils.array import calc_ranges
 
 
 def calculate(dtype=np.complex128, vectorial=False):
@@ -51,7 +51,7 @@ def calculate(dtype=np.complex128, vectorial=False):
     display = False
     if display:
         import matplotlib.pyplot as plt
-        from macromax.utils import complex2rgb, ranges2extent
+        from macromax.utils import complex2rgb, grid2extent
 
         # Prepare the display
         fig, axs = plt.subplots(1, 2, frameon=False, figsize=(12, 6))
@@ -60,8 +60,8 @@ def calculate(dtype=np.complex128, vectorial=False):
             ax.set_ylabel('x [$\mu$m]')
             ax.set_aspect('equal')
 
-        images = axs[0].imshow(complex2rgb(np.zeros(data_shape), 1), extent=ranges2extent(grid[0].ravel(), grid[1].ravel()) * 1e6)
-        axs[1].imshow(complex2rgb(permittivity[0, 0], 1), extent=ranges2extent(grid[0].ravel(), grid[1].ravel()) * 1e6)
+        images = axs[0].imshow(complex2rgb(np.zeros(data_shape), 1), extent=grid2extent(grid[0].ravel(), grid[1].ravel()) * 1e6)
+        axs[1].imshow(complex2rgb(permittivity[0, 0], 1), extent=grid2extent(grid[0].ravel(), grid[1].ravel()) * 1e6)
         axs[1].set_title('$\chi$')
 
         #

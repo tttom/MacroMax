@@ -10,7 +10,8 @@ import scipy.constants as const
 import time
 
 import macromax
-from macromax import utils
+from macromax.utils.array import calc_ranges
+from macromax.utils.display import complex2rgb, grid2extent
 from examples import log
 
 
@@ -32,7 +33,7 @@ def show_scatterer(vectorial=True):
     angular_frequency = const.c * k0
     source_amplitude = 1j * angular_frequency * const.mu_0
     sample_pitch = np.array([1, 1]) * wavelength / 15
-    ranges = utils.calc_ranges(data_shape, sample_pitch)
+    ranges = calc_ranges(data_shape, sample_pitch)
     incident_angle = 30 * np.pi / 180
     # incident_angle = np.arctan(1.5)  # Brewster's angle
 
@@ -75,14 +76,14 @@ def show_scatterer(vectorial=True):
                                   edgecolor=np.array((0, 1, 1, 0.25)), linewidth=1, fill=True, facecolor=np.array((0, 1, 1, 0.05)))
         axes.add_artist(rectangle)
 
-    fig, axs = plt.subplots(2, 2, frameon=False, figsize=(12, 12), sharex=True, sharey=True)
+    fig, axs = plt.subplots(2, 2, frameon=False, figsize=(12, 12), sharex='all', sharey='all')
     for ax in axs.ravel():
         ax.set_xlabel('y [$\mu$m]')
         ax.set_ylabel('x [$\mu$m]')
         ax.set_aspect('equal')
 
-    images = [axs.flatten()[idx].imshow(utils.complex2rgb(np.zeros(data_shape), 1, inverted=True),
-                                        extent=utils.ranges2extent(*ranges)*1e6)
+    images = [axs.flatten()[idx].imshow(complex2rgb(np.zeros(data_shape), 1, inverted=True),
+                                        extent=grid2extent(*ranges) * 1e6)
               for idx in range(4)]
 
     axs[0][1].set_title('$||E||^2$')
@@ -102,7 +103,7 @@ def show_scatterer(vectorial=True):
         log.info('Displaying iteration %d: error %0.1f%%' % (s.iteration, 100 * s.residue))
         nb_dims = s.E.shape[0]
         for dim_idx in range(nb_dims):
-            images[dim_idx].set_data(utils.complex2rgb(s.E[dim_idx], 1, inverted=True))
+            images[dim_idx].set_data(complex2rgb(s.E[dim_idx], 1, inverted=True))
             figure_title = '$E_' + 'xyz'[dim_idx] + "$ it %d: rms error %0.1f%% " % (s.iteration, 100 * s.residue)
             add_rectangle_to_axes(axs.flatten()[dim_idx])
             axs.flatten()[dim_idx].set_title(figure_title)
@@ -152,11 +153,11 @@ def show_scatterer(vectorial=True):
     # Save the individual images
     log.info('Saving results to folder %s...' % os.getcwd())
     for dim_idx in range(solution.E.shape[0]):
-        plt.imsave(output_name + '_E%s.png' % chr(ord('x') + dim_idx), utils.complex2rgb(solution.E[dim_idx], 1, inverted=True),
+        plt.imsave(output_name + '_E%s.png' % chr(ord('x') + dim_idx), complex2rgb(solution.E[dim_idx], 1, inverted=True),
                    vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600)
     # Save the figure
     plt.ioff()
-    fig.savefig(output_name + '.svgz', bbox_inches='tight', format='svgz')
+    fig.savefig(output_name + '.pdf', bbox_inches='tight', format='pdf')
     plt.ion()
 
     return times, residues
@@ -183,9 +184,9 @@ if __name__ == "__main__":
     axs_summary[0].set_xlabel('t [s]')
     axs_summary[0].set_ylabel(r'$||\Delta E|| / ||E||$')
     colormap_ranges = [-(np.arange(256) / 256 * 2 * np.pi - np.pi), np.linspace(0, 1, 256)]
-    colormap_image = utils.complex2rgb(
+    colormap_image = complex2rgb(
         colormap_ranges[1][np.newaxis, :] * np.exp(1j * colormap_ranges[0][:, np.newaxis]),
         inverted=True)
-    axs_summary[1].imshow(colormap_image, extent=utils.ranges2extent(*colormap_ranges))
+    axs_summary[1].imshow(colormap_image, extent=grid2extent(*colormap_ranges))
 
     plt.show(block=True)

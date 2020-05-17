@@ -1,5 +1,6 @@
-from . import utils
 from . import log
+
+from .utils.array import vector_to_axis, word_align, calc_ranges, calc_frequency_ranges, add_dims
 
 import numpy as np
 from numpy.lib import scimath as sm
@@ -8,6 +9,7 @@ import sys
 try:
     import pyfftw.interfaces.numpy_fft as ft
     import pyfftw
+    pyfftw.interfaces.cache.enable()
 except ModuleNotFoundError:
     import numpy.fft as ft
     log.info('Module pyfftw for FFTW not found, using numpy Fast Fourier transform instead.')
@@ -65,7 +67,7 @@ class ParallelOperations:
                 lambda shape, dtype: pyfftw.empty_aligned(shape=shape, dtype=dtype, n=pyfftw.simd_alignment)
             self.__zeros_word_aligned = \
                 lambda shape, dtype: pyfftw.zeros_aligned(shape=shape, dtype=dtype, n=pyfftw.simd_alignment)
-            self.__word_align = lambda a: utils.word_align(a, word_length=pyfftw.simd_alignment)
+            self.__word_align = lambda a: word_align(a, word_length=pyfftw.simd_alignment)
 
             log.debug('Allocating FFTW''s operating memory.')
             fftw_vec_array = self.__empty_word_aligned([self.nb_dims, 1, *self.data_shape], dtype=np.complex128)
@@ -653,9 +655,9 @@ class ParallelOperations:
         K2 = 0.0
         for (dim_idx, dim_len) in enumerate(data_shape):
             k_sub_range = 2.0 * const.pi * \
-                          utils.calc_frequency_ranges(*utils.calc_ranges([dim_len],
+                          calc_frequency_ranges(*calc_ranges([dim_len],
                                                                          [self.sample_pitch[dim_idx]]))[0]
-            K2 = np.expand_dims(K2, axis=dim_idx) + utils.add_dims(k_sub_range ** 2, dim_idx, dim_idx)
+            K2 = np.expand_dims(K2, axis=dim_idx) + add_dims(k_sub_range ** 2, dim_idx, dim_idx)
 
         return K2[np.newaxis, np.newaxis, ...]
 
@@ -725,7 +727,7 @@ class ParallelOperations:
             k_range = 2.0 * const.pi / (self.sample_pitch[dim_idx]*rl) * np.fft.ifftshift(np.arange(rl)-np.floor(rl/2))
             if imaginary:
                 k_range = 1.0j * k_range  # convert type from real to complex
-            k_range = utils.to_dim(k_range, nb_data_dims, dim_idx)
+            k_range = vector_to_axis(k_range, dim_idx, nb_data_dims)
             k_ranges.append(k_range)
 
         return k_ranges
@@ -838,7 +840,7 @@ class ParallelOperations:
             # Combine the different calculations for B
             B = complex_root * (A_significant * B_complex_roots + (1 - A_significant) * B_complex_roots_origin) \
                 + (1 - complex_root) * (-AB_all_real_roots)
-            complex_triangle = utils.to_dim(np.exp(2j * const.pi * np.array([-1, 0, 1]) / 3), output_shape.size, 0)
+            complex_triangle = vector_to_axis(np.exp(2j * const.pi * np.array([-1, 0, 1]) / 3), 0, output_shape.size)
             X = A[np.newaxis, ...] * complex_triangle + B[np.newaxis, ...] * np.conj(complex_triangle)
             X -= a[np.newaxis, ...]
 

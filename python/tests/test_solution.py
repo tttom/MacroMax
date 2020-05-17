@@ -2,7 +2,7 @@ import unittest
 import numpy.testing as npt
 
 from macromax.solver import Solution
-import macromax.utils as utils
+from macromax.utils.array import calc_ranges
 import numpy as np
 import scipy.constants as const
 
@@ -11,7 +11,7 @@ class TestSolution(unittest.TestCase):
     def setUp(self):
         self.data_shape = np.array([50, 100, 200])
         self.sample_pitch = np.array([1, 1, 1])
-        self.ranges = utils.calc_ranges(self.data_shape, self.sample_pitch)
+        self.ranges = calc_ranges(self.data_shape, self.sample_pitch)
         source = np.zeros([3, 1, *self.data_shape], dtype=np.complex64)
         thickness = 5
         source[:, 0, 2*thickness, 2*thickness, 2*thickness] = np.array([0.0, 1.0, 0.0])

@@ -694,7 +694,7 @@ class Solution(object):
         torque = np.r_[sigma[1, 2, np.newaxis], sigma[0, 2, np.newaxis], sigma[0, 1, np.newaxis]]
         # torque = self.__PO.curl(sigma).real * self.wavenumber  # The parallel operations is pre-scaled by k0
         # # Make sure to remove imaginary part which must be due to rounding errors
-        # torque *= utils.to_dim(self.sample_pitch, n=self.__PO.nb_dims, axis=1)
+        # torque *= utils.vector_to_axis(self.sample_pitch, n=self.__PO.nb_dims, axis=1)
         # torque = np.sum(torque, axis=1)
 
         return torque

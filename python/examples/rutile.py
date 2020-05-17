@@ -11,7 +11,8 @@ import scipy.constants as const
 import time
 
 import macromax
-from macromax import utils
+from macromax.utils.array import calc_ranges
+from macromax.utils.display import complex2rgb, grid2extent
 from examples import log
 from macromax.parallel_ops_column import ParallelOperations
 
@@ -35,7 +36,7 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     angular_frequency = const.c * k0
     source_amplitude = 1j * angular_frequency * const.mu_0
     sample_pitch = np.array([1, 1]) * wavelength / 15
-    ranges = utils.calc_ranges(data_shape, sample_pitch)
+    ranges = calc_ranges(data_shape, sample_pitch)
     incident_angle = 0 * np.pi / 180
 
     log.info('Calculating fields over a %0.1fum x %0.1fum area...' % tuple(data_shape * sample_pitch * 1e6))
@@ -67,7 +68,7 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     #     plot_circle(plt, radius=r*1e6, origin=pos[::-1]*1e6)
     # epsilon_abs = np.abs(permittivity[0, 0]) - 1
     # rgb_image = colors.hsv_to_rgb(np.stack((np.mod(direction / (2*np.pi),1), 1+0*direction, epsilon_abs), axis=2))
-    # plt.imshow(rgb_image, zorder=0, extent=utils.ranges2extent(*ranges)*1e6)
+    # plt.imshow(rgb_image, zorder=0, extent=grid2extent(*ranges)*1e6)
     # plt.axis('equal')
     # plt.pause(0.01)
     # plt.show(block=True)
@@ -90,23 +91,23 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
                                 edgecolor=np.array((1, 1, 1))*0.0, facecolor=None, alpha=0.25, fill=False, linewidth=1)
             axes.add_artist(circle)
 
-    fig, axs = plt.subplots(3, 2, frameon=False, figsize=(12, 9), sharex=True, sharey=True)
+    fig, axs = plt.subplots(3, 2, frameon=False, figsize=(12, 9), sharex='all', sharey='all')
     for ax in axs.ravel():
         ax.set_xlabel('y [$\mu$m]')
         ax.set_ylabel('x [$\mu$m]')
         ax.set_aspect('equal')
 
-    images = [axs[dim_idx][0].imshow(utils.complex2rgb(np.zeros(data_shape), 1, inverted=True),
-                                     extent=utils.ranges2extent(*ranges)*1e6)
+    images = [axs[dim_idx][0].imshow(complex2rgb(np.zeros(data_shape), 1, inverted=True),
+                                     extent=grid2extent(*ranges) * 1e6)
               for dim_idx in range(3)]
 
     epsilon_abs = np.abs(permittivity[0, 0]) - 1
     # rgb_image = colors.hsv_to_rgb(np.stack((np.mod(direction / (2*np.pi), 1), 1+0*direction, epsilon_abs), axis=2))
-    axs[0][1].imshow(utils.complex2rgb(epsilon_abs * np.exp(1j * orientation), normalization=True, inverted=True),
-                     zorder=0, extent=utils.ranges2extent(*ranges)*1e6)
+    axs[0][1].imshow(complex2rgb(epsilon_abs * np.exp(1j * orientation), normalization=True, inverted=True),
+                     zorder=0, extent=grid2extent(*ranges) * 1e6)
     add_circles_to_axes(axs[0][1])
-    axs[1][1].imshow(utils.complex2rgb(permittivity[0, 0], 1, inverted=True), extent=utils.ranges2extent(*ranges) * 1e6)
-    axs[2][1].imshow(utils.complex2rgb(source[0], 1, inverted=True), extent=utils.ranges2extent(*ranges) * 1e6)
+    axs[1][1].imshow(complex2rgb(permittivity[0, 0], 1, inverted=True), extent=grid2extent(*ranges) * 1e6)
+    axs[2][1].imshow(complex2rgb(source[0], 1, inverted=True), extent=grid2extent(*ranges) * 1e6)
     axs[0][1].set_title('crystal axis orientation')
     axs[1][1].set_title('$\chi$')
     axs[2][1].set_title('source')
@@ -127,7 +128,7 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
         log.info('Displaying iteration %d: error %0.1f%%' % (s.iteration, 100 * s.residue))
         nb_dims = s.E.shape[0]
         for dim_idx in range(nb_dims):
-            images[dim_idx].set_data(utils.complex2rgb(s.E[dim_idx], 1, inverted=True))
+            images[dim_idx].set_data(complex2rgb(s.E[dim_idx], 1, inverted=True))
             figure_title = '$E_' + 'xyz'[dim_idx] + "$ it %d: rms error %0.1f%% " % (s.iteration, 100 * s.residue)
             add_circles_to_axes(axs[dim_idx][0])
             axs[dim_idx][0].set_title(figure_title)
@@ -187,14 +188,14 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     # Save the individual images
     log.info('Saving results to folder %s...' % os.getcwd())
     plt.imsave('rutile_orientation.png',
-               utils.complex2rgb(epsilon_abs * np.exp(1j * orientation), normalization=True, inverted=True),
+               complex2rgb(epsilon_abs * np.exp(1j * orientation), normalization=True, inverted=True),
                vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600)
     for dim_idx in range(solution.E.shape[0]):
-        plt.imsave('rutile_E%s.png' % chr(ord('x') + dim_idx), utils.complex2rgb(solution.E[dim_idx], 1, inverted=True),
+        plt.imsave('rutile_E%s.png' % chr(ord('x') + dim_idx), complex2rgb(solution.E[dim_idx], 1, inverted=True),
                    vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600)
     # Save the figure
     plt.ioff()
-    fig.savefig('rutile.svgz', bbox_inches='tight', format='svgz')
+    fig.savefig('rutile.pdf', bbox_inches='tight', format='pdf')
     plt.ion()
 
     return times, residues, forward_poynting_vector
@@ -274,7 +275,7 @@ def generate_random_layer(data_shape, sample_pitch, layer_thickness, grain_mean,
     log.debug('Rasterizing permittivity tensor...')
     epsilon = np.tile(medium_permittivity * np.eye(nb_pol, dtype=np.complex128)[:, :, np.newaxis, np.newaxis], (1, 1, *data_shape))
     direction = np.zeros(data_shape)
-    x_range, y_range = utils.calc_ranges(data_shape, sample_pitch)
+    x_range, y_range = calc_ranges(data_shape, sample_pitch)
     for pos_idx, pos in enumerate(grain_position):
         R2 = (x_range[:, np.newaxis] - pos[0]) ** 2 + (y_range[np.newaxis, :] - pos[1]) ** 2
         inside = np.where(R2 < (grain_radius[pos_idx]**2))
@@ -358,15 +359,15 @@ if __name__ == "__main__":
     log.info("Total time: %0.3fs." % (time.time() - start_time))
 
     # Display how the method converged
-    fig_summary, axs_summary = plt.subplots(1, 2, frameon=False, figsize=(18, 9))
+    fig_summary, axs_summary = plt.subplots(1, 2, frameon=False, figsize=(12, 9))
     axs_summary[0].semilogy(times, residues)
     axs_summary[0].scatter(times[::100], residues[::100])
     axs_summary[0].set_xlabel('t [s]')
     axs_summary[0].set_ylabel(r'$||\Delta E|| / ||E||$')
     colormap_ranges = [-(np.arange(256) / 256 * 2 * np.pi - np.pi), np.linspace(0, 1, 256)]
-    colormap_image = utils.complex2rgb(
+    colormap_image = complex2rgb(
         colormap_ranges[1][np.newaxis, :] * np.exp(1j * colormap_ranges[0][:, np.newaxis]),
         inverted=True)
-    axs_summary[1].imshow(colormap_image, extent=utils.ranges2extent(*colormap_ranges))
+    axs_summary[1].imshow(colormap_image, extent=grid2extent(*colormap_ranges))
 
     plt.show(block=True)

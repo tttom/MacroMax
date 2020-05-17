@@ -9,7 +9,7 @@ import scipy.constants as const
 import time
 
 import macromax
-from macromax import utils
+from macromax.utils.array import vector_to_axis, calc_ranges, calc_frequency_ranges
 from examples import log
 
 
@@ -24,7 +24,7 @@ def show_polarizer(center_polarizer=True):
     sample_pitch = wavelength / 8
     boundary_thickness = 5e-6
 
-    x_range = utils.calc_ranges(nb_samples, sample_pitch, np.floor(1 + nb_samples / 2) * sample_pitch - boundary_thickness)
+    x_range = calc_ranges(nb_samples, sample_pitch, np.floor(1 + nb_samples / 2) * sample_pitch - boundary_thickness)
 
     # define the source
     source = -source_amplitude * sample_pitch * (np.abs(x_range) < sample_pitch/4)  # point source at 0
@@ -148,9 +148,9 @@ def bandpass_and_remove_gain(v, dims, ranges, periods):
         periods = [periods] * len(ranges)
     v_ft = np.fft.fftn(v, axes=dims)
     for dim_idx in range(v.ndim - 2):
-        f_range = utils.calc_frequency_ranges(ranges[dim_idx])[0]
+        f_range = calc_frequency_ranges(ranges[dim_idx])[0]
         filt = np.exp(-0.5*(np.abs(f_range) * periods[dim_idx])**2)
-        v_ft *= utils.to_dim(filt, v_ft.ndim, dims[dim_idx])
+        v_ft *= vector_to_axis(filt, dims[dim_idx], v_ft.ndim)
     v = np.fft.ifftn(v_ft, axes=dims)
     v[v.imag < 0] = v.real[v.imag < 0]  # remove and gain (may be introduced by rounding errors)
     return v
