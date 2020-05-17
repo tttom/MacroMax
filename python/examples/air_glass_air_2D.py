@@ -6,7 +6,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-import scipy.constants as const
 import time
 
 import macromax
@@ -30,8 +29,6 @@ def show_scatterer(vectorial=True):
     plate_thickness = 2.5e-6 * scale
 
     k0 = 2 * np.pi / wavelength
-    angular_frequency = const.c * k0
-    source_amplitude = 1j * angular_frequency * const.mu_0
     sample_pitch = np.array([1, 1]) * wavelength / 15
     ranges = calc_ranges(data_shape, sample_pitch)
     incident_angle = 30 * np.pi / 180
@@ -41,18 +38,18 @@ def show_scatterer(vectorial=True):
 
     def rot_Z(a): return np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
     incident_k = rot_Z(incident_angle) * k0 @ np.array([1, 0, 0])
-    p_source = rot_Z(incident_angle) @ np.array([0, 1, 1j]) / np.sqrt(2)
-    source = -source_amplitude * np.exp(1j * (incident_k[0]*ranges[0][:, np.newaxis] + incident_k[1]*ranges[1][np.newaxis, :]))
+    source_polarization = (rot_Z(incident_angle) @ np.array([0, 1, 1j]) / np.sqrt(2))[:, np.newaxis, np.newaxis]
+    current_density = np.exp(1j * (incident_k[0]*ranges[0][:, np.newaxis] + incident_k[1]*ranges[1][np.newaxis, :]))
     # Aperture the incoming beam
     # source = source * np.exp(-0.5*(np.abs(ranges[1][np.newaxis, :] - (ranges[1][0]+boundary_thickness))
     #                                * medium_refractive_index / wavelength)**2)  # source position
     source_pixel = data_shape[0] - int(boundary_thickness / sample_pitch[0])
-    source[:source_pixel, :] = 0
-    source[source_pixel+1:, :] = 0
-    source = source * np.exp(-0.5*((ranges[1][np.newaxis, :] - ranges[1][int(len(ranges[0])*1/4)])/(beam_diameter/2))**2)  # beam aperture
-    source = source[np.newaxis, ...]
+    current_density[:source_pixel, :] = 0
+    current_density[source_pixel+1:, :] = 0
+    current_density = current_density * np.exp(-0.5*((ranges[1][np.newaxis, :] - ranges[1][int(len(ranges[0])*1/4)])/(beam_diameter/2))**2)  # beam aperture
+    current_density = current_density[np.newaxis, ...]
     if vectorial:
-        source = source * p_source[:, np.newaxis, np.newaxis]
+        current_density = current_density * source_polarization
 
     # define the glass plate
     refractive_index = 1.0 + 0.5 * np.ones(len(ranges[1]))[np.newaxis, :] * (np.abs(ranges[0]) < plate_thickness/2)[:, np.newaxis]
@@ -137,7 +134,7 @@ def show_scatterer(vectorial=True):
 
     # The actual work is done here:
     start_time = time.time()
-    solution = macromax.solve(ranges, vacuum_wavelength=wavelength, source_distribution=source,
+    solution = macromax.solve(ranges, vacuum_wavelength=wavelength, current_density=current_density,
                               epsilon=permittivity, callback=update_function
                               )
     log.info("Calculation time: %0.3fs." % (time.time() - start_time))

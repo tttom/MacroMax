@@ -33,8 +33,6 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     layer_thickness = 2.5e-6 * scale
 
     k0 = 2 * np.pi / wavelength
-    angular_frequency = const.c * k0
-    source_amplitude = 1j * angular_frequency * const.mu_0
     sample_pitch = np.array([1, 1]) * wavelength / 15
     ranges = calc_ranges(data_shape, sample_pitch)
     incident_angle = 0 * np.pi / 180
@@ -43,15 +41,15 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
 
     def rot_Z(a): return np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
     incident_k = rot_Z(incident_angle) * k0 @ np.array([0, 1, 0])
-    p_source = rot_Z(incident_angle) @ np.array([1, 0, 1j]) / np.sqrt(2)
-    source = -source_amplitude * np.exp(1j * (incident_k[0]*ranges[0][:, np.newaxis] + incident_k[1]*ranges[1][np.newaxis, :]))
+    source_polarization = (rot_Z(incident_angle) @ np.array([1, 0, 1j]) / np.sqrt(2))[:, np.newaxis, np.newaxis]
+    current_density = np.exp(1j * (incident_k[0]*ranges[0][:, np.newaxis] + incident_k[1]*ranges[1][np.newaxis, :]))
     # Aperture the incoming beam
-    source = source * np.exp(-0.5*(np.abs(ranges[1][np.newaxis, :] - (ranges[1][0]+boundary_thickness))
+    current_density = current_density * np.exp(-0.5*(np.abs(ranges[1][np.newaxis, :] - (ranges[1][0]+boundary_thickness))
                                    * medium_refractive_index/ wavelength)**2)  # source position
-    source = source * np.exp(-0.5*((ranges[0][:, np.newaxis] - ranges[0][int(len(ranges[0])*2/4)])/(beam_diameter/2))**2)  # beam aperture
-    source = source[np.newaxis, ...]
+    current_density = current_density * np.exp(-0.5*((ranges[0][:, np.newaxis] - ranges[0][int(len(ranges[0])*2/4)])/(beam_diameter/2))**2)  # beam aperture
+    current_density = current_density[np.newaxis, ...]
     if vectorial:
-        source = source * p_source[:, np.newaxis, np.newaxis]
+        current_density = current_density * source_polarization
 
     # Place randomly oriented TiO2 particles
     permittivity, orientation, grain_pos, grain_rad, grain_dir = \
@@ -107,7 +105,7 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
                      zorder=0, extent=grid2extent(*ranges) * 1e6)
     add_circles_to_axes(axs[0][1])
     axs[1][1].imshow(complex2rgb(permittivity[0, 0], 1, inverted=True), extent=grid2extent(*ranges) * 1e6)
-    axs[2][1].imshow(complex2rgb(source[0], 1, inverted=True), extent=grid2extent(*ranges) * 1e6)
+    axs[2][1].imshow(complex2rgb(current_density[0], 1, inverted=True), extent=grid2extent(*ranges) * 1e6)
     axs[0][1].set_title('crystal axis orientation')
     axs[1][1].set_title('$\chi$')
     axs[2][1].set_title('source')
@@ -156,7 +154,7 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
 
     # The actual work is done here:
     start_time = time.time()
-    solution = macromax.solve(ranges, vacuum_wavelength=wavelength, source_distribution=source,
+    solution = macromax.solve(ranges, vacuum_wavelength=wavelength, current_density=current_density,
                               epsilon=permittivity, callback=update_function
                               )
     log.info("Calculation time: %0.3fs." % (time.time() - start_time))
@@ -201,7 +199,7 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     return times, residues, forward_poynting_vector
 
 
-def generate_random_layer(data_shape, sample_pitch, layer_thickness, grain_mean, grain_std=0, normal_dim=0,
+def generate_random_layer(data_shape, sample_pitch, layer_thickness, grain_mean, grain_std=0.0, normal_dim=0,
                           birefringent=True, medium_refractive_index=1.0, scattering_layer=True):
     rng = np.random.RandomState()
     rng.seed(0)  # Make sure that this is exactly reproducible

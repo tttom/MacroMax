@@ -6,7 +6,6 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.constants as const
 import time
 
 import macromax
@@ -16,9 +15,7 @@ from examples import log
 
 def show_air_glass_transition(impedance_matched=False, birefringent=False):
     wavelength = 488e-9
-    angular_frequency = 2 * const.pi * const.c / wavelength
-    source_amplitude = 1j * angular_frequency * const.mu_0
-    p_source = np.array([0.0, 1.0, 1.0j])  # y-polarized
+    source_polarization = np.array([0.0, 1.0, 1.0j])[:, np.newaxis]  # y-polarized
 
     # Set the sampling grid
     nb_samples = 1024
@@ -26,8 +23,8 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     x_range = sample_pitch * np.arange(nb_samples) - 5e-6
 
     # define the source
-    source = -source_amplitude * sample_pitch * (np.abs(x_range) < sample_pitch/4)  # point source at 0
-    source = p_source[:, np.newaxis] * source[np.newaxis, :]
+    current_density = (np.abs(x_range) < sample_pitch/4)  # point source at 0
+    current_density = source_polarization * current_density[np.newaxis, :]
 
     # define the medium
     epsilon_material = np.array([1.5, 1.48, 1.5]) ** 2
@@ -89,7 +86,7 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
         u = s.energy_density
 
         log.info("1D: Displaying iteration %0.0f: error %0.1f%%" % (s.iteration, 100 * s.residue))
-        field_to_display = angular_frequency * E  # The source is polarized along this dimension
+        field_to_display = E  # The source is polarized along this dimension
         max_val_to_display = np.maximum(np.max(np.abs(field_to_display)), np.finfo(field_to_display.dtype).eps)
         poynting_normalization = np.max(np.abs(S)) / max_val_to_display
         energy_normalization = np.max(np.abs(u)) / max_val_to_display
@@ -118,7 +115,7 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
 
     # The actual work is done here:
     start_time = time.time()
-    solution = macromax.solve(x_range, vacuum_wavelength=wavelength, source_distribution=source,
+    solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
                               epsilon=permittivity, mu=permeability, callback=update_function
                               )
     log.info("Calculation time: %0.3fs." % (time.time() - start_time))

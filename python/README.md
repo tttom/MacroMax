@@ -115,9 +115,13 @@ The function arguments to ````macromax.solve(...)```` can be the following:
 
 * ````vacuum_wavelength|wave_number|anguler_frequency````: The wavelength in vacuum of the coherent illumination in units of meters. 
 
-* ````source_distribution````: An ndarray of complex values indicating the source value and direction at each sample point. The source values define the current density in the sample. The first dimension contains the vector index, the following dimensions contain the spatial dimensions. 
+* ````current_density```` or ````source_distribution````: An ndarray of complex values indicating the source value and direction at each sample point. The source values define the current density in the sample. The first dimension contains the vector index, the following dimensions contain the spatial dimensions.
+If the source distribution is not specified, it is calculated as 
+:math:`-i c k0 mu_0 J`, where `i` is the imaginary constant, `c`, `k0`, and `mu_0`, the light-speed, wavenumber, and permeability in 
+vacuum. Finally, `J` is the current density.
 
-* ````epsilon````: A complex ndarray that defines the 3x3 permittivity matrix at all sample points. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
+* ````epsilon````: A complex ndarray that defines the 3x3 relative permittivity matrix at all sample points. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
+This input argument is unit-less, it is relative to the vacuum permittivity.
 
 Anisotropic material properties such as permittivity can be defined as a square 3x3 matrix at each sample point. Isotropic materials may be represented by 1x1 scalars instead (the first two dimensions are singletons). Homogeneous materials may be specified with spatial singleton dimensions.
 

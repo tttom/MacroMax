@@ -12,9 +12,9 @@ class TestSolution(unittest.TestCase):
         self.data_shape = np.array([50, 100, 200])
         self.sample_pitch = np.array([1, 1, 1])
         self.ranges = calc_ranges(self.data_shape, self.sample_pitch)
-        source = np.zeros([3, 1, *self.data_shape], dtype=np.complex64)
+        current_density = np.zeros([3, 1, *self.data_shape], dtype=np.complex64)
         thickness = 5
-        source[:, 0, 2*thickness, 2*thickness, 2*thickness] = np.array([0.0, 1.0, 0.0])
+        current_density[:, 0, 2*thickness, 2*thickness, 2*thickness] = np.array([0.0, 1.0, 0.0])
         dist_in_boundary = np.maximum(0.0,
                                       np.maximum(self.ranges[0][0]+thickness - self.ranges[0],
                                                  self.ranges[0][-1]-thickness - self.ranges[0]) / thickness
@@ -23,7 +23,7 @@ class TestSolution(unittest.TestCase):
                        * (1.0 + 0.8j * dist_in_boundary[:, np.newaxis, np.newaxis])
         self.wavelength = 4.0
         self.SOL = Solution(self.ranges, vacuum_wavelength=self.wavelength, epsilon=permittivity,
-                            source_distribution=source)
+                            current_density=current_density)
 
     def test_ranges(self):
         for (rng_sol, rng) in zip(self.SOL.ranges, self.ranges):
@@ -118,13 +118,11 @@ class TestSolution(unittest.TestCase):
         current_density = source_polarization * current_density[np.newaxis, :]  # [ A m^-2 ]
         current_density = current_density.astype(np.complex64)  # Somewhat lower precision, but half the memory.
 
-        source_distribution = -1j * const.c * (2 * np.pi / wavelength) * const.mu_0 * current_density
-
         #
         # Solve Maxwell's equations
         #
         # (the actual work is done in this line)
-        solution = solve(x_range, vacuum_wavelength=wavelength, source_distribution=source_distribution, epsilon=permittivity,
+        solution = solve(x_range, vacuum_wavelength=wavelength, current_density=current_density, epsilon=permittivity,
                          callback=lambda s: s.residue > 1e-6 and s.iteration < 1e4)
         npt.assert_equal(solution.residue < 1e-6, True, err_msg='The iteration did not converge as expected.')
         npt.assert_equal(solution.iteration <= 140, True, err_msg='The iteration did not converge as fast as expected.')

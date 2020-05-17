@@ -11,7 +11,7 @@ from .utils.array import Grid
 
 def solve(ranges=None, sample_pitch=None,
           wavenumber=None, angular_frequency=None, vacuum_wavelength=None,
-          source_distribution=None, epsilon=None, xi=0.0, zeta=0.0, mu=1.0,
+          current_density=None, source_distribution=None, epsilon=None, xi=0.0, zeta=0.0, mu=1.0,
           initial_field=0.0, callback=lambda s: s.iteration < 1e4 and s.residue > 1e-4):
     """
         Function to find a solution for Maxwell's equations in a media specified by the epsilon, xi,
@@ -28,9 +28,14 @@ def solve(ranges=None, sample_pitch=None,
             The wavelength in the same units as used for the other inputs/outputs.
         :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
         :param vacuum_wavelength: alternative argument to the wavenumber = 2 pi / vacuum_wavelength
-        :param source_distribution: an array or function that returns the (vectorial) source input wave distribution.
-            The source values relate to the current density, J, as  1j*angularFrequency*scipy.constants.mu_0*J
-            and has units of :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
+        :param current_density: (optional, instead of source_distribution) An array or function that returns
+            the (vectorial) current density input distribution, J. The current density has units of :math:`A m^-2`.
+        :param source_distribution: (optional, instead of current_density) An array or function that returns
+            the (vectorial) source input wave distribution. The source values relate to the current density, J,
+            as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
+            :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
+            More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
+            not rely on the vacuum permeability constant, :math:`mu_0`.
         :param epsilon: an array or function that returns the (tensor) epsilon that represents the permittivity at
             the points indicated by the ranges specified as its input arguments.
         :param xi: an array or function that returns the (tensor) xi for bi-(an)isotropy at the
@@ -48,14 +53,16 @@ def solve(ranges=None, sample_pitch=None,
     return Solution(ranges=ranges, sample_pitch=sample_pitch, data_shape=None,
                     wavenumber=wavenumber, angular_frequency=angular_frequency,
                     vacuum_wavelength=vacuum_wavelength,
-                    source_distribution=source_distribution, epsilon=epsilon, xi=xi, zeta=zeta, mu=mu,
+                    current_density=current_density, source_distribution=source_distribution,
+                    epsilon=epsilon, xi=xi, zeta=zeta, mu=mu,
                     initial_field=initial_field).solve(callback)
 
 
 class Solution(object):
     def __init__(self, ranges=None, sample_pitch=None, data_shape=None,
                  wavenumber=None, angular_frequency=None, vacuum_wavelength=None,
-                 source_distribution=None, epsilon=None, xi=0.0, zeta=0.0, mu=1.0, initial_field=0.0):
+                 current_density=None, source_distribution=None,
+                 epsilon=None, xi=0.0, zeta=0.0, mu=1.0, initial_field=0.0):
         """
         Class a solution that can be further iterated towards a solution for Maxwell's equations in a media specified by
         the epsilon, xi, zeta, and mu distributions.
@@ -71,9 +78,14 @@ class Solution(object):
             The wavelength in the same units as used for the other inputs/outputs.
         :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
         :param vacuum_wavelength: alternative argument to the wavenumber = 2 pi / vacuum_wavelength
-        :param source_distribution: an array or function that returns the (vectorial) source input wave distribution.
-            The source values relate to the current density, J, as  1j*angularFrequency*scipy.constants.mu_0*J
-            and has units of :math:`rad s^-1 H m^-1 A m^-2 = rad V m^{-3}`.
+        :param current_density: (optional, instead of source_distribution) An array or function that returns
+            the (vectorial) current density input distribution, J. The current density has units of :math:`A m^-2`.
+        :param source_distribution: (optional, instead of current_density) An array or function that returns
+            the (vectorial) source input wave distribution. The source values relate to the current density, J,
+            as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
+            :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
+            More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
+            not rely on the vacuum permeability constant, :math:`mu_0`.
         :param epsilon: an array or function that returns the (tensor) epsilon that represents the permittivity at
             the points indicated by the ranges specified as its input arguments.
         :param xi: an array or function that returns the (tensor) xi for bi-(an)isotropy at the
@@ -143,7 +155,12 @@ class Solution(object):
             else:
                 return f  # already an array
 
-        source_distribution = func2arr(source_distribution)
+        # Determine the source distribution, either directly, or from current_density (assuming this is a an EM problem)
+        if source_distribution is None:
+            current_density = func2arr(current_density)
+            source_distribution = -1j * const.c * self.wavenumber * const.mu_0 * current_density  # [ V m^-3 ]
+        else:
+            source_distribution = func2arr(source_distribution)
 
         # Create an object to handle our parallel operations
         if source_distribution.shape[0] == 1:

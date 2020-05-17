@@ -4,7 +4,6 @@
 
 import numpy as np
 import time
-import scipy.constants as const
 
 import macromax
 from macromax import log
@@ -85,12 +84,10 @@ def calculate(dtype=np.complex128, vectorial=False):
             return s.residue > 1e-3 and s.iteration < 1000
     else:
         def update_function(s):
-            return s.residue > 1e-3 and s.iteration < 1000
-
-    source_distribution = 1j * const.c * (2 * np.pi / wavelength) * const.mu_0 * current_density
+            return s.residue > 1e-4 and s.iteration < 1000
 
     start_time = time.perf_counter()
-    solution = macromax.solve((grid[0].ravel(), grid[1].ravel()), vacuum_wavelength=wavelength, source_distribution=source_distribution, epsilon=permittivity,
+    solution = macromax.solve((grid[0].ravel(), grid[1].ravel()), vacuum_wavelength=wavelength, current_density=current_density, epsilon=permittivity,
                               callback=update_function
                               )
     total_time = time.perf_counter() - start_time

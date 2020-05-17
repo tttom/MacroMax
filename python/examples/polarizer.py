@@ -5,7 +5,6 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.constants as const
 import time
 
 import macromax
@@ -15,9 +14,7 @@ from examples import log
 
 def show_polarizer(center_polarizer=True):
     wavelength = 500e-9
-    angular_frequency = 2 * const.pi * const.c / wavelength
-    source_amplitude = 1j * angular_frequency * const.mu_0
-    p_source = np.array([0, 1, 1]) / np.sqrt(2)
+    source_polarization = np.array([0, 1, 1])[:, np.newaxis] / np.sqrt(2)
 
     # Set the sampling grid
     nb_samples = 2 * 1024
@@ -27,8 +24,8 @@ def show_polarizer(center_polarizer=True):
     x_range = calc_ranges(nb_samples, sample_pitch, np.floor(1 + nb_samples / 2) * sample_pitch - boundary_thickness)
 
     # define the source
-    source = -source_amplitude * sample_pitch * (np.abs(x_range) < sample_pitch/4)  # point source at 0
-    source = p_source[:, np.newaxis] * source[np.newaxis, :]
+    current_density = (np.abs(x_range) < sample_pitch/4)  # point source at 0
+    current_density = source_polarization * current_density[np.newaxis, :]
 
     # define the medium
     eps_pol = np.eye(3, dtype=np.complex64)
@@ -121,7 +118,7 @@ def show_polarizer(center_polarizer=True):
         return s.residue > 1e-5 and s.iteration < 1e4
 
     # The actual work is done here:
-    solution = macromax.solve(x_range, vacuum_wavelength=wavelength, source_distribution=source,
+    solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
                               epsilon=permittivity, mu=permeability, callback=update_function
                               )
 
