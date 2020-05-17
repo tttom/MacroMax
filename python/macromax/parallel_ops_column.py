@@ -9,7 +9,7 @@ try:
     import pyfftw.interfaces.numpy_fft as ft
     import pyfftw
 except ModuleNotFoundError:
-    import numpy.fft.fftpack as ft
+    import numpy.fft as ft
     log.info('Module pyfftw for FFTW not found, using numpy Fast Fourier transform instead.')
 
 try:
