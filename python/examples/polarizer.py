@@ -10,7 +10,7 @@ import time
 
 import macromax
 from macromax import utils
-from macromax.examples import log
+from examples import log
 
 
 def show_polarizer(center_polarizer=True):

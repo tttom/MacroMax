@@ -152,8 +152,10 @@ and it can be used as a Python iterator.
 Further information can be found in the examples and the function and class signature documentation. The examples can be imported using:
 
 ```python
-from macromax import examples
+
+import examples
 ```
+After importing the [source code](https://github.com/tttom/MacroMax/).
 
 ### Complete Example
 The following code loads the library, defines the material and light source, calculates the result, and displays it.

@@ -12,7 +12,7 @@ import time
 
 import macromax
 from macromax import utils
-from macromax.examples import log
+from examples import log
 from macromax.parallel_ops_column import ParallelOperations
 
 
