@@ -399,7 +399,7 @@ class Grid(Sequence):
             if not self.__origin_at_center[axis]:
                 rng = ft.ifftshift(rng)
             if not self.flat[axis]:
-                rng = vector_to_axis(rng, axis=self.ndim, ndim=axis)
+                rng = vector_to_axis(rng, axis=axis, ndim=self.ndim)
 
             result.append(rng if self.multidimensional else rng[idx])
 

@@ -109,4 +109,4 @@ venv.bak/
 .mypy_cache/
 
 # IDE files
-/.idea/workspace.xml
+.idea/workspace.xml

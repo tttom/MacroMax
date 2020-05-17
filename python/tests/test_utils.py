@@ -59,9 +59,6 @@ class TestSolution(unittest.TestCase):
         a = vector_to_axis(np.array([3, 1, 4]), axis=1, ndim=2)
         npt.assert_almost_equal(a, np.array([[3, 1, 4]]))
 
-        a = vector_to_axis(np.array(3), axis=0, ndim=0)
-        npt.assert_almost_equal(a, np.array(3))
-
         a = vector_to_axis(np.array(3), axis=0, ndim=1)
         npt.assert_almost_equal(a, np.array([3]))
 
