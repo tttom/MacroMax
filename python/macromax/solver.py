@@ -6,6 +6,7 @@ from .parallel_ops_column import ParallelOperations
 from . import utils
 
 from . import log
+from .utils.array import Grid
 
 
 def solve(ranges=None, sample_pitch=None,
@@ -106,6 +107,7 @@ class Solution(object):
             if np.isscalar(ranges[0]):
                 ranges = [ranges]  # This must be a one dimensional problem, the user forgot to specify the range in a list
 
+        self.__grid = Grid.from_ranges(*ranges)
         self.__ranges = ranges
         self.__shape = np.array([len(r) for r in ranges])
         self.__sample_pitch = np.array([r[int(len(r) > 1)]-r[0] for r in ranges])
@@ -457,6 +459,20 @@ class Solution(object):
             indicating the sampling points for each dimension.
         """
         return self.__ranges
+
+    @property
+    def grid(self):
+        """
+        The sample positions of the plaid sampling grid.
+        This may be useful for displaying result axes.
+
+        :return: A Grid object representing the sample points of the fields and material.
+        """
+        return self.__grid
+
+    @property
+    def dtype(self):
+        return self.__field_mat.dtype
 
     @property
     def shape(self):
