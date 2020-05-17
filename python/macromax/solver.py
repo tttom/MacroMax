@@ -558,7 +558,7 @@ class Solution(object):
         :return: A vector array with the first dimension containing Ex, Ey, and Ez,
             while the following dimensions are the spatial dimensions.
         """
-        return self.__field_mat[:, 0, ...]
+        return self.__field_mat[:, 0, ...] / (self.wavenumber**2)
 
     @E.setter
     def E(self, E):
@@ -568,7 +568,7 @@ class Solution(object):
         :param E: The new field. A vector array with the first dimension containing :math:`E_x, E_y, and E_z`,
             while the following dimensions are the spatial dimensions.
         """
-        self.__field_mat = self.__PO.to_simple_vector(E+0.0j)
+        self.__field_mat = self.__PO.to_simple_vector(E+0.0j) * (self.wavenumber**2)
 
     @property
     def B(self):
@@ -742,7 +742,7 @@ class Solution(object):
 
         :return: A positive scalar indicating the norm of the last update.
         """
-        return self.__last_update_norm
+        return self.__last_update_norm / (self.wavenumber**2)
 
     @property
     def residue(self):
@@ -753,7 +753,7 @@ class Solution(object):
             normalized to the norm of the current E.
         """
         if self.__residue is None:
-            self.__residue = self.last_update_norm / np.linalg.norm(self.E)
+            self.__residue = self.__last_update_norm / np.linalg.norm(self.__field_mat)
 
         return self.__residue
 
