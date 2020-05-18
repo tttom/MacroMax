@@ -1,7 +1,7 @@
 import unittest
 import numpy.testing as npt
 
-from macromax.utils.array import Grid
+from macromax.utils.array import Grid, MutableGrid
 
 import numpy as np
 
@@ -196,6 +196,43 @@ class TestGrid(unittest.TestCase):
         npt.assert_equal(grid.first, -1/3, "Grid initialization with non-centered odd range failed.")
         npt.assert_equal(grid.shape, 3, "Grid initialization with non-centered odd range failed.")
         npt.assert_equal(grid[0], [0, 1/3, -1/3], "Grid initialization with non-centered odd range failed.")
+
+    def test_set(self):
+        grid = Grid(4, 1)
+
+        def set_shape():
+            grid.shape = 10
+
+        def set_step():
+            grid.step = 2
+
+        def set_center():
+            grid.center = 5
+
+        def set_first():
+            grid.first = 0
+
+        npt.assert_raises(AttributeError, set_shape)
+        npt.assert_raises(AttributeError, set_step)
+        npt.assert_raises(AttributeError, set_center)
+        npt.assert_raises(AttributeError, set_first)
+
+
+class TestMutableGrid(unittest.TestCase):
+    def test_set(self):
+        grid = MutableGrid(4, 1)
+        grid.step = 2
+        npt.assert_equal(grid == Grid(4, 2), True, 'step size not updated correctly')
+        grid.step = 3.14
+        npt.assert_equal(grid == Grid(4, 3.14), True, 'step size not updated correctly')
+        grid.shape = 10
+        grid.step = 2
+        npt.assert_equal(grid == Grid(10, 2), True, 'shape not updated correctly')
+        grid.first = 0
+        print(grid)
+        npt.assert_equal(grid == Grid(10, 2, first=0), True, 'Offset not updated correctly.')
+        grid.center = 0
+        npt.assert_equal(grid == Grid(10, 2, center=0), True, 'Offset not updated correctly.')
 
 
 if __name__ == '__main__':

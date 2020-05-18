@@ -60,7 +60,7 @@ def solve(grid: Union[Grid, Sequence, np.ndarray],
                     wavenumber=wavenumber, angular_frequency=angular_frequency, vacuum_wavelength=vacuum_wavelength,
                     current_density=current_density, source_distribution=source_distribution,
                     epsilon=epsilon, xi=xi, zeta=zeta, mu=mu,
-                    initial_field=initial_field).solve(callback)
+                    initial_field=initial_field, dtype=dtype).solve(callback)
 
 
 class Solution(object):
@@ -108,7 +108,7 @@ class Solution(object):
 
         if not isinstance(grid, Grid):
             if np.isscalar(grid[0]):
-                grid = [grid]  # This must be a one dimensional problem, the user forgot to specify the range in a list
+                grid = [grid]  # This must be a 1D problem and the grid was specified as a single list of numbers
             grid = Grid.from_ranges(*grid)
 
         self.__grid = grid.immutable

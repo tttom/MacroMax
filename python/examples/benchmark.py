@@ -17,7 +17,7 @@ def calculate(dtype=np.complex128, vectorial=False):
     boundary_thickness = 2e-6
     beam_diameter = 1e-6
     k0 = 2 * np.pi / wavelength
-    data_shape = np.array([64, 128])
+    data_shape = np.array([128, 256])
     sample_pitch = np.ones(2) * wavelength / 4
     grid = Grid(data_shape, sample_pitch)
 

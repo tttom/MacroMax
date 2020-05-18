@@ -1,7 +1,6 @@
 import numpy as np
 from numpy.lib import scimath as sm
 import scipy.constants as const
-import sys
 
 from . import log
 
@@ -23,14 +22,23 @@ class ParallelOperations:
     where the first two dimensions are those of the matrix, and the final dimensions are the coordinates over
     which the operations are parallelized and the Fourier transforms are applied.
     """
-    def __init__(self, nb_dims, grid: Grid):
-        self.__nb_dims = nb_dims
+    def __init__(self, nb_dims, grid: Grid, dtype=np.complex128):
+        """
+        Construct object to handle parallel operations on square matrices of nb_rows x nb_rows elements.
+        The matrices refer to points in space on a uniform plaid grid.
+
+        :param nb_dims: The number of rows and columns in each matrix. 1 for scalar operations, 3 for polarization
+        :param grid: The grid that defines the position of the matrices.
+        :param dtype: (optional) The datatype to use for operations.
+        """
+        self.__nb_rows = nb_dims
         self.__grid = grid
+        self.__dtype = dtype
 
         self.__cutoff = len(self.matrix_shape)
         self.__total_dims = len(self.matrix_shape) + len(self.grid.shape)
 
-        self.__eye = np.eye(nb_dims).reshape((nb_dims, nb_dims, *np.ones(len(self.grid.shape), dtype=int)))
+        self.__eye = np.eye(nb_dims, dtype=self.dtype).reshape((nb_dims, nb_dims, *np.ones(len(self.grid.shape), dtype=int)))
 
         ft_axes = range(self.__cutoff, self.__total_dims)  # Don't Fourier transform the matrix dimensions
         try:
@@ -51,14 +59,14 @@ class ParallelOperations:
             self.__word_align = lambda a: word_align(a, word_length=pyfftw.simd_alignment)
 
             log.debug('Allocating FFTW''s operating memory.')
-            fftw_vec_array = self.__empty_word_aligned([self.nb_dims, 1, *self.grid.shape], dtype=np.complex128)
+            fftw_vec_array = self.__empty_word_aligned([self.matrix_shape[0], 1, *self.grid.shape], dtype=self.dtype)
 
             log.debug('Initializing FFTW''s forward Fourier transform.')
-            fft_vec_object = pyfftw.FFTW(fftw_vec_array, fftw_vec_array, axes=ft_axes, flags=ftflags, direction='FFTW_FORWARD',
-                                     planning_timelimit=None, threads=nb_threads)
+            fft_vec_object = pyfftw.FFTW(fftw_vec_array, fftw_vec_array, axes=ft_axes, flags=ftflags,
+                                         direction='FFTW_FORWARD', planning_timelimit=None, threads=nb_threads)
             log.debug('Initializing FFTW''s backward Fourier transform.')
-            ifft_vec_object = pyfftw.FFTW(fftw_vec_array, fftw_vec_array, axes=ft_axes, flags=ftflags, direction='FFTW_BACKWARD',
-                                      planning_timelimit=None, threads=nb_threads)
+            ifft_vec_object = pyfftw.FFTW(fftw_vec_array, fftw_vec_array, axes=ft_axes, flags=ftflags,
+                                          direction='FFTW_BACKWARD', planning_timelimit=None, threads=nb_threads)
             log.debug('FFTW''s wisdoms generated.')
 
             # Redefine the default method
@@ -66,7 +74,7 @@ class ParallelOperations:
                 if np.any(np.array(E.shape[2:]) > 1):
                     assert(E.ndim-2 == self.grid.shape.size and np.all(E.shape[2:] == self.grid.shape))
                     if np.all(E.shape == fft_vec_object.input_shape):
-                        result_array = self.__empty_word_aligned(E.shape, dtype=np.complex128)
+                        result_array = self.__empty_word_aligned(E.shape, dtype=self.dtype)
                         fft_vec_object(E, result_array)
                     else:
                         log.debug('Fourier Transform: Array shape not standard, falling back to default interface.')
@@ -99,7 +107,7 @@ class ParallelOperations:
                 if np.any(np.array(E.shape[2:]) > 1):
                     assert(E.ndim-2 == self.grid.shape.size and np.all(E.shape[2:] == self.grid.shape))
                     if np.all(E.shape == ifft_vec_object.input_shape):
-                        result_array = self.__empty_word_aligned(E.shape, dtype=np.complex128)
+                        result_array = self.__empty_word_aligned(E.shape, dtype=self.dtype)
                         ifft_vec_object(E, result_array)
                     else:
                         log.debug('Inverse Fourier Transform: Array shape not standard, falling back to default interface.')
@@ -139,6 +147,10 @@ class ParallelOperations:
             self.__word_align = lambda a: a
 
     @property
+    def dtype(self):
+        return self.__dtype
+
+    @property
     def eye(self):
         """
         Returns an identity tensor that can be multiplied using singleton expansion. This can be useful for scalar
@@ -149,19 +161,12 @@ class ParallelOperations:
         return self.__eye
 
     @property
-    def nb_dims(self):
-        """
-        :return: The number of dimensions of the vectors in the set.
-        """
-        return self.__nb_dims
-
-    @property
     def matrix_shape(self):
         """
         :return: The shape of the square matrix that transforms a single vector in the set.
-            This is a pair of identical integer numbers.
+        This is a pair of identical integer numbers.
         """
-        return self.__nb_dims, self.__nb_dims
+        return np.array([self.__nb_rows, self.__nb_rows])
 
     @property
     def grid(self):
@@ -173,10 +178,9 @@ class ParallelOperations:
     @property
     def vectorial(self):
         """
-
         :return: A boolean indicating if this object represents a vector space (as opposed to a scalar space).
         """
-        return self.nb_dims > 1
+        return self.matrix_shape[0] > 1
 
     @staticmethod
     def check_alignment(array, message='NOT ALIGNED'):
@@ -255,7 +259,7 @@ class ParallelOperations:
             M = np.array(M)
         if M.ndim == self.__total_dims:
             return M  # an input already with the correct number of dimensions
-        elif M.ndim == self.__total_dims - 1 and np.any((np.array(M.shape[:2]) != self.nb_dims) & (np.array(M.shape[:2]) != 1)):
+        elif M.ndim == self.__total_dims - 1 and np.any((np.array(M.shape[:2]) != self.matrix_shape) & (np.array(M.shape[:2]) != 1)):
             return M[:, np.newaxis, ...]  # a vector E input
         # complete the dimensions to the right as required
         orig_shape = M.shape
@@ -276,29 +280,29 @@ class ParallelOperations:
 
         return M
 
-    def to_simple_vector(self, V):
+    def to_simple_vector(self, vec):
         """
         Converts input to an array of the correct dimensions, though permitting singleton dimensions for all but the two
         matrix dimensions which must either be both full or both singletons. In the latter case, the identity matrix is
         assumed. None is assumed to refer to an all 0 array.
 
-        :param V: The input None, scalar, or array.
+        :param vec: The input None, scalar, or array.
         :return: An array with the correct dimensions
         """
-        V = self.__fix_matrix_dims(V)
+        vec = self.__fix_matrix_dims(vec)
 
         # Since we don't have an explicit distinction between scalar vectors and matrices, and the (unit) scalar already
         # represents the identity matrix, we need to represent scalar vectors in full
-        if V.shape[0] == 1 and self.vectorial:
-            V = V.repeat(self.nb_dims, 0)
+        if vec.shape[0] == 1 and self.vectorial:
+            vec = vec.repeat(self.matrix_shape[0], 0)
 
-        return V
+        return vec
 
     def to_full_matrix(self, M):
         """
         Converts input to an array of the correct dimensions, though permitting singleton dimensions for all but the two
-        matrix dimensions which must equal the matrix_shape property. If these dimensions are both 1, the identity matrix is
-        assumed. None is assumed to refer to an all 0 array.
+        matrix dimensions on the left, which must equal the matrix_shape property. If these dimensions are both 1,
+        the identity matrix is assumed.
 
         :param M: The input None, scalar, or array.
         :return: An array with the correct dimensions
@@ -306,7 +310,7 @@ class ParallelOperations:
         M = self.__fix_matrix_dims(M)
         if np.all(np.array(M.shape[:2]) == 1):
             M = self.eye * M
-        elif np.any((M.shape[0] != self.nb_dims) | ((M.shape[1] != 1) & (M.shape[1] != self.nb_dims))):
+        elif (M.shape[0] != self.matrix_shape[0]) | ((M.shape[1] != 1) & (M.shape[1] != self.matrix_shape[1])):
             message = 'A matrix with dimensions %dx%d expected, one with %dx%d found.' %\
                       (*self.matrix_shape, *M.shape[:2])
             log.critical(message)
@@ -443,7 +447,7 @@ class ParallelOperations:
             :param F: The input vector array of dimensions ``[vector_length, 1, *data_shape]``.
             :return: The Fourier transform of the curl of F.
         """
-        vector_length = self.nb_dims
+        vector_length = self.matrix_shape[0]
 
         # Pre-calculate the k-values along each dimension and pre-multiply by i
         k_ranges = self.__get_k_ranges(input_shape=F.shape[2:], imaginary=True)
@@ -676,7 +680,7 @@ class ParallelOperations:
             D = self.calc_roots_of_low_order_polynomial(C)
         else:
             if np.all((matrix_shape == 1) | (matrix_shape == 3)):
-                # Maybe a scalar per or diagonal-as-column
+                # Maybe a scalar or diagonal-as-column
                 D = A.copy()
             else:
                 message = 'The final two dimensions of the input array should be either of length 1 or of length 3.'
@@ -711,8 +715,7 @@ class ParallelOperations:
 
         return k_ranges
 
-    @staticmethod
-    def calc_roots_of_low_order_polynomial(C):
+    def calc_roots_of_low_order_polynomial(self, C):
         """
         Calculates the (complex) roots of polynomials up to order 3 in parallel.
         The coefficients of the polynomials are in the first dimension of C and repeated in the following dimensions,
@@ -742,7 +745,7 @@ class ParallelOperations:
             :return: A, nb_roots_added The non-degenerate polynomial coefficient array, A, and the number of roots added
             """
             # Although the coefficients are integers, the calculations may be real and complex.
-            coeffs = np.array(coeffs, dtype=np.complex128)
+            coeffs = np.array(coeffs, dtype=self.dtype)
             coeffs = coeffs[..., np.newaxis]  # add a singleton dimension to avoid problems with vectors
             roots_added = np.zeros(coeffs[0].shape, dtype=np.uint8)
             for outer_dim_idx in range(coeffs.shape[0]):
