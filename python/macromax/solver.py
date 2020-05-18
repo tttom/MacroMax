@@ -41,13 +41,13 @@ def solve(grid: Union[Grid, Sequence, np.ndarray],
     More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
     not rely on the vacuum permeability constant, :math:`mu_0`.
     :param epsilon: an array or function that returns the (tensor) epsilon that represents the permittivity at
-    the points indicated by the ranges specified as its input arguments.
+    the points indicated by the grid specified as its input arguments.
     :param xi: an array or function that returns the (tensor) xi for bi-(an)isotropy at the
-    points indicated by the ranges specified as its input arguments.
+    points indicated by the grid specified as its input arguments.
     :param zeta: an array or function that returns the (tensor) zeta for bi-(an)isotropy at the
-    points indicated by the ranges specified as its input arguments.
+    points indicated by the grid specified as its input arguments.
     :param mu: an array or function that returns the (tensor) permeability at the
-    points indicated by the ranges specified as its input arguments.
+    points indicated by the grid specified as its input arguments.
     :param initial_field: optional start value for the E-field distribution (default: all zero E)
     :param dtype: optional numpy datatype for the internal operations and results. This must be a complex number type
     as numpy.complex128 or np.complex64.
@@ -293,9 +293,14 @@ class Solution(object):
                 return max_singular_value_sum(vec[0], beta) * beta
 
             log.debug('Finding optimal alpha and beta...')
-            alpha_beta_vec = scipy.optimize.fmin(target_function_vec, [0, 1], initial_simplex=[[0, 1], [1, 1], [0, 0.9]],
-                                                disp=False, full_output=False,
-                                                ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100, maxfun=200)
+            try:
+                alpha_beta_vec = scipy.optimize.fmin(target_function_vec, [0, 1], initial_simplex=[[0, 1], [1, 1], [0, 0.9]],
+                                                     disp=False, full_output=False,
+                                                     ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100, maxfun=200)
+            except TypeError:  # Some older scipy implementations don't seem to have the initial_simplex argument
+                alpha_beta_vec = scipy.optimize.fmin(target_function_vec, [0, 1],
+                                                     disp=False, full_output=False,
+                                                     ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100, maxfun=200)
             self.__beta = beta_from_vec(alpha_beta_vec)
             alpha = alpha_beta_vec[0] + 1.0j * max_singular_value_sum(alpha_beta_vec[0], self.__beta)
 
