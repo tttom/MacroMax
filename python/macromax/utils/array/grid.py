@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import collections.abc as col
 from typing import Union, Sequence
 import numpy as np
 
@@ -8,12 +7,40 @@ from macromax.utils.array.vector_to_axis import vector_to_axis
 from macromax.utils import ft
 
 
-class Grid(Sequence):
+class MutableGrid(Sequence):
+    """
+    A class representing immutable uniformly-spaced plaid grids.
+
+    See also: MutableGrid
+    """
     def __init__(self, shape, step=None, extent=None, first=None, center=None, last=None, include_last=False,
                  ndim: int=None,
                  flat: Union[bool, Sequence, np.ndarray]=False,
                  origin_at_center: Union[bool, Sequence, np.ndarray]=True,
                  center_at_index: Union[bool, Sequence, np.ndarray]=True):
+        """
+        Construct an immutable Grid object.
+
+        :param shape: An integer vector array with the shape of the sampling grid.
+        :param step: A vector array with the spacing of the sampling grid.
+        :param extent: The extent of the sampling grid as shape * step
+        :param first: A vector array with the first element for each dimension.
+        The first element is the smallest element if step is positive, and the largest when step is negative.
+        :param center: A vector array with the center element for each dimension. The center position in the grid is
+        rounded to the next integer index unless center_at_index is set to False for that partical axis.
+        :param last: A vector array with the last element for each dimension. Unless include_last is set to True for
+        the associated dimension, all but the last element is returned when calling self[axis].
+        :param include_last: A boolean vector array indicating whether the returned vectors, self[axis], should include
+        the last element (True) or all-but-the-last (False)
+        :param ndim: A scalar integer indicating the number of dimensions of the sampling space.
+        :param flat: A boolean vector array indicating whether the returned vectors, self[axis], should be
+        flattened (True) or returned as an open grid (False)
+        :param origin_at_center: A boolean vector array indicating whether the origin should be fft-shifted (True)
+        or be ifftshifted to the front (False) of the returned vectors for self[axis].
+        :param center_at_index: A boolean vector array indicating whether the center of the grid should be rounded to an
+        integer index for each dimension. If False and the shape has an even number of elements, the next index is used
+        as the center, (self.shape / 2).astype(np.int).
+        """
         # Figure out what dimension is required
         if ndim is None:
             ndim = 0
@@ -128,7 +155,7 @@ class Grid(Sequence):
         return self.__shape
 
     @shape.setter
-    def shape(self, new_shape: Union[int, col.Sequence, np.array]):
+    def shape(self, new_shape: Union[int, Sequence, np.array]):
         if new_shape is not None:
             self.__shape = self.__fix(new_shape)
 
@@ -137,7 +164,7 @@ class Grid(Sequence):
         return self.__step
 
     @step.setter
-    def step(self, new_step: Union[int, float, col.Sequence, np.array]):
+    def step(self, new_step: Union[int, float, Sequence, np.array]):
         self.__step = self.__fix(new_step)
 
     @property
@@ -145,7 +172,7 @@ class Grid(Sequence):
         return self.__center
 
     @center.setter
-    def center(self, new_center: Union[int, float, col.Sequence, np.array]):
+    def center(self, new_center: Union[int, float, Sequence, np.array]):
         self.__center = self.__fix(new_center)
 
     @property
@@ -157,7 +184,7 @@ class Grid(Sequence):
         return self.__flat
 
     @flat.setter
-    def flat(self, value: Union[bool, col.Sequence, np.array]):
+    def flat(self, value: Union[bool, Sequence, np.array]):
         self.__flat = self.__fix(value)
 
     @property
@@ -165,7 +192,7 @@ class Grid(Sequence):
         return self.__origin_at_center
 
     @origin_at_center.setter
-    def origin_at_center(self, value: Union[bool, col.Sequence, np.array]):
+    def origin_at_center(self, value: Union[bool, Sequence, np.array]):
         self.__origin_at_center = self.__fix(value)
     
     #
@@ -258,11 +285,13 @@ class Grid(Sequence):
         """
         half_shape = self.shape / 2
         half_shape[self.center_at_index] = np.floor(half_shape[self.center_at_index])
+        if np.all(np.mod(self.shape[np.logical_not(self.center_at_index)], 2) == 0):
+            half_shape = half_shape.astype(np.int)
         return self.__center - self.step * half_shape
 
     @first.setter
     def first(self, new_first):
-        self.__center += new_first - self.first
+        self.__center = self.__center + self.__fix(new_first) - self.first
 
     @property
     def extent(self) -> np.ndarray:
@@ -299,10 +328,13 @@ class Grid(Sequence):
     #
     # Arithmetic methods
     #
-    def __add__(self, other) -> Grid:
-        result = self.copy()
-        result.center = result.center + np.array(other)
-        return result
+    def __add__(self, term) -> Grid:
+        d = self.__dict__
+        new_center = self.center + term
+        if not self.multidimensional:
+            new_center = new_center[0]
+        d['center'] = new_center
+        return Grid(**d)
 
     def __mul__(self, factor: Union[int, float, complex, Sequence, np.array]) -> Grid:
         """
@@ -313,10 +345,15 @@ class Grid(Sequence):
         if isinstance(factor, Grid):
             raise TypeError("A Grid object can't be multiplied with a Grid object."
                             + "Use matmul @ to determine the tensor space.")
-        result = self.copy()
-        result.step = result.step * np.array(factor)
-        result.center = result.center * np.array(factor)
-        return result
+        d = self.__dict__
+        new_step = self.step * factor
+        new_center = self.center * factor
+        if not self.multidimensional:
+            new_step = new_step[0]
+            new_center = new_center[0]
+        d['step'] = new_step
+        d['center'] = new_center
+        return Grid(**d)
 
     def __matmul__(self, other: Grid) -> Grid:
         """
@@ -331,30 +368,11 @@ class Grid(Sequence):
                     center_at_index=(*self.center_at_index, *other.center_at_index)
                     )
 
-    def __sub__(self, other: Union[int, float, complex, Sequence, np.ndarray]) -> Grid:
-        result = self.copy()
-        result.center = result.center - np.array(other)
-        return result
+    def __sub__(self, term: Union[int, float, complex, Sequence, np.ndarray]) -> Grid:
+        return self + (- term)
 
-    def __truediv__(self, other: Union[int, float, complex, Sequence, np.ndarray]) -> Grid:
-        result = self.copy()
-        result.step = result.step / np.array(other)
-        result.center = result.center / np.array(other)
-        return result
-
-    def __iadd__(self, number: Union[int, float, complex, Sequence, np.ndarray]):
-        self.center += np.array(number)
-
-    def __imul__(self, number: Union[int, float, complex, Sequence, np.ndarray]):
-        self.step *= np.array(number)
-        self.center *= np.array(number)
-
-    def __isub__(self, number: Union[int, float, complex, Sequence, np.ndarray]):
-        self.center -= np.array(number)
-
-    def __idiv__(self, number: Union[int, float, complex, Sequence, np.ndarray]):
-        self.step /= np.array(number)
-        self.center /= np.array(number)
+    def __truediv__(self, denominator: Union[int, float, complex, Sequence, np.ndarray]) -> Grid:
+        return self * (1 / denominator)
 
     def __neg__(self):
         return self.__mul__(-1)
@@ -426,12 +444,17 @@ class Grid(Sequence):
         return dict(shape=shape, step=step, center=center, flat=flat,
                     center_at_index=center_at_index, origin_at_center=origin_at_center)
 
-    def copy(self) -> Grid:
+    @property
+    def immutable(self) -> Grid:
         return Grid(**self.__dict__)
+
+    @property
+    def mutable(self) -> MutableGrid:
+        return MutableGrid(**self.__dict__)
 
     def __str__(self) -> str:
         arg_desc = ", ".join([f"{k}={str(v)}" for k, v in self.__dict__.items()])
-        return f"Grid({arg_desc:s})"
+        return f"{type(self).__name__}({arg_desc:s})"
 
     def __eq__(self, other) -> bool:
         return self.ndim == other.ndim and np.all((self.shape == other.shape) & (self.step == other.step) &
@@ -469,3 +492,76 @@ class Grid(Sequence):
         Helper method to ensures that all arguments are all numpy vectors of the same length, self.ndim.
         """
         return tuple([self.__fix(arg) for arg in args])
+
+
+class Grid(MutableGrid):
+    def __init__(self, shape, step=None, extent=None, first=None, center=None, last=None, include_last=False,
+                 ndim: int=None,
+                 flat: Union[bool, Sequence, np.ndarray]=False,
+                 origin_at_center: Union[bool, Sequence, np.ndarray]=True,
+                 center_at_index: Union[bool, Sequence, np.ndarray]=True):
+        """
+        Construct an immutable Grid object.
+
+        :param shape: An integer vector array with the shape of the sampling grid.
+        :param step: A vector array with the spacing of the sampling grid.
+        :param extent: The extent of the sampling grid as shape * step
+        :param first: A vector array with the first element for each dimension.
+        The first element is the smallest element if step is positive, and the largest when step is negative.
+        :param center: A vector array with the center element for each dimension. The center position in the grid is
+        rounded to the next integer index unless center_at_index is set to False for that partical axis.
+        :param last: A vector array with the last element for each dimension. Unless include_last is set to True for
+        the associated dimension, all but the last element is returned when calling self[axis].
+        :param include_last: A boolean vector array indicating whether the returned vectors, self[axis], should include
+        the last element (True) or all-but-the-last (False)
+        :param ndim: A scalar integer indicating the number of dimensions of the sampling space.
+        :param flat: A boolean vector array indicating whether the returned vectors, self[axis], should be
+        flattened (True) or returned as an open grid (False)
+        :param origin_at_center: A boolean vector array indicating whether the origin should be fft-shifted (True)
+        or be ifftshifted to the front (False) of the returned vectors for self[axis].
+        :param center_at_index: A boolean vector array indicating whether the center of the grid should be rounded to an
+        integer index for each dimension. If False and the shape has an even number of elements, the next index is used
+        as the center, (self.shape / 2).astype(np.int).
+        """
+        super().__init__(shape=shape, step=step, extent=extent, first=first, center=center, last=last,
+                         include_last=include_last, ndim=ndim, flat=flat, origin_at_center=origin_at_center,
+                         center_at_index=center_at_index)
+
+    @property
+    def shape(self) -> np.array:
+        return super().shape
+
+    @property
+    def step(self) -> np.ndarray:
+        return super().step
+
+    @property
+    def center(self) -> np.ndarray:
+        return super().center
+
+    @property
+    def first(self) -> np.ndarray:
+        return super().first
+
+    @property
+    def flat(self) -> np.array:
+        return super().flat
+
+    @property
+    def origin_at_center(self) -> np.array:
+        return super().origin_at_center
+
+    def __iadd__(self, number: Union[int, float, complex, Sequence, np.ndarray]):
+        super().center += np.asarray(number)
+
+    def __imul__(self, number: Union[int, float, complex, Sequence, np.ndarray]):
+        super().step *= np.asarray(number)
+        super().center *= np.asarray(number)
+
+    def __isub__(self, number: Union[int, float, complex, Sequence, np.ndarray]):
+        super().center -= np.asarray(number)
+
+    def __idiv__(self, number: Union[int, float, complex, Sequence, np.ndarray]):
+        super().step /= np.asarray(number)
+        super().center /= np.asarray(number)
+

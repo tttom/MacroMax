@@ -111,7 +111,7 @@ class Solution(object):
                 grid = [grid]  # This must be a one dimensional problem, the user forgot to specify the range in a list
             grid = Grid.from_ranges(*grid)
 
-        self.__grid = grid
+        self.__grid = grid.immutable
 
         if wavenumber is not None:
             self.__wavenumber = wavenumber
@@ -468,7 +468,7 @@ class Solution(object):
 
         :return: A Grid object representing the sample points of the fields and material.
         """
-        return self.__grid.copy()
+        return self.__grid
 
     @property
     def dtype(self):
