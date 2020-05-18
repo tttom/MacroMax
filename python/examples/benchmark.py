@@ -6,7 +6,9 @@ import numpy as np
 import time
 
 import macromax
-from macromax import log
+import logging
+macromax.log.setLevel(logging.WARNING)  # Suppress MacroMax information logs
+from examples import log
 from macromax.utils.array import Grid
 
 
@@ -94,6 +96,8 @@ def calculate(dtype=np.complex128, vectorial=False):
 
 
 if __name__ == '__main__':
+    log.info(f'MacroMax version {macromax.__version__}')
+
     log.info('Vectorial 2D calculation with np.complex128...')
     total_time, nb_iterations, residue = calculate(vectorial=True)
     log.info('Total time: %0.3f s for %d iterations: (%0.3f ms) for a residue of %0.6f.'

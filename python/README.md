@@ -190,7 +190,7 @@ dist_in_boundary = np.maximum(0, np.maximum(-x_range,
                                             ) / boundary_thickness)
 permittivity = 1.0 + 0.25j * dist_in_boundary  # unit-less, relative to vacuum permittivity
 # glass has a refractive index of about 1.5
-permittivity[(x_range >= 10e-6) & (x_range < 15e-6)] += 1.5**2
+permittivity[(x_range >= 20e-6) & (x_range < 30e-6)] += 1.5**2
 permittivity = permittivity[np.newaxis, np.newaxis, ...]  # Define an isotropic material
 
 #
@@ -270,14 +270,14 @@ The library functions are contained in ````macromax/````:
 * [parallel_ops_column](macromax/parallel_ops_column.py): Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
 * [utils/](macromax/utils/): Defines utility functions that can be used to prepare and interpret function arguments.
 
-The included examples in the [macromax/examples/](macromax/examples/) folder are:
-* [notebook_example.ipynb](macromax/examples/notebook_example.ipynb): An iPython notebook demonstrating basic usage of the library.
-* [air_glass_air_1D.py](macromax/examples/air_glass_air_1D.py): Calculation of the back reflection from an air-glass interface (one-dimensional calculation)
-* [air_glass_air_2D.py](macromax/examples/air_glass_air_2D.py): Calculation of the refraction and reflection of light hitting a glass window at an angle (two-dimensional calculation)
-* [birefringent_crystal.py](macromax/examples/birefringent_crystal.py): Demonstration of how an anisotropic permittivity can split a diagonally polarized Gaussian beam into ordinary and extraordinary beams.
-* [polarizer.py](macromax/examples/polarizer.py): Calculation of light wave traversing a set of two and a set of three polarizers as a demonstration of anisotropic absorption (non-Hermitian permittivity)
-* [rutile.py](macromax/examples/rutile.py): Scattering from disordered collection of birefringent rutile (TiO2) particles.
-* [benchmark.py](macromax/examples/benchmark.py): Timing of a simple two-dimensional calculation for comparison between versions.
+The included examples in the [examples/](examples/) folder are:
+* [notebook_example.ipynb](examples/notebook_example.ipynb): An iPython notebook demonstrating basic usage of the library.
+* [air_glass_air_1D.py](examples/air_glass_air_1D.py): Calculation of the back reflection from an air-glass interface (one-dimensional calculation)
+* [air_glass_air_2D.py](examples/air_glass_air_2D.py): Calculation of the refraction and reflection of light hitting a glass window at an angle (two-dimensional calculation)
+* [birefringent_crystal.py](examples/birefringent_crystal.py): Demonstration of how an anisotropic permittivity can split a diagonally polarized Gaussian beam into ordinary and extraordinary beams.
+* [polarizer.py](examples/polarizer.py): Calculation of light wave traversing a set of two and a set of three polarizers as a demonstration of anisotropic absorption (non-Hermitian permittivity)
+* [rutile.py](examples/rutile.py): Scattering from disordered collection of birefringent rutile (TiO2) particles.
+* [benchmark.py](examples/benchmark.py): Timing of a simple two-dimensional calculation for comparison between versions.
 
 ### Testing
 Unit tests are contained in ````macromax/tests````. The ````ParallelOperations```` class in
@@ -294,7 +294,7 @@ nosetests -v tests
 ### Building and Distributing
 The code consists of pure Python 3, hence only packaging is required for distribution.
 
-To prepare a package for distribution, increase the `__version__` number in [macromax/__init__.py](macromax/__init__.py), and run:
+To prepare a package for distribution, increase the `__version__` number in [macromax/\_\_init\_\_.py](macromax/__init__.py), and run:
 
 ```sh
 python setup.py sdist bdist_wheel

@@ -35,6 +35,6 @@ from .solver import solve, Solution
 from .utils.array import Grid
 
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 __all__ = ['__version__', 'solve', 'Solution', 'Grid', 'log']

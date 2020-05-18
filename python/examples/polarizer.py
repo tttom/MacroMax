@@ -8,7 +8,6 @@ import numpy as np
 import time
 
 import macromax
-from macromax.utils.array import Grid
 from examples import log
 
 
