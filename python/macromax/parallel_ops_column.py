@@ -29,17 +29,14 @@ class ParallelOperations:
     where the first two dimensions are those of the matrix, and the final dimensions are the coordinates over
     which the operations are parallelized and the Fourier transforms are applied.
     """
-    def __init__(self, nb_dims, data_shape, sample_pitch=None):
+    def __init__(self, nb_dims, grid: Grid):
         self.__nb_dims = nb_dims
-        self.__data_shape = data_shape
-        if sample_pitch is None:
-            sample_pitch = np.ones(self.data_shape.size)
-        self.__sample_pitch = sample_pitch
+        self.__grid = grid
 
         self.__cutoff = len(self.matrix_shape)
-        self.__total_dims = len(self.matrix_shape) + len(self.data_shape)
+        self.__total_dims = len(self.matrix_shape) + len(self.grid.shape)
 
-        self.__eye = np.eye(nb_dims).reshape((nb_dims, nb_dims, *np.ones(len(self.data_shape), dtype=int)))
+        self.__eye = np.eye(nb_dims).reshape((nb_dims, nb_dims, *np.ones(len(self.grid.shape), dtype=int)))
 
         ft_axes = range(self.__cutoff, self.__total_dims)  # Don't Fourier transform the matrix dimensions
         if 'pyfftw' not in globals():
@@ -70,7 +67,7 @@ class ParallelOperations:
             self.__word_align = lambda a: word_align(a, word_length=pyfftw.simd_alignment)
 
             log.debug('Allocating FFTW''s operating memory.')
-            fftw_vec_array = self.__empty_word_aligned([self.nb_dims, 1, *self.data_shape], dtype=np.complex128)
+            fftw_vec_array = self.__empty_word_aligned([self.nb_dims, 1, *self.grid.shape], dtype=np.complex128)
 
             log.debug('Initializing FFTW''s forward Fourier transform.')
             fft_vec_object = pyfftw.FFTW(fftw_vec_array, fftw_vec_array, axes=ft_axes, flags=ftflags, direction='FFTW_FORWARD',
@@ -83,7 +80,7 @@ class ParallelOperations:
             # Redefine the default method
             def fftw(E):
                 if np.any(np.array(E.shape[2:]) > 1):
-                    assert(E.ndim-2 == self.data_shape.size and np.all(E.shape[2:] == self.data_shape))
+                    assert(E.ndim-2 == self.grid.shape.size and np.all(E.shape[2:] == self.grid.shape))
                     if np.all(E.shape == fft_vec_object.input_shape):
                         result_array = self.__empty_word_aligned(E.shape, dtype=np.complex128)
                         fft_vec_object(E, result_array)
@@ -104,7 +101,7 @@ class ParallelOperations:
                         log.debug('In-place Fourier Transform: Input/Output array not %d-byte word aligned, aligning now.'
                                   % pyfftw.simd_alignment)
                         E = self.__word_align(E)
-                    assert(E.ndim-2 == self.data_shape.size and np.all(E.shape[2:] == self.data_shape))
+                    assert(E.ndim-2 == self.grid.shape.size and np.all(E.shape[2:] == self.grid.shape))
                     if np.all(E.shape == fft_vec_object.input_shape) \
                             and pyfftw.is_n_byte_aligned(E, pyfftw.simd_alignment):
                         fft_vec_object(E, E)  # E should be in SIMD-word-aligned memory zone
@@ -116,7 +113,7 @@ class ParallelOperations:
             # Redefine the default method
             def ifftw(E):
                 if np.any(np.array(E.shape[2:]) > 1):
-                    assert(E.ndim-2 == self.data_shape.size and np.all(E.shape[2:] == self.data_shape))
+                    assert(E.ndim-2 == self.grid.shape.size and np.all(E.shape[2:] == self.grid.shape))
                     if np.all(E.shape == ifft_vec_object.input_shape):
                         result_array = self.__empty_word_aligned(E.shape, dtype=np.complex128)
                         ifft_vec_object(E, result_array)
@@ -137,7 +134,7 @@ class ParallelOperations:
                     E = self.__word_align(E)
 
                 if np.any(np.array(E.shape[2:]) > 1):
-                    assert(E.ndim-2 == self.data_shape.size and np.all(E.shape[2:] == self.data_shape))
+                    assert(E.ndim-2 == self.grid.shape.size and np.all(E.shape[2:] == self.grid.shape))
                     if np.all(E.shape == ifft_vec_object.input_shape):
                         ifft_vec_object(E, E)  # E should be in a SIMD-word-aligned memory zone
                     else:
@@ -176,18 +173,11 @@ class ParallelOperations:
         return self.__nb_dims, self.__nb_dims
 
     @property
-    def data_shape(self):
+    def grid(self):
         """
-        :return: A vector with the number of sample points in the spatial dimensions.
+        :return: A Grid object representing the sample points in the spatial dimensions.
         """
-        return self.__data_shape
-
-    @property
-    def sample_pitch(self):
-        """
-        :return: A vector with the sample-point separation in meters for each dimension.
-        """
-        return self.__sample_pitch
+        return self.__grid
 
     @property
     def vectorial(self):
@@ -616,7 +606,7 @@ class ParallelOperations:
         data_shape = F.shape
         nb_input_vector_dims = data_shape[0]
         data_shape = data_shape[1:]
-        nb_data_dims = np.min((len(data_shape), len(self.sample_pitch)))
+        nb_data_dims = np.min((len(data_shape), len(self.grid.step)))
         nb_output_dims = np.max((nb_data_dims, nb_input_vector_dims))
 
         # Pre-calculate the k-values along each dimension
@@ -651,9 +641,9 @@ class ParallelOperations:
         :return: :math:`|k|^2` for the specified sample grid and output shape
         """
         if data_shape is None:
-            data_shape = self.data_shape
+            data_shape = self.grid.shape
         k2 = 0.0
-        k_grid = Grid(data_shape, self.sample_pitch).k
+        k_grid = Grid(data_shape, self.grid.step).k
         for axis in range(k_grid.ndim):
             k2 = k2 + k_grid[axis]**2
 
@@ -716,13 +706,13 @@ class ParallelOperations:
         :return: A vector of 1D-vectors with the k-values along each dimension.
         """
         if input_shape is None:
-            input_shape = self.data_shape[2:]
+            input_shape = self.grid.shape[2:]
 
         nb_data_dims = self.__total_dims - 2
         k_ranges = []  # already including the imaginary constant in the ranges
-        for dim_idx in range(np.min((len(self.sample_pitch), nb_data_dims))):
+        for dim_idx in range(np.min((len(self.grid.step), nb_data_dims))):
             rl = input_shape[dim_idx]
-            k_range = 2.0 * const.pi / (self.sample_pitch[dim_idx]*rl) * np.fft.ifftshift(np.arange(rl)-np.floor(rl/2))
+            k_range = 2.0 * const.pi / (self.grid.step[dim_idx]*rl) * np.fft.ifftshift(np.arange(rl)-np.floor(rl/2))
             if imaginary:
                 k_range = 1.0j * k_range  # convert type from real to complex
             k_range = vector_to_axis(k_range, dim_idx, nb_data_dims)

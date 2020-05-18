@@ -158,7 +158,7 @@ class Solution(object):
             nb_pol_dims = 3
 
         # Normalize the dimensions in the parallel operations to k0
-        self.__PO = ParallelOperations(nb_pol_dims, self.grid.shape, self.grid.step * self.wavenumber)
+        self.__PO = ParallelOperations(nb_pol_dims, self.grid * self.wavenumber)
 
         # The following requires the self.__PO to be defined
         self.E = np.asarray(initial_field, dtype=dtype)
