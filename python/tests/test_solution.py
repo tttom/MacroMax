@@ -2,7 +2,7 @@ import unittest
 import numpy.testing as npt
 
 from macromax.solver import Solution, solve
-from macromax.utils.array import calc_ranges
+from macromax.utils.array import Grid, calc_ranges
 import numpy as np
 import scipy.constants as const
 
@@ -12,12 +12,13 @@ class TestSolution(unittest.TestCase):
         self.data_shape = np.array([50, 100, 200])
         self.sample_pitch = np.array([1, 1, 1])
         self.ranges = calc_ranges(self.data_shape, self.sample_pitch)
+        self.grid = Grid(self.data_shape, self.sample_pitch)
         current_density = np.zeros([3, 1, *self.data_shape], dtype=np.complex64)
         thickness = 5
         current_density[:, 0, 2*thickness, 2*thickness, 2*thickness] = np.array([0.0, 1.0, 0.0])
         dist_in_boundary = np.maximum(0.0,
-                                      np.maximum(self.ranges[0][0]+thickness - self.ranges[0],
-                                                 self.ranges[0][-1]-thickness - self.ranges[0]) / thickness
+                                      np.maximum(self.grid[0].ravel()[0]+thickness - self.grid[0].ravel(),
+                                                 self.grid[0].ravel()[-1]-thickness - self.grid[0].ravel()) / thickness
                                       )
         permittivity = np.eye(3)[:, :, np.newaxis, np.newaxis, np.newaxis] \
                        * (1.0 + 0.8j * dist_in_boundary[:, np.newaxis, np.newaxis])
@@ -27,7 +28,10 @@ class TestSolution(unittest.TestCase):
 
     def test_ranges(self):
         for (rng_sol, rng) in zip(self.SOL.ranges, self.ranges):
-            npt.assert_almost_equal(rng_sol, rng)
+            npt.assert_almost_equal(rng_sol.ravel(), rng)
+
+    def test_grid(self):
+        npt.assert_equal(self.SOL.grid == self.grid, True, err_msg='grid not set correctly')
 
     def test_shape(self):
         npt.assert_almost_equal(self.SOL.shape, self.data_shape)

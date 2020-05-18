@@ -434,10 +434,10 @@ class Grid(Sequence):
         return f"Grid({arg_desc:s})"
 
     def __eq__(self, other) -> bool:
-        return self.ndim == other.ndim and np.all(self.shape == other.shape & self.step == other.step &
-                                                  self.center == other.center & self.flat == self.flat &
-                                                  self.center_at_index & other.center_at_index & self.origin_at_center &
-                                                  other.origin_at_center)
+        return self.ndim == other.ndim and np.all((self.shape == other.shape) & (self.step == other.step) &
+                                                  (self.center == other.center) & (self.flat == other.flat) &
+                                                  (self.center_at_index == other.center_at_index) &
+                                                  (self.origin_at_center == other.origin_at_center))
 
     #
     # Assorted property
