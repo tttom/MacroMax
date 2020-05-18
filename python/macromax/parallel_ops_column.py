@@ -33,20 +33,10 @@ class ParallelOperations:
         self.__eye = np.eye(nb_dims).reshape((nb_dims, nb_dims, *np.ones(len(self.grid.shape), dtype=int)))
 
         ft_axes = range(self.__cutoff, self.__total_dims)  # Don't Fourier transform the matrix dimensions
-        if 'pyfftw' not in globals():
-            if 'pyfftw.interfaces.numpy_fft' not in sys.modules:
-                log.debug('Module pyfftw not imported, using stock FFT.')
-            else:
-                log.debug('Module pyfftw not imported, but module pyfftw.interfaces.numpy_fft is.'
-                             ' Using the FFTW-NumPy interface.')
+        try:
+            import pyfftw
 
-            self.__ft = lambda E: ft.fftn(E, axes=ft_axes)
-            self.__ift = lambda E: ft.ifftn(E, axes=ft_axes)
-            self.__empty_word_aligned = lambda shape, dtype: np.empty(shape=shape, dtype=dtype)
-            self.__zeros_word_aligned = lambda shape, dtype: np.zeros(shape=shape, dtype=dtype)
-            self.__word_align = lambda a: a
-        else:
-            log.debug('Module pyfftw imported, using FFTW instead of stock FFT.')
+            log.debug('Module pyfftw imported, using FFTW.')
 
             ftflags = ('FFTW_DESTROY_INPUT', 'FFTW_ESTIMATE', )
             # ftflags = ('FFTW_DESTROY_INPUT', 'FFTW_PATIENT', )
@@ -139,7 +129,14 @@ class ParallelOperations:
 
             self.__ft = fftw
             self.__ift = ifftw
+        except ModuleNotFoundError:
+            log.debug('Module pyfftw not imported, using stock FFT.')
 
+            self.__ft = lambda E: ft.fftn(E, axes=ft_axes)
+            self.__ift = lambda E: ft.ifftn(E, axes=ft_axes)
+            self.__empty_word_aligned = lambda shape, dtype: np.empty(shape=shape, dtype=dtype)
+            self.__zeros_word_aligned = lambda shape, dtype: np.zeros(shape=shape, dtype=dtype)
+            self.__word_align = lambda a: a
 
     @property
     def eye(self):
