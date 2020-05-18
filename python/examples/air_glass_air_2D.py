@@ -51,7 +51,7 @@ def show_scatterer(vectorial=True):
 
     # define the glass plate
     refractive_index = 1.0 + 0.5 * np.ones(grid[1].shape) * (np.abs(grid[0]) < plate_thickness/2)
-    permittivity = np.array(refractive_index**2, dtype=np.complex128)
+    permittivity = np.array(refractive_index**2, dtype=np.complex64)
     permittivity = permittivity[np.newaxis, np.newaxis, :, :]
 
     # Add boundary
@@ -135,7 +135,7 @@ def show_scatterer(vectorial=True):
     # The actual work is done here:
     start_time = time.time()
     solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, callback=update_function
+                              epsilon=permittivity, callback=update_function, dtype=np.complex64
                               )
     log.info("Calculation time: %0.3fs." % (time.time() - start_time))
 

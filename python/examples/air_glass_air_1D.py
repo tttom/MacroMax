@@ -34,7 +34,7 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     boundary_thickness = 5e-6
     dist_in_boundary = np.maximum(0.0, np.maximum(-(x_range - (x_range[0] + boundary_thickness)),
                                                   x_range - (x_range[-1] - boundary_thickness)) / boundary_thickness)
-    permittivity[:, :, :] += - 1.0 + 1.0 + (0.5j * dist_in_boundary)  # The first two dimensions are singleton dims
+    permittivity += 0.5j * dist_in_boundary  # The first two dimensions are singleton dims
 
     if birefringent:
         permittivity = np.eye(3)[:, :, np.newaxis] * permittivity
@@ -52,7 +52,7 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
         permeability = 1.0  # The display function below would't expect a scalar
 
     # Prepare the display
-    fig, ax = plt.subplots(2, 1, frameon=False, figsize=(12, 9), sharex=True)
+    fig, ax = plt.subplots(2, 1, frameon=False, figsize=(12, 9), sharex='all')
     abs_line = ax[0].plot(x_range * 1e6, x_range * 0, color=[0, 0, 0])[0]
     poynting_line = ax[0].plot(x_range * 1e6, x_range * 0, color=[1, 0, 1])[0]
     energy_line = ax[0].plot(x_range * 1e6, x_range * 0, color=[0, 1, 1])[0]

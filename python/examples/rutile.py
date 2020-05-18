@@ -148,12 +148,12 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
         if np.mod(s.iteration, 10) == 1:
             display(s)
 
-        return s.residue > 1e-3 and s.iteration < 1e4
+        return s.residue > 1e-3 and s.iteration < 10000
 
     # The actual work is done here:
     start_time = time.time()
     solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, callback=update_function
+                              epsilon=permittivity, callback=update_function, dtype=np.complex64
                               )
     log.info("Calculation time: %0.3fs." % (time.time() - start_time))
 
@@ -168,12 +168,13 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     forward_poynting_vector = (0.5 / const.mu_0) * ParallelOperations.cross(forward_E, np.conj(forward_H)).real
     forward_poynting_vector = forward_poynting_vector[1, :]
     forward_poynting_vector_after_layer =\
-        forward_poynting_vector[(grid[1] > layer_thickness / 2) & (grid[1] < grid[1].ravel()[-1] - boundary_thickness)]
+        forward_poynting_vector[(grid[1].ravel() > layer_thickness / 2) &
+                                (grid[1].ravel() < grid[1].ravel()[-1] - boundary_thickness)]
     forward_poynting_vector_after_layer = forward_poynting_vector_after_layer[int(len(forward_poynting_vector_after_layer)/2)]
     log.info('Forward Poynting vector: %g' % forward_poynting_vector_after_layer)
     fig_S = plt.figure(frameon=False, figsize=(12, 9))
     ax_S = fig_S.add_subplot(111)
-    ax_S.plot(grid[1] * 1e6, forward_poynting_vector)
+    ax_S.plot(grid[1].ravel() * 1e6, forward_poynting_vector)
     ax_S.set_xlabel(r'$z [\mu m]$')
     ax_S.set_ylabel(r'$S_z$')
 

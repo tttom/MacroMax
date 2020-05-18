@@ -10,7 +10,7 @@ import scipy.constants as const
 class TestSolution(unittest.TestCase):
     def setUp(self):
         self.grid = Grid([50, 100, 200], 1)
-        current_density = np.zeros([3, 1, *self.grid.shape], dtype=np.complex64)
+        current_density = np.zeros([3, 1, *self.grid.shape])
         thickness = 5
         current_density[:, 0, 2*thickness, 2*thickness, 2*thickness] = np.array([0.0, 1.0, 0.0])
         dist_in_boundary = np.maximum(0.0,
@@ -55,10 +55,10 @@ class TestSolution(unittest.TestCase):
         field_0 = self.SOL.E.copy()
         self.SOL = self.SOL.__iter__().__next__()
         field_1 = self.SOL.E.copy()
-        npt.assert_almost_equal(self.SOL.last_update_norm, np.sqrt(np.sum(np.abs(field_1-field_0).flatten() ** 2)) )
+        npt.assert_almost_equal(self.SOL.last_update_norm, np.sqrt(np.sum(np.abs(field_1-field_0)**2)) )
         self.SOL = self.SOL.__iter__().__next__()
         field_2 = self.SOL.E.copy()
-        npt.assert_almost_equal(self.SOL.last_update_norm, np.sqrt(np.sum(np.abs(field_2-field_1).flatten() ** 2)) )
+        npt.assert_almost_equal(self.SOL.last_update_norm, np.sqrt(np.sum(np.abs(field_2-field_1)**2)) )
 
     def test_residue(self):
         def norm(a):

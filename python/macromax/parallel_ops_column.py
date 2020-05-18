@@ -244,44 +244,44 @@ class ParallelOperations:
         """
         return A.ndim == self.__total_dims
 
-    def __fix_matrix_dims(self, M):
+    def __fix_matrix_dims(self, arr):
         """
         Converts the input to an array of the correct number of dimensions: len(self.matrix_shape) + len(self.data_shape)
         while permitting singleton dimensions for the data dimensions shape[2:] and only permitting singleton dimensions
         for the first two matrix dimensions (shape[:2]) when both are singletons.
         The latter case is interpreted as the identity matrix.
 
-        :param M: The input can be scalar, which assumes that its value is assumed to be repeated for all space.
+        :param arr: The input can be scalar, which assumes that its value is assumed to be repeated for all space.
             The value can be a one-dimensional vector, in which case the vector is assumed to be repeated for all space.
         :return: An array with ndim == len(self.matrix_shape) + len(self.data_shape) and with each non-singleton
         dimension matching those of the nb_rows and data_shape.
         """
-        if M is None:
-            M = 0
-        if np.isscalar(M):
-            M = np.array(M)
-        if M.ndim == self.__total_dims:
-            return M  # an input already with the correct number of dimensions
-        elif M.ndim == self.__total_dims - 1 and np.any((np.array(M.shape[:2]) != self.matrix_shape) & (np.array(M.shape[:2]) != 1)):
-            return M[:, np.newaxis, ...]  # a vector E input
+        if arr is None:
+            arr = 0
+        if np.isscalar(arr):
+            arr = np.asarray(arr)
+        if arr.ndim == self.__total_dims:
+            return arr  # an input already with the correct number of dimensions
+        elif arr.ndim == self.__total_dims - 1 and np.any((np.array(arr.shape[:2]) != self.matrix_shape) & (np.array(arr.shape[:2]) != 1)):
+            return arr[:, np.newaxis, ...]  # a vector E input
         # complete the dimensions to the right as required
-        orig_shape = M.shape
+        orig_shape = arr.shape
         new_shape = np.ones(self.__total_dims, dtype=np.int)
         new_shape[:len(orig_shape)] = orig_shape
-        return M.reshape(new_shape)
+        return arr.reshape(new_shape)
 
-    def to_simple_matrix(self, M):
+    def to_simple_matrix(self, mat):
         """
         Converts input to an array of the correct dimensions, though permitting singleton dimensions for all but the two
         matrix dimensions which must either be both full or both singletons. In the latter case, the identity matrix is
         assumed. None is assumed to refer to an all 0 array.
 
-        :param M: The input None, scalar, or array.
+        :param mat: The input None, scalar, or array.
         :return: An array with the correct dimensions
         """
-        M = self.__fix_matrix_dims(M)
+        mat = self.__fix_matrix_dims(mat)
 
-        return M
+        return mat
 
     def to_simple_vector(self, vec):
         """
@@ -301,89 +301,89 @@ class ParallelOperations:
 
         return vec
 
-    def to_full_matrix(self, M):
+    def to_full_matrix(self, mat):
         """
         Converts input to an array of the correct dimensions, though permitting singleton dimensions for all but the two
         matrix dimensions on the left, which must equal the matrix_shape property. If these dimensions are both 1,
         the identity matrix is assumed.
 
-        :param M: The input None, scalar, or array.
+        :param mat: The input None, scalar, or array.
         :return: An array with the correct dimensions
         """
-        M = self.__fix_matrix_dims(M)
-        if np.all(np.array(M.shape[:2]) == 1):
-            M = self.eye * M
-        elif (M.shape[0] != self.matrix_shape[0]) | ((M.shape[1] != 1) & (M.shape[1] != self.matrix_shape[1])):
+        mat = self.__fix_matrix_dims(mat)
+        if np.all(np.array(mat.shape[:2]) == 1):
+            mat = self.eye * mat
+        elif (mat.shape[0] != self.matrix_shape[0]) | ((mat.shape[1] != 1) & (mat.shape[1] != self.matrix_shape[1])):
             message = 'A matrix with dimensions %dx%d expected, one with %dx%d found.' %\
-                      (*self.matrix_shape, *M.shape[:2])
+                      (*self.matrix_shape, *mat.shape[:2])
             log.critical(message)
             raise Exception(message)
-        return M
+        return mat
 
-    def transpose(self, M):
+    def transpose(self, mat):
         """
         Transposes the elements of individual matrices without complex conjugation.
 
-        :param M: The ndarray with the matrices in the first two dimensions.
+        :param mat: The ndarray with the matrices in the first two dimensions.
         :return: An ndarray with the transposed matrices.
         """
         new_order = np.arange(self.__total_dims)
         new_order[:2] = new_order[[1, 0]]
-        return M.transpose(new_order)
+        return mat.transpose(new_order)
 
-    def conjugate_transpose(self, M):
+    def conjugate_transpose(self, mat):
         """
         Transposes the elements of individual matrices with complex conjugation.
 
-        :param M: The ndarray with the matrices in the first two dimensions.
+        :param mat: The ndarray with the matrices in the first two dimensions.
         :return: An ndarray with the complex conjugate transposed matrices.
         """
-        return np.conj(self.transpose(M))
+        return np.conj(self.transpose(mat))
 
-    def add(self, A, B):
+    def add(self, left_term, right_term):
         """
         Point-wise addition of A and B.
 
-        :param A: The left matrix array, must start with dimensions n x m
-        :param B: The right matrix array, must have matching or singleton dimensions to those
+        :param left_term: The left matrix array, must start with dimensions n x m
+        :param right_term: The right matrix array, must have matching or singleton dimensions to those
             of A. In case of missing dimensions, singletons are assumed.
         :return: The point-wise addition of both sets of matrices. Singleton dimensions are expanded.
         """
-        if not self.is_scalar(A) or not self.is_scalar(B):
-            A = self.to_full_matrix(A)
-            B = self.to_full_matrix(B)
-        return A + B
+        if not self.is_scalar(left_term) or not self.is_scalar(right_term):
+            left_term = self.to_full_matrix(left_term)
+            right_term = self.to_full_matrix(right_term)
+        return left_term + right_term
 
-    def subtract(self, A, B):
+    def subtract(self, left_term, right_term):
         """
 
         Point-wise difference of A and B.
 
-        :param A: The left matrix array, must start with dimensions n x m
-        :param B: The right matrix array, must have matching or singleton dimensions to those
+        :param left_term: The left matrix array, must start with dimensions n x m
+        :param right_term: The right matrix array, must have matching or singleton dimensions to those
             of A. In case of missing dimensions, singletons are assumed.
         :return: The point-wise difference of both sets of matrices. Singleton dimensions are expanded.
         """
-        return self.add(A, -B)
+        return self.add(left_term, -right_term)
 
-    def mul(self, A, B):
+    def mul(self, left_factor, right_factor):
         """
         Point-wise matrix multiplication of A and B.
 
-        :param A: The left matrix array, must start with dimensions n x m
-        :param B: The right matrix array, must have matching or singleton dimensions to those
+        :param left_factor: The left matrix array, must start with dimensions n x m
+        :param right_factor: The right matrix array, must have matching or singleton dimensions to those
             of A, bar the first two dimensions. In case of missing dimensions, singletons are assumed.
             The first dimensions must be m x p. Where the m matches that of the left hand matrix
             unless both m and p are 1 or both n and m are 1, in which case the scaled identity is assumed.
 
         :return: An array of matrix products with all but the first two dimensions broadcast as needed.
         """
-        if self.is_scalar(A) or self.is_scalar(B):
-            return A * B  # Scalars are assumed to be proportional to the identity matrix
+        if self.is_scalar(left_factor) or self.is_scalar(right_factor):
+            return left_factor * right_factor  # Scalars are assumed to be proportional to the identity matrix
         else:
-            return np.einsum('ij...,jk...->ik...', A, B, optimize=False)
+            return np.einsum('ij...,jk...->ik...', left_factor, right_factor, optimize=False)
 
-    def ldivide(self, A, B=1.0):
+    def ldivide(self, denominator, numerator=1.0):
         """
         Parallel matrix left division, A^{-1}B, on the final two dimensions of A and B
         result_lm = A_kl \ B_km
@@ -391,41 +391,41 @@ class ParallelOperations:
         A and B must have have all but the final dimension identical or singletons.
         B defaults to the identity matrix.
 
-        :param A: The set of denominator matrices.
-        :param B: The set of numerator matrices.
+        :param denominator: The set of denominator matrices.
+        :param numerator: The set of numerator matrices.
         :return: The set of divided matrices.
         """
-        A = self.__fix_matrix_dims(A)  # convert scalar to array if needed
-        B = self.__fix_matrix_dims(B)  # convert scalar to array if needed
+        denominator = self.__fix_matrix_dims(denominator)  # convert scalar to array if needed
+        numerator = self.__fix_matrix_dims(numerator)  # convert scalar to array if needed
 
-        shape_A = np.array(A.shape[:2])
-        if self.is_scalar(A):
-            return B / A
+        shape_A = denominator.shape[:2]
+        if self.is_scalar(denominator):
+            return np.asarray(numerator, dtype=self.dtype) / denominator
         else:
             new_order = np.roll(np.arange(self.__total_dims), -2)
-            A = A.transpose(new_order)
-            if self.is_scalar(B):
+            denominator = denominator.transpose(new_order)
+            if self.is_scalar(numerator):
                 if shape_A[0] == shape_A[1]:
-                    Y = B * np.linalg.inv(A)
+                    Y = np.linalg.inv(denominator) * numerator
                 else:
-                    Y = B * np.linalg.pinv(A)
+                    Y = np.linalg.pinv(denominator) * numerator
             else:
-                B = B.transpose(new_order)
+                numerator = numerator.transpose(new_order)
                 if shape_A[0] == shape_A[1]:
-                    Y = np.linalg.solve(A, B)
+                    Y = np.linalg.solve(denominator, numerator)
                 else:
-                    Y = np.linalg.lstsq(A, B)[0]
+                    Y = np.linalg.lstsq(denominator, numerator)[0]
             old_order = np.roll(np.arange(self.__total_dims), 2)
             return Y.transpose(old_order)
 
-    def inv(self, M):
+    def inv(self, mat):
         """
         Inverts the set of input matrices M.
 
-        :param M: The set of input matrices.
+        :param mat: The set of input matrices.
         :return: The set of inverted matrices.
         """
-        return self.ldivide(M, 1.0)
+        return self.ldivide(mat, 1.0)
 
     def curl(self, E):
         """

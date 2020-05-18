@@ -124,7 +124,7 @@ def show_birefringence():
     # The actual work is done here:
     start_time = time.time()
     solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, callback=update_function
+                              epsilon=permittivity, callback=update_function, dtype=np.complex64
                               )
     log.info("Calculation time: %0.3fs." % (time.time() - start_time))
 

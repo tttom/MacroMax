@@ -158,14 +158,12 @@ class Solution(object):
             nb_pol_dims = 3
 
         if dtype is None:
-            dtype = np.asarray(source_distribution).ravel()[0].dtype
-        if dtype != np.complex:
+            dtype = np.asarray(source_distribution).dtype
+        if not np.issubdtype(dtype, np.complexfloating):
             if (dtype == np.float16) or (dtype == np.float32):
                 dtype = np.complex64
             else:  # np.float64, integer, bool
                 dtype = np.complex128
-
-        self.__field_mat = None
 
         # Normalize the dimensions in the parallel operations to k0
         self.__PO = ParallelOperations(nb_pol_dims, self.grid * self.wavenumber, dtype=dtype)
@@ -199,10 +197,10 @@ class Solution(object):
         log.debug('Preparing pre-conditioner: determining alpha and beta...')
 
         # Convert all inputs to a canonical form
-        epsilon = self.__PO.to_simple_matrix(epsilon)
-        xi = self.__PO.to_simple_matrix(xi)
-        zeta = self.__PO.to_simple_matrix(zeta)
-        mu = self.__PO.to_simple_matrix(mu)
+        epsilon = self.__PO.to_simple_matrix(epsilon).astype(self.dtype)
+        xi = self.__PO.to_simple_matrix(xi).astype(self.dtype)
+        zeta = self.__PO.to_simple_matrix(zeta).astype(self.dtype)
+        mu = self.__PO.to_simple_matrix(mu).astype(self.dtype)
 
         # Determine if the media is magnetic
         self.__magnetic = np.any(xi.ravel() != 0.0) or np.any(zeta.ravel() != 0.0) or np.any(mu.ravel() != mu.ravel()[0])

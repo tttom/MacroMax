@@ -229,7 +229,6 @@ class TestMutableGrid(unittest.TestCase):
         grid.step = 2
         npt.assert_equal(grid == Grid(10, 2), True, 'shape not updated correctly')
         grid.first = 0
-        print(grid)
         npt.assert_equal(grid == Grid(10, 2, first=0), True, 'Offset not updated correctly.')
         grid.center = 0
         npt.assert_equal(grid == Grid(10, 2, center=0), True, 'Offset not updated correctly.')
