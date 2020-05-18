@@ -357,7 +357,7 @@ class Grid(Sequence):
         self.center /= np.array(number)
 
     def __neg__(self):
-        self.__imul__(-1)
+        return self.__mul__(-1)
 
     #
     # iterator methods
@@ -380,7 +380,7 @@ class Grid(Sequence):
         #         rng = vector_to_axis(rng, axis=0, ndim=self.ndim)
         #todo: finish the above to replace project with indexing?
 
-        scalar = np.isscalar(key)
+        scalar_key = np.isscalar(key)
         if self.multidimensional:
             indices = np.arange(self.ndim)[key]
         else:
@@ -403,7 +403,7 @@ class Grid(Sequence):
 
             result.append(rng if self.multidimensional else rng[idx])
 
-        if scalar:
+        if scalar_key:
             result = result[0]  # Unpack again
 
         return result
@@ -437,7 +437,8 @@ class Grid(Sequence):
         return self.ndim == other.ndim and np.all((self.shape == other.shape) & (self.step == other.step) &
                                                   (self.center == other.center) & (self.flat == other.flat) &
                                                   (self.center_at_index == other.center_at_index) &
-                                                  (self.origin_at_center == other.origin_at_center))
+                                                  (self.origin_at_center == other.origin_at_center) &
+                                                  (self.dtype == other.dtype))
 
     #
     # Assorted property

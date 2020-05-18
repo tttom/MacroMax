@@ -19,6 +19,22 @@ class TestGrid(unittest.TestCase):
         npt.assert_array_equal(Grid(5, center=int(5 / 2)), np.array([0, 1, 2, 3, 4]),
                                err_msg="Grid failed for odd length vector with offsets.")
 
+    def test_equals(self):
+        npt.assert_equal(Grid(10, 0.5) == Grid(10, 0.5), True)
+        npt.assert_equal(Grid(10, 0.5) == Grid(10, -0.5), False)
+        npt.assert_equal(Grid(10, 0.5) == Grid(10, 0.5, center=0), True)
+        npt.assert_equal(Grid(10, 0.5) == Grid(10, 0.5, center=1), False)
+        npt.assert_equal(Grid(10, 0.5) == Grid(10, 0.5, first=-2.5), True)
+        npt.assert_equal(Grid(10, 0.5) == Grid(10, 0.5, first=0), False)
+        npt.assert_equal(Grid(10, 0.5) == Grid(10, extent=5), True)
+        npt.assert_equal(Grid(10, 0.5) == Grid(10, extent=6), False)
+        npt.assert_equal(Grid(10, 2) == Grid(10.0, 2.0), False)
+
+    def test_arithmetic_neg(self):
+        npt.assert_equal(-Grid(10, 0.5) == Grid(10, -0.5), True)
+        npt.assert_equal(-Grid(10, 0.5, first=0) == Grid(10, -0.5, first=0), True)
+        npt.assert_equal(-Grid(10, 0.5) == Grid(10, -0.5, first=2.5), True)
+
     def test_arithmetic_div(self):
         npt.assert_array_equal(Grid(1, 0.5), Grid(1) / 2)
         npt.assert_array_equal(Grid(4, 0.5), Grid(4) / 2)
