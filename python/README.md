@@ -83,6 +83,9 @@ data_shape = (200, 400)
 sample_pitch = 50e-9  # or (50e-9, 50e-9)
 grid = macromax.Grid(data_shape, sample_pitch)
 ```
+This defines a uniformly spaced plaid grid, centered around the origin,
+unless specified otherwise.
+
 
 #### Defining the material property distributions
 The material properties are defined by ndarrays of 2+N dimensions, where N can be up to 3 for three-dimensional samples. In each sample point, or voxel, a complex 3x3 matrix defines the anisotropy at that point in the sample volume. The first two dimensions of the ndarray are used to store the 3x3 matrix, the following dimensions are the spatial indices x, y, and z. Four complex ndarrays can be specified: ````epsilon````, ````mu````, ````xi````, and ````zeta````. These ndarrays represent the permittivity, permeability, and the two coupling factors, respectively.
