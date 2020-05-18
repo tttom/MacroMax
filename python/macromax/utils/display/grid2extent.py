@@ -4,11 +4,13 @@ from .. import log
 from macromax.utils.array import Grid
 
 
-def grid2extent(*args):
+def grid2extent(*args, origin_lower: bool=False):
     """
     Utility function to determine extent values for imshow
     :param args: A Grid object or monotonically increasing ranges, one per dimension (vertical, horizontal)
-    :return: a 1D array
+    :param origin_lower: (default: False) Set this to True when imshow has the origin set to 'lower' to have the
+    vertical axis increasing upwards.
+    :return: An nd-array with 4 numbers indicating the extent of the displayed data.
     """
     if isinstance(args[0], Grid):
         ranges = args[0]
@@ -21,11 +23,11 @@ def grid2extent(*args):
         rng = np.array(rng).ravel()
         step = rng[1] - rng[0]
         first, last = rng[0] - 0.5 * step, rng[-1] + 0.5 * step
-        if idx == 1:
+        if not origin_lower and idx == 1:
             first, last = last, first
         extent.append(first)
         extent.append(last)
 
-    return np.array(extent)
+    return np.asarray(extent)
 
 

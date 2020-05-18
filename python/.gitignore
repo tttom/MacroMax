@@ -110,3 +110,4 @@ venv.bak/
 
 # IDE files
 .idea/workspace.xml
+.idea/dictionaries/
