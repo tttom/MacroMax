@@ -246,12 +246,15 @@ class ParallelOperations:
 
     def __fix_matrix_dims(self, M):
         """
-        Converts everything to an array with self.__total_dims dimensions.
+        Converts the input to an array of the correct number of dimensions: len(self.matrix_shape) + len(self.data_shape)
+        while permitting singleton dimensions for the data dimensions shape[2:] and only permitting singleton dimensions
+        for the first two matrix dimensions (shape[:2]) when both are singletons.
+        The latter case is interpreted as the identity matrix.
 
-        :param M: The input can be None or scalar, which assumes that its value is assumed to be repeated for all space.
+        :param M: The input can be scalar, which assumes that its value is assumed to be repeated for all space.
             The value can be a one-dimensional vector, in which case the vector is assumed to be repeated for all space.
-        :return: An array with the correct number of dimensions and with each non-singleton dimension matching those pf
-            the nb_dims and data_shape.
+        :return: An array with ndim == len(self.matrix_shape) + len(self.data_shape) and with each non-singleton
+        dimension matching those of the nb_rows and data_shape.
         """
         if M is None:
             M = 0
@@ -642,7 +645,7 @@ class ParallelOperations:
         for axis in range(k_grid.ndim):
             k2 = k2 + k_grid[axis]**2
 
-        return k2[np.newaxis, np.newaxis, ...]
+        return k2
 
     def mat3_eig(self, A):
         """

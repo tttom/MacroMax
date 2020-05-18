@@ -196,7 +196,7 @@ class TestParallelOperations(unittest.TestCase):
 
     def test_calc_K2(self):
         A = self.PO.calc_k2()
-        npt.assert_almost_equal(A[0, 0, 1, 1, 1] / ((2*np.pi/(self.grid.step * self.wavenumber)[0])**2),
+        npt.assert_almost_equal(A[1, 1, 1] / ((2*np.pi/(self.grid.step * self.wavenumber)[0])**2),
                                 np.sum(1.0 / (self.grid.shape ** 2)))
 
     def test_mat3_eig(self):

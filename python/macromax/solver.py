@@ -157,8 +157,18 @@ class Solution(object):
         else:
             nb_pol_dims = 3
 
+        if dtype is None:
+            dtype = np.asarray(source_distribution).ravel()[0].dtype
+        if dtype != np.complex:
+            if (dtype == np.float16) or (dtype == np.float32):
+                dtype = np.complex64
+            else:  # np.float64, integer, bool
+                dtype = np.complex128
+
+        self.__field_mat = None
+
         # Normalize the dimensions in the parallel operations to k0
-        self.__PO = ParallelOperations(nb_pol_dims, self.grid * self.wavenumber)
+        self.__PO = ParallelOperations(nb_pol_dims, self.grid * self.wavenumber, dtype=dtype)
 
         # The following requires the self.__PO to be defined
         self.E = np.asarray(initial_field, dtype=dtype)
@@ -392,7 +402,7 @@ class Solution(object):
 
         # Now create the Green function operator
         # Calculate the convolution filter just once
-        g_scalar_ft = 1.0 / (self.__PO.calc_k2() - self.__alpha)
+        g_scalar_ft = 1 / (self.__PO.calc_k2() - self.__alpha)
         if self.__PO.vectorial:
             def g_ft_op(FFt):  # No need to represent the full matrix in memory
                 PiL_FFt = self.__PO.longitudinal_projection_ft(FFt)  # Creates K^2 on-the-fly and still memory intensive
@@ -472,7 +482,7 @@ class Solution(object):
 
     @property
     def dtype(self):
-        return self.__field_mat.dtype
+        return self.__PO.dtype
 
     @property
     def wavenumber(self):
