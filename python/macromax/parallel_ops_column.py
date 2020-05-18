@@ -1,18 +1,12 @@
-from . import log
-
-from .utils.array import vector_to_axis, word_align, Grid
-
 import numpy as np
 from numpy.lib import scimath as sm
 import scipy.constants as const
 import sys
-try:
-    import pyfftw.interfaces.numpy_fft as ft
-    import pyfftw
-    pyfftw.interfaces.cache.enable()
-except ModuleNotFoundError:
-    import numpy.fft as ft
-    log.info('Module pyfftw for FFTW not found, using numpy Fast Fourier transform instead.')
+
+from . import log
+
+from .utils import ft
+from .utils.array import vector_to_axis, word_align, Grid
 
 try:
     import multiprocessing
@@ -710,7 +704,7 @@ class ParallelOperations:
 
         nb_data_dims = self.__total_dims - 2
         k_ranges = []  # already including the imaginary constant in the ranges
-        for dim_idx in range(np.min((len(self.grid.step), nb_data_dims))):
+        for dim_idx in range(np.minimum(self.grid.ndim, nb_data_dims)):
             rl = input_shape[dim_idx]
             k_range = 2.0 * const.pi / (self.grid.step[dim_idx]*rl) * np.fft.ifftshift(np.arange(rl)-np.floor(rl/2))
             if imaginary:
