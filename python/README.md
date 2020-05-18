@@ -304,12 +304,13 @@ The second line installs the newly-forged `macromax` package for testing.
 
 The package can then be uploaded to a test repository as follows:
 ```sh
+pip install twine
 twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 ```
 
 Installing from the test repository is done as follows:
 ```sh
-pip install -i https://test.pypi.org/simple/ macromax
+pip install -i https://test.pypi.org/simple/ macromax --upgrade
 ```
 
 IntelliJ IDEA project files can be found in ```MacroMax/python/```: ```MacroMax/python/python.iml``` and the folder ```MacroMax/python/.idea```. 

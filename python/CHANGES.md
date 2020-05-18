@@ -1,5 +1,8 @@
 # Macroscopic Maxwell Solver Change Log
 
+## Version 0.1.1
+* A Grid object can now be used to specify the sampling grid spacing and extent.
+
 ## Version 0.1.0
 * The current density can now be specified directly for `solve(...)`
 instead of the `source_density`.
