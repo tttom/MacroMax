@@ -3,7 +3,7 @@
 ## Introduction
 This Python 3 module enables solving the macroscopic Maxwell equations in complex dielectric materials.
 
-The material properties are defined on a rectangular grid (1D, 2D, or 3D) for which each voxel defines an isotropic or anistropic permittivity. Optionally, a heterogeneous (anisotropic) permeability as well as bi-anisotropic coupling factors may be specified (e.g. for chiral media). The source, such as an incident laser field, is specified as an oscillating current-density distribution.
+The material properties are defined on a rectangular grid (1D, 2D, or 3D) for which each voxel defines an isotropic or anisotropic permittivity. Optionally, a heterogeneous (anisotropic) permeability as well as bi-anisotropic coupling factors may be specified (e.g. for chiral media). The source, such as an incident laser field, is specified as an oscillating current-density distribution.
 
 The method iteratively corrects an estimated solution for the electric field (default: all zero). Its memory requirements are on the order of the storage requirements for the material properties and the electric field within the calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript ["Calculating coherent light-wave propagation in large heterogeneous media."](https://doi.org/10.1364/OE.27.011946)
 
@@ -75,20 +75,20 @@ x_range = 50e-9 * np.arange(1000)
 ```
 
 Ranges for multiple dimensions can be passed to ````solve(...)```` as a tuple of ranges:
-````ranges = (x_range, y_range)````, or the convenience function ````utils.calc_ranges```` can be used as follows:
+````ranges = (x_range, y_range)````, or the convenience object `Grid` in 
+the `macromax.utils.array` sub-package. The latter can be used as follows:
 
 ```python
-from macromax import utils
 data_shape = (200, 400)
 sample_pitch = 50e-9  # or (50e-9, 50e-9)
-ranges = utils.calc_ranges(data_shape, sample_pitch)
+grid = macromax.Grid(data_shape, sample_pitch)
 ```
 
 #### Defining the material property distributions
 The material properties are defined by ndarrays of 2+N dimensions, where N can be up to 3 for three-dimensional samples. In each sample point, or voxel, a complex 3x3 matrix defines the anisotropy at that point in the sample volume. The first two dimensions of the ndarray are used to store the 3x3 matrix, the following dimensions are the spatial indices x, y, and z. Four complex ndarrays can be specified: ````epsilon````, ````mu````, ````xi````, and ````zeta````. These ndarrays represent the permittivity, permeability, and the two coupling factors, respectively.
 
 When the first two dimensions of a property are found to be both a singleton, i.e. 1x1, that property is assumed to be isotropic. Similarly, singleton spatial dimensions are interpreted as homogeneity in that property. 
-The default permeability ````mu```` is 1, and the coupling contants are zero by default.
+The default permeability `mu` is 1, and the coupling contants are zero by default.
 
 ##### Boundary conditions
 The underlying algorithm assumes [periodic boundary conditions](https://en.wikipedia.org/wiki/Periodic_boundary_conditions).
@@ -111,7 +111,7 @@ solution = macromax.solve(...)
 
 The function arguments to ````macromax.solve(...)```` can be the following:
 
-* ````x_range|ranges````: A vector (1D) or tuple of vectors (2D, or 3D) indicating the spatial coordinates of the sample points. Each vector must be a uniformly increasing array of coordinates, sufficiently dense to avoid aliasing artefacts. 
+* ````grid|x_range````: A Grid object, a vector (1D), or tuple of vectors (2D, or 3D) indicating the spatial coordinates of the sample points. Each vector must be a uniformly increasing array of coordinates, sufficiently dense to avoid aliasing artefacts. 
 
 * ````vacuum_wavelength|wave_number|anguler_frequency````: The wavelength in vacuum of the coherent illumination in units of meters. 
 
@@ -134,8 +134,9 @@ Optionally one can also specify magnetic and coupling factors:
 It is often useful to also specify a callback function that tracks progress. This can be done by defining the ````callback````-argument as a function that takes an intermediate solution as argument. This user-defined callback function can display the intermediate solution and check if the convergence is adequate. The callback function should return ````True```` if more iterations are required, and ````False```` otherwise. E.g.:
 
 ```python
-callback=lambda s: s.iteration < 1e4 and s.residue > 1e-4
+callback=lambda s: s.residue > 0.01 and s.iteration < 1000
 ```
+will iterate until the residue is at most 1% or until the number of iterations exceeds 1,000.
 
 The solution object (of the Solution class) fully defines the state of the iteration and the current solution as described below.
 
@@ -153,13 +154,8 @@ The solution object also keeps track of the iteration itself. It has the followi
 * ````solution.residue````: The relative magnitude of the correction during the previous iteration.
 and it can be used as a Python iterator.
 
-Further information can be found in the examples and the function and class signature documentation. The examples can be imported using:
+Further information can be found in the [examples](https://github.com/tttom/MacroMax/python/examples/) and the [signatures of each function and class](https://github.com/tttom/MacroMax/python/macromax/).
 
-```python
-
-import examples
-```
-After importing the [source code](https://github.com/tttom/MacroMax/).
 
 ### Complete Example
 The following code loads the library, defines the material and light source, calculates the result, and displays it.
@@ -173,27 +169,29 @@ import macromax
 
 import numpy as np
 import matplotlib.pyplot as plt
-%matplotlib notebook
+# %matplotlib notebook  # Uncomment this line in an iPython Jupyter notebook
 
 #
 # Define the material properties
 #
-wavelength = 500e-9
+wavelength = 500e-9  # [ m ] In SI units as everything else here
 source_polarization = np.array([0, 1, 0])[:, np.newaxis]  # y-polarized
 
 # Set the sampling grid
 nb_samples = 1024
-sample_pitch = wavelength / 16
-x_range = sample_pitch * np.arange(nb_samples) - 4e-6
+sample_pitch = wavelength / 10  # [ m ]  # Sub-sample for display
+boundary_thickness = 5e-6  # [ m ]
+x_range = sample_pitch * np.arange(nb_samples) - boundary_thickness  # [ m ]
 
-# define the medium
-permittivity = np.ones((1, 1, len(x_range)), dtype=np.complex64)
+# Define the medium as a spatially-variant permittivity
 # Don't forget absorbing boundary:
-dist_in_boundary = np.maximum(-(x_range - -1e-6), x_range - 26e-6) / 4e-6
-permittivity[:, :, (x_range < -1e-6) | (x_range > 26e-6)] = \
-    1.0 + (0.8j * dist_in_boundary[(x_range < -1e-6) | (x_range > 26e-6)])
+dist_in_boundary = np.maximum(0, np.maximum(-x_range,
+                                            x_range - (x_range[-1] - boundary_thickness)
+                                            ) / boundary_thickness)
+permittivity = 1.0 + 0.25j * dist_in_boundary  # unit-less, relative to vacuum permittivity
 # glass has a refractive index of about 1.5
-permittivity[:, :, (x_range >= 10e-6) & (x_range < 20e-6)] = 1.5 ** 2
+permittivity[(x_range >= 10e-6) & (x_range < 15e-6)] += 1.5**2
+permittivity = permittivity[np.newaxis, np.newaxis, ...]  # Define an isotropic material
 
 #
 # Define the illumination source
@@ -206,36 +204,35 @@ current_density = source_polarization * (np.abs(x_range) < sample_pitch/4)
 #
 # (the actual work is done in this line)
 solution = macromax.solve(x_range, vacuum_wavelength=wavelength,
-                current_density=current_density, epsilon=permittivity)
+                          current_density=current_density, epsilon=permittivity)
 
 #
 # Display the results
 #
 fig, ax = plt.subplots(2, 1, frameon=False, figsize=(8, 6))
 
-x_range = solution.ranges[0]  # coordinates
-E = solution.E[1, :]  # Electric field
-H = solution.H[2, :]  # Magnetizing field
-S = solution.S[0, :]  # Poynting vector
-f = solution.f[0, :]  # Optical force
+x_range = solution.grid[0]  # coordinates
+E = solution.E[1, :]  # Electric field in y
+H = solution.H[2, :]  # Magnetizing field in z
+S = solution.S[0, :]  # Poynting vector in x
+f = solution.f[0, :]  # Optical force in x
 # Display the field for the polarization dimension
 field_to_display = E
-max_val_to_display = np.maximum(np.max(np.abs(field_to_display)),
-                                np.finfo(field_to_display.dtype).eps)
-poynting_normalization = np.max(np.abs(S)) / max_val_to_display
+max_val_to_display = np.amax(np.abs(field_to_display))
+poynting_normalization = np.amax(np.abs(S)) / max_val_to_display
 ax[0].plot(x_range * 1e6,
            np.abs(field_to_display) ** 2 / max_val_to_display,
-           color=[0, 0, 0])[0]
+           color=[0, 0, 0])
 ax[0].plot(x_range * 1e6, np.real(S) / poynting_normalization,
-           color=[1, 0, 1])[0]
+           color=[1, 0, 1])
 ax[0].plot(x_range * 1e6, np.real(field_to_display),
-           color=[0, 0.7, 0])[0]
+           color=[0, 0.7, 0])
 ax[0].plot(x_range * 1e6, np.imag(field_to_display),
-           color=[1, 0, 0])[0]
+           color=[1, 0, 0])
 figure_title = "Iteration %d, " % solution.iteration
 ax[0].set_title(figure_title)
 ax[0].set_xlabel("x  [$\mu$m]")
-ax[0].set_ylabel("I, E  [a.u.]")
+ax[0].set_ylabel("I, E  [a.u., V/m]")
 ax[0].set_xlim(x_range[[0, -1]] * 1e6)
 
 ax[1].plot(x_range[-1] * 2e6, 0,
@@ -251,78 +248,66 @@ ax[1].plot(x_range * 1e6, permittivity[0, 0].real,
 ax[1].plot(x_range * 1e6, permittivity[0, 0].imag,
            color=[0, 0.5, 0.5], label='$\epsilon_{imag}$')
 ax[1].set_xlabel('x  [$\mu$m]')
-ax[1].set_ylabel('$\epsilon$, $\mu$')
+ax[1].set_ylabel('$\epsilon$')
 ax[1].set_xlim(x_range[[0, -1]] * 1e6)
 ax[1].legend(loc='upper right')
+
+plt.show(block=True)  # Not needed for iPython Jupyter notebook
+
 ```
 
 ## Development
 ### Source code organization
 The source code is organized as follows:
-
-* ````/```` (root):   Module description and distribution files.
-
-* ````macromax/````:  The iterative solver.
-
-* ````examples/````:  Examples of how the solver can be used.
-
-* ````tests/````:     Automated unit tests of the solver's functionality. Use this after making modifications to the solver and extend it if new functionality is added.
+* [/](.) (root): Module description and distribution files.
+* [macromax/](macromax/): The iterative solver.
+    * [macromax/utils/](macromax/utils/): Helper functionality used in the solver and to use the solver.
+* [examples/](examples/): Examples of how the solver can be used.
+* [tests/](tests/): Automated unit tests of the solver's functionality. Use this after making modifications to the solver and extend it if new functionality is added.
 
 The library functions are contained in ````macromax/````:
+* [solver](macromax/solver.py): Defines the ````solve(...)```` function and the ````Solution```` class.
+* [parallel_ops_column](macromax/parallel_ops_column.py): Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
+* [utils/](macromax/utils/): Defines utility functions that can be used to prepare and interpret function arguments.
 
-* ````solver````: Defines the ````solve(...)```` function and the ````Solution```` class.
-
-* ````parallel_ops_column````: Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
-
-* ````utils/````: Defines utility functions that can be used to prepare and interpret function arguments.
-
-The included examples in the ````macromax/examples/```` folder are:
-
-* ````notebook_example.ipynb````: An iPython notebook demonstrating basic usage of the library.
-
-* ````air_glass_air_1D.py````: Calculation of the back reflection from an air-glass interface (one-dimensional calculation)
-
-* ````air_glass_air_2D.py````: Calculation of the refraction and reflection of light hitting a glass window at an angle (two-dimensional calculation)
-
-* ````birefringent_crystal.py````: Demonstration of how an anisotropic permittivity can split a diagonally polarized Gaussian beam into ordinary and extraordinary beams.
-
-* ````polarizer.py````: Calculation of light wave traversing a set of two and a set of three polarizers as a demonstration of anisotropic absorption (non-Hermitian permittivity)
-
-* ````rutile.py````: Scattering from disordered collection of birefringent rutile (TiO2) particles.
-
-* ````benchmark.py````: Timing of a simple two-dimensional calculation for comparison between versions.
+The included examples in the [macromax/examples/](macromax/examples/) folder are:
+* [notebook_example.ipynb](macromax/examples/notebook_example.ipynb): An iPython notebook demonstrating basic usage of the library.
+* [air_glass_air_1D.py](macromax/examples/air_glass_air_1D.py): Calculation of the back reflection from an air-glass interface (one-dimensional calculation)
+* [air_glass_air_2D.py](macromax/examples/air_glass_air_2D.py): Calculation of the refraction and reflection of light hitting a glass window at an angle (two-dimensional calculation)
+* [birefringent_crystal.py](macromax/examples/birefringent_crystal.py): Demonstration of how an anisotropic permittivity can split a diagonally polarized Gaussian beam into ordinary and extraordinary beams.
+* [polarizer.py](macromax/examples/polarizer.py): Calculation of light wave traversing a set of two and a set of three polarizers as a demonstration of anisotropic absorption (non-Hermitian permittivity)
+* [rutile.py](macromax/examples/rutile.py): Scattering from disordered collection of birefringent rutile (TiO2) particles.
+* [benchmark.py](macromax/examples/benchmark.py): Timing of a simple two-dimensional calculation for comparison between versions.
 
 ### Testing
 Unit tests are contained in ````macromax/tests````. The ````ParallelOperations```` class in
 ````parallel_ops_column.pi```` is pretty well covered and some specific tests have been written for
-the ````Solution```` class in ````solver.py````. However, the ````utils```` module does not have any
-tests at present.
+the ````Solution```` class in ````solver.py````.
 
-To run the tests:
-
+To run the tests, make sure that the `nose` package is installed, and
+run the following commands from the `Macromax/python/` directory:
 ```sh
 pip install nose
-python setup.py test
+nosetests -v tests
 ```
 
 ### Building and Distributing
 The code consists of pure Python 3, hence only packaging is required for distribution.
 
-To prepare a package for distribution, increase the version number in ```setup.py```, and run:
+To prepare a package for distribution, increase the `__version__` number in [macromax/__init__.py](macromax/__init__.py), and run:
 
 ```sh
 python setup.py sdist bdist_wheel
 pip install . --upgrade
 ```
+The second line installs the newly-forged `macromax` package for testing.
 
 The package can then be uploaded to a test repository as follows:
-
 ```sh
 twine upload --repository-url https://test.pypi.org/legacy/ dist/*
 ```
 
 Installing from the test repository is done as follows:
-
 ```sh
 pip install -i https://test.pypi.org/simple/ macromax
 ```

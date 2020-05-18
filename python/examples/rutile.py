@@ -11,7 +11,7 @@ import scipy.constants as const
 import time
 
 import macromax
-from macromax.utils.array import calc_ranges
+from macromax.utils.array import Grid, calc_ranges
 from macromax.utils.display import complex2rgb, grid2extent
 from examples import log
 from macromax.parallel_ops_column import ParallelOperations
@@ -25,7 +25,6 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     # Medium settings
     #
     scale = 2
-    data_shape = np.array([128, 256]) * scale
     wavelength = 500e-9
     medium_refractive_index = 1.0  # 1.4758, 2.7114
     boundary_thickness = 2e-6
@@ -33,27 +32,26 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     layer_thickness = 2.5e-6 * scale
 
     k0 = 2 * np.pi / wavelength
-    sample_pitch = np.array([1, 1]) * wavelength / 15
-    ranges = calc_ranges(data_shape, sample_pitch)
+    grid = Grid(np.array([128, 256]) * scale, wavelength / 16)
     incident_angle = 0 * np.pi / 180
 
-    log.info('Calculating fields over a %0.1fum x %0.1fum area...' % tuple(data_shape * sample_pitch * 1e6))
+    log.info('Calculating fields over a %0.1fum x %0.1fum area...' % tuple(grid.extent * 1e6))
 
     def rot_Z(a): return np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
     incident_k = rot_Z(incident_angle) * k0 @ np.array([0, 1, 0])
     source_polarization = (rot_Z(incident_angle) @ np.array([1, 0, 1j]) / np.sqrt(2))[:, np.newaxis, np.newaxis]
-    current_density = np.exp(1j * (incident_k[0]*ranges[0][:, np.newaxis] + incident_k[1]*ranges[1][np.newaxis, :]))
+    current_density = np.exp(1j * (incident_k[0]*grid[0] + incident_k[1]*grid[1]))
     # Aperture the incoming beam
-    current_density = current_density * np.exp(-0.5*(np.abs(ranges[1][np.newaxis, :] - (ranges[1][0]+boundary_thickness))
+    current_density = current_density * np.exp(-0.5*(np.abs(grid[1] - (grid[1].ravel()[0]+boundary_thickness))
                                    * medium_refractive_index/ wavelength)**2)  # source position
-    current_density = current_density * np.exp(-0.5*((ranges[0][:, np.newaxis] - ranges[0][int(len(ranges[0])*2/4)])/(beam_diameter/2))**2)  # beam aperture
+    current_density = current_density * np.exp(-0.5*((grid[0] - grid[0].ravel()[int(len(grid[0])*2/4)])/(beam_diameter/2))**2)  # beam aperture
     current_density = current_density[np.newaxis, ...]
     if vectorial:
         current_density = current_density * source_polarization
 
     # Place randomly oriented TiO2 particles
     permittivity, orientation, grain_pos, grain_rad, grain_dir = \
-        generate_random_layer(data_shape, sample_pitch, layer_thickness=layer_thickness, grain_mean=1e-6,
+        generate_random_layer(grid, layer_thickness=layer_thickness, grain_mean=1e-6,
                               grain_std=0.2e-6, normal_dim=1,
                               birefringent=anisotropic, medium_refractive_index=medium_refractive_index,
                               scattering_layer=scattering_layer)
@@ -66,17 +64,17 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     #     plot_circle(plt, radius=r*1e6, origin=pos[::-1]*1e6)
     # epsilon_abs = np.abs(permittivity[0, 0]) - 1
     # rgb_image = colors.hsv_to_rgb(np.stack((np.mod(direction / (2*np.pi),1), 1+0*direction, epsilon_abs), axis=2))
-    # plt.imshow(rgb_image, zorder=0, extent=grid2extent(*ranges)*1e6)
+    # plt.imshow(rgb_image, zorder=0, extent=grid2extent(grid)*1e6)
     # plt.axis('equal')
     # plt.pause(0.01)
     # plt.show(block=True)
 
     # Add boundary
     dist_in_boundary = np.maximum(
-        np.maximum(0.0, -(ranges[0][:, np.newaxis] - (ranges[0][0]+boundary_thickness)))
-        + np.maximum(0.0, ranges[0][:, np.newaxis] - (ranges[0][-1]-boundary_thickness)),
-        np.maximum(0.0, -(ranges[1][np.newaxis, :] - (ranges[1][0]+boundary_thickness)))
-        + np.maximum(0.0, ranges[1][np.newaxis, :] - (ranges[1][-1]-boundary_thickness))
+        np.maximum(0.0, -(grid[0] - (grid[0].ravel()[0]+boundary_thickness)))
+        + np.maximum(0.0, grid[0] - (grid[0].ravel()[-1]-boundary_thickness)),
+        np.maximum(0.0, -(grid[1] - (grid[1].ravel()[0]+boundary_thickness)))
+        + np.maximum(0.0, grid[1] - (grid[1].ravel()[-1]-boundary_thickness))
     )
     weight_boundary = dist_in_boundary / boundary_thickness
     for dim_idx in range(permittivity.shape[0]):
@@ -95,17 +93,17 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
         ax.set_ylabel('x [$\mu$m]')
         ax.set_aspect('equal')
 
-    images = [axs[dim_idx][0].imshow(complex2rgb(np.zeros(data_shape), 1, inverted=True),
-                                     extent=grid2extent(*ranges) * 1e6)
+    images = [axs[dim_idx][0].imshow(complex2rgb(np.zeros(grid.shape), 1, inverted=True),
+                                     extent=grid2extent(grid) * 1e6)
               for dim_idx in range(3)]
 
     epsilon_abs = np.abs(permittivity[0, 0]) - 1
     # rgb_image = colors.hsv_to_rgb(np.stack((np.mod(direction / (2*np.pi), 1), 1+0*direction, epsilon_abs), axis=2))
     axs[0][1].imshow(complex2rgb(epsilon_abs * np.exp(1j * orientation), normalization=True, inverted=True),
-                     zorder=0, extent=grid2extent(*ranges) * 1e6)
+                     zorder=0, extent=grid2extent(grid) * 1e6)
     add_circles_to_axes(axs[0][1])
-    axs[1][1].imshow(complex2rgb(permittivity[0, 0], 1, inverted=True), extent=grid2extent(*ranges) * 1e6)
-    axs[2][1].imshow(complex2rgb(current_density[0], 1, inverted=True), extent=grid2extent(*ranges) * 1e6)
+    axs[1][1].imshow(complex2rgb(permittivity[0, 0], 1, inverted=True), extent=grid2extent(grid) * 1e6)
+    axs[2][1].imshow(complex2rgb(current_density[0], 1, inverted=True), extent=grid2extent(grid) * 1e6)
     axs[0][1].set_title('crystal axis orientation')
     axs[1][1].set_title('$\chi$')
     axs[2][1].set_title('source')
@@ -113,10 +111,10 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     # Display the medium without the boundaries
     for dim_idx in range(len(axs)):
         for col_idx in range(len(axs[dim_idx])):
-            axs[dim_idx][col_idx].set_xlim((ranges[1].flatten()[0] + boundary_thickness) * 1e6,
-                                           (ranges[1].flatten()[-1] - boundary_thickness) * 1e6)
-            axs[dim_idx][col_idx].set_ylim((ranges[0].flatten()[0] + boundary_thickness) * 1e6,
-                                           (ranges[0].flatten()[-1] - boundary_thickness) * 1e6)
+            axs[dim_idx][col_idx].set_xlim((grid[1].ravel()[0] + boundary_thickness) * 1e6,
+                                           (grid[1].ravel()[-1] - boundary_thickness) * 1e6)
+            axs[dim_idx][col_idx].set_ylim((grid[0].ravel()[0] + boundary_thickness) * 1e6,
+                                           (grid[0].ravel()[-1] - boundary_thickness) * 1e6)
             axs[dim_idx][col_idx].autoscale(False)
 
     #
@@ -154,7 +152,7 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
 
     # The actual work is done here:
     start_time = time.time()
-    solution = macromax.solve(ranges, vacuum_wavelength=wavelength, current_density=current_density,
+    solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
                               epsilon=permittivity, callback=update_function
                               )
     log.info("Calculation time: %0.3fs." % (time.time() - start_time))
@@ -170,12 +168,12 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     forward_poynting_vector = (0.5 / const.mu_0) * ParallelOperations.cross(forward_E, np.conj(forward_H)).real
     forward_poynting_vector = forward_poynting_vector[1, :]
     forward_poynting_vector_after_layer =\
-        forward_poynting_vector[(ranges[1] > layer_thickness / 2) & (ranges[1] < ranges[1][-1] - boundary_thickness)]
+        forward_poynting_vector[(grid[1] > layer_thickness / 2) & (grid[1] < grid[1].ravel()[-1] - boundary_thickness)]
     forward_poynting_vector_after_layer = forward_poynting_vector_after_layer[int(len(forward_poynting_vector_after_layer)/2)]
     log.info('Forward Poynting vector: %g' % forward_poynting_vector_after_layer)
     fig_S = plt.figure(frameon=False, figsize=(12, 9))
     ax_S = fig_S.add_subplot(111)
-    ax_S.plot(ranges[1] * 1e6, forward_poynting_vector)
+    ax_S.plot(grid[1] * 1e6, forward_poynting_vector)
     ax_S.set_xlabel(r'$z [\mu m]$')
     ax_S.set_ylabel(r'$S_z$')
 
@@ -199,7 +197,7 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     return times, residues, forward_poynting_vector
 
 
-def generate_random_layer(data_shape, sample_pitch, layer_thickness, grain_mean, grain_std=0.0, normal_dim=0,
+def generate_random_layer(grid, layer_thickness, grain_mean, grain_std=0.0, normal_dim=0,
                           birefringent=True, medium_refractive_index=1.0, scattering_layer=True):
     rng = np.random.RandomState()
     rng.seed(0)  # Make sure that this is exactly reproducible
@@ -209,12 +207,11 @@ def generate_random_layer(data_shape, sample_pitch, layer_thickness, grain_mean,
     else:
         log.info('Generating layer of randomly placed and sized particles...')
 
-    volume_dims = data_shape * sample_pitch
+    volume_dims = grid.extent
     layer_dims = np.array([*volume_dims[:normal_dim], layer_thickness, *volume_dims[normal_dim+1:]])
 
-    nb_dims = data_shape.size
     # Choose a set of random positions for the nuclei
-    grain_position = np.zeros([0, nb_dims])
+    grain_position = np.zeros([0, grid.ndim])
     grain_radius = np.zeros(0)
     nb_pos = 0
     failures = 0
@@ -233,7 +230,7 @@ def generate_random_layer(data_shape, sample_pitch, layer_thickness, grain_mean,
     while failures < 10 and scattering_layer:
         nb_pos += 1
         # Insert a new random grain
-        grain_position = np.concatenate((grain_position, rng.uniform(-0.5, 0.5, [1, nb_dims]) * layer_dims))
+        grain_position = np.concatenate((grain_position, rng.uniform(-0.5, 0.5, [1, grid.ndim]) * layer_dims))
         grain_radius = np.concatenate((grain_radius, rng.normal(grain_mean/2, grain_std/2, 1)))
 
         energy, grain_position = relax(grain_position, grain_radius)
@@ -271,11 +268,11 @@ def generate_random_layer(data_shape, sample_pitch, layer_thickness, grain_mean,
 
     # Place a matrix at every point in the simulation volume
     log.debug('Rasterizing permittivity tensor...')
-    epsilon = np.tile(medium_permittivity * np.eye(nb_pol, dtype=np.complex128)[:, :, np.newaxis, np.newaxis], (1, 1, *data_shape))
-    direction = np.zeros(data_shape)
-    x_range, y_range = calc_ranges(data_shape, sample_pitch)
+    epsilon = np.tile(medium_permittivity * np.eye(nb_pol, dtype=np.complex128)[:, :, np.newaxis, np.newaxis], (1, 1, *grid.shape))
+    direction = np.zeros(grid.shape)
+    x_range, y_range = grid
     for pos_idx, pos in enumerate(grain_position):
-        R2 = (x_range[:, np.newaxis] - pos[0]) ** 2 + (y_range[np.newaxis, :] - pos[1]) ** 2
+        R2 = (grid[0] - pos[0]) ** 2 + (grid[1] - pos[1]) ** 2
         inside = np.where(R2 < (grain_radius[pos_idx]**2))
         for row_idx in range(nb_pol):
             for col_idx in range(nb_pol):

@@ -1,79 +1,85 @@
+from __future__ import annotations
+
 import numpy as np
 import scipy.constants as const
 import scipy.optimize
+from typing import Union, Sequence, Callable
 
 from .parallel_ops_column import ParallelOperations
-from . import utils
 
 from . import log
-from .utils.array import Grid, calc_ranges
+from .utils.array import Grid
 
 
-def solve(grid=None, sample_pitch=None,
-          wavenumber=None, angular_frequency=None, vacuum_wavelength=None,
-          current_density=None, source_distribution=None, epsilon=None, xi=0.0, zeta=0.0, mu=1.0,
-          initial_field=0.0, callback=lambda s: s.iteration < 1e4 and s.residue > 1e-4):
+def solve(grid: Union[Grid, Sequence, np.ndarray],
+          wavenumber: float=None, angular_frequency: float=None, vacuum_wavelength: float=None,
+          current_density: Union[float, Sequence, np.ndarray]=None,
+          source_distribution: Union[float, Sequence, np.ndarray]=None,
+          epsilon: Union[float, Sequence, np.ndarray]=None, xi: Union[float, Sequence, np.ndarray]=0.0,
+          zeta: Union[float, Sequence, np.ndarray]=0.0, mu: Union[float, Sequence, np.ndarray]=1.0,
+          initial_field: Union[float, Sequence, np.ndarray]=0.0, dtype=None,
+          callback: Callable=lambda s: s.iteration < 1e4 and s.residue > 1e-4):
     """
-        Function to find a solution for Maxwell's equations in a media specified by the epsilon, xi,
-        zeta, and mu distributions in the presence of a current source.
+    Function to find a solution for Maxwell's equations in a media specified by the epsilon, xi,
+    zeta, and mu distributions in the presence of a current source.
 
-        :param grid: a Grid object or an array of vectors with uniformly increasing values that indicate the positions
-        in a plaid grid at which to calculate the solution at. In the case of 1D, a simple vector may be provided.
-        The length of the ranges determines the dataSize, which must match the dimensions of (the output of)
-        source_distribution, epsilon, xi, zeta, mu, and the optional start E, unless these are singletons.
-        This argument may be replaced by sample_pitch.
-        :param sample_pitch: Optional, replaces ranges by zero-centered ranges with the given sample pitch.
-        :param data_shape: Only required if ranges is not specified and all distributions are specified as functions.
-        :param wavenumber: the wavenumber in vacuum = 2 pi / vacuum_wavelength.
-        The wavelength in the same units as used for the other inputs/outputs.
-        :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
-        :param vacuum_wavelength: alternative argument to the wavenumber = 2 pi / vacuum_wavelength
-        :param current_density: (optional, instead of source_distribution) An array or function that returns
-        the (vectorial) current density input distribution, J. The current density has units of :math:`A m^-2`.
-        :param source_distribution: (optional, instead of current_density) An array or function that returns
-        the (vectorial) source input wave distribution. The source values relate to the current density, J,
-        as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
-        :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
-        More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
-        not rely on the vacuum permeability constant, :math:`mu_0`.
-        :param epsilon: an array or function that returns the (tensor) epsilon that represents the permittivity at
-        the points indicated by the ranges specified as its input arguments.
-        :param xi: an array or function that returns the (tensor) xi for bi-(an)isotropy at the
-        points indicated by the ranges specified as its input arguments.
-        :param zeta: an array or function that returns the (tensor) zeta for bi-(an)isotropy at the
-        points indicated by the ranges specified as its input arguments.
-        :param mu: an array or function that returns the (tensor) permeability at the
-        points indicated by the ranges specified as its input arguments.
-        :param initial_field: optional start value for the E-field distribution (default: all zero E)
-        :param callback: optional function that will be called with as argument this solver.
-        This function can be used to check and display progress. It must return a boolean value of True to
-        indicate that further iterations are required.
-        :return: The Solution object that has the E and H fields, as well as iteration information.
-        """
-    return Solution(grid=grid, sample_pitch=sample_pitch, data_shape=None,
-                    wavenumber=wavenumber, angular_frequency=angular_frequency,
-                    vacuum_wavelength=vacuum_wavelength,
+    :param grid: A Grid object or a Sequence of vectors with uniformly increasing values that indicate the positions
+    in a plaid grid of sample points for the material and solution. In the one-dimensional case, a simple increasing
+    Sequence of uniformly-spaced numbers may be provided as an alternative. The length of the ranges determines the
+    data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
+    specified as ndarrays.
+    :param wavenumber: the wavenumber in vacuum = 2 pi / vacuum_wavelength.
+    The wavelength in the same units as used for the other inputs/outputs.
+    :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
+    :param vacuum_wavelength: alternative argument to the wavenumber = 2 pi / vacuum_wavelength
+    :param current_density: (optional, instead of source_distribution) An array or function that returns
+    the (vectorial) current density input distribution, J. The current density has units of :math:`A m^-2`.
+    :param source_distribution: (optional, instead of current_density) An array or function that returns
+    the (vectorial) source input wave distribution. The source values relate to the current density, J,
+    as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
+    :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
+    More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
+    not rely on the vacuum permeability constant, :math:`mu_0`.
+    :param epsilon: an array or function that returns the (tensor) epsilon that represents the permittivity at
+    the points indicated by the ranges specified as its input arguments.
+    :param xi: an array or function that returns the (tensor) xi for bi-(an)isotropy at the
+    points indicated by the ranges specified as its input arguments.
+    :param zeta: an array or function that returns the (tensor) zeta for bi-(an)isotropy at the
+    points indicated by the ranges specified as its input arguments.
+    :param mu: an array or function that returns the (tensor) permeability at the
+    points indicated by the ranges specified as its input arguments.
+    :param initial_field: optional start value for the E-field distribution (default: all zero E)
+    :param dtype: optional numpy datatype for the internal operations and results. This must be a complex number type
+    as numpy.complex128 or np.complex64.
+    :param callback: optional function that will be called with as argument this solver.
+    This function can be used to check and display progress. It must return a boolean value of True to
+    indicate that further iterations are required.
+    :return: The Solution object that has the E and H fields, as well as iteration information.
+    """
+    return Solution(grid=grid,
+                    wavenumber=wavenumber, angular_frequency=angular_frequency, vacuum_wavelength=vacuum_wavelength,
                     current_density=current_density, source_distribution=source_distribution,
                     epsilon=epsilon, xi=xi, zeta=zeta, mu=mu,
                     initial_field=initial_field).solve(callback)
 
 
 class Solution(object):
-    def __init__(self, grid=None, sample_pitch=None, data_shape=None,
-                 wavenumber=None, angular_frequency=None, vacuum_wavelength=None,
-                 current_density=None, source_distribution=None,
-                 epsilon=None, xi=0.0, zeta=0.0, mu=1.0, initial_field=0.0):
+    def __init__(self, grid: Union[Grid, Sequence, np.ndarray],
+                 wavenumber: float=None, angular_frequency: float=None, vacuum_wavelength: float=None,
+                 current_density: Union[float, Sequence, np.ndarray]=None,
+                 source_distribution: Union[float, Sequence, np.ndarray]=None,
+                 epsilon: Union[float, Sequence, np.ndarray]=None, xi: Union[float, Sequence, np.ndarray]=0.0,
+                 zeta: Union[float, Sequence, np.ndarray]=0.0, mu: Union[float, Sequence, np.ndarray]=1.0,
+                 initial_field: Union[float, Sequence, np.ndarray]=0.0, dtype=None):
         """
         Class a solution that can be further iterated towards a solution for Maxwell's equations in a media specified by
         the epsilon, xi, zeta, and mu distributions.
 
-        :param grid: A grid object or an array of vectors with uniformly increasing values that indicate the positions
-        in a plaid grid at which to calculate the solution at. In the case of 1D, a simple vector may be provided.
-        The length of the ranges determines the dataSize, which must match the dimensions of (the output of)
-        source_distribution, epsilon, xi, zeta, mu, and the optional start E, unless these are singletons.
-        This argument may be replaced by sample_pitch.
-        :param sample_pitch: Optional, replaces ranges by zero-centered ranges with the given sample pitch.
-        :param data_shape: Only required if ranges is not specified and all distributions are specified as functions.
+        :param grid: A Grid object or a Sequence of vectors with uniformly increasing values that indicate the positions
+        in a plaid grid of sample points for the material and solution. In the one-dimensional case, a simple increasing
+        Sequence of uniformly-spaced numbers may be provided as an alternative. The length of the ranges determines the
+        data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
+        specified as ndarrays.
         :param wavenumber: the wavenumber in vacuum = 2pi / vacuum_wavelength.
         The wavelength in the same units as used for the other inputs/outputs.
         :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
@@ -86,36 +92,21 @@ class Solution(object):
         :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
         More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
         not rely on the vacuum permeability constant, :math:`mu_0`.
-        :param epsilon: an array or function that returns the (tensor) epsilon that represents the permittivity at
-        the points indicated by the ranges specified as its input arguments.
-        :param xi: an array or function that returns the (tensor) xi for bi-(an)isotropy at the
-        points indicated by the ranges specified as its input arguments.
-        :param zeta: an array or function that returns the (tensor) zeta for bi-(an)isotropy at the
-        points indicated by the ranges specified as its input arguments.
-        :param mu: an array or function that returns the (tensor) permeability at the
-        points indicated by the ranges specified as its input arguments.
+        :param epsilon: an array or function that returns the (tensor) epsilon that represents the permittivity at the
+        points indicated by the `grid` input argument.
+        :param xi: an array or function that returns the (tensor) xi for bi-(an)isotropy at the points indicated by
+        the `grid` input argument.
+        :param zeta: an array or function that returns the (tensor) zeta for bi-(an)isotropy at the points indicated
+        by the `grid` input argument.
+        :param mu: an array or function that returns the (tensor) permeability at the points indicated by the `grid`
+        input argument.
         :param initial_field: optional start value for the E-field distribution (default: all zero E)
+        :param dtype: optional numpy datatype for the internal operations and results. This must be a complex number type
+        as numpy.complex128 or np.complex64.
         """
         self.__iteration = 0
 
-        if grid is None:
-            if data_shape is None:
-                # Try to guess the data_shape from other input arrays
-                if not callable(epsilon):
-                    data_shape = np.asarray(epsilon).shape[2:]
-                elif not callable(source_distribution):
-                    data_shape = np.asarray(source_distribution).shape[2:]
-                elif not callable(mu):
-                    data_shape = np.asarray(mu).shape[2:]
-                elif not callable(xi):
-                    data_shape = np.asarray(xi).shape[2:]
-                elif not callable(zeta):
-                    data_shape = np.asarray(zeta).shape[2:]
-                else:
-                    log.error('If ranges and data_shape are not specified, the medium must be an ndarray, not a function.')
-
-            grid = calc_ranges(data_shape, sample_pitch)
-        elif not isinstance(grid, Grid):
+        if not isinstance(grid, Grid):
             if np.isscalar(grid[0]):
                 grid = [grid]  # This must be a one dimensional problem, the user forgot to specify the range in a list
             grid = Grid.from_ranges(*grid)
@@ -170,7 +161,7 @@ class Solution(object):
         self.__PO = ParallelOperations(nb_pol_dims, self.grid.shape, self.grid.step * self.wavenumber)
 
         # The following requires the self.__PO to be defined
-        self.E = initial_field
+        self.E = np.asarray(initial_field, dtype=dtype)
 
         # Before the first iteration, the pre-conditioner must be determined and applied to the source and medium
         self.__prepare_preconditioner(
@@ -465,17 +456,6 @@ class Solution(object):
         return alpha.real + 1.0j * susceptibility_offset
 
     @property
-    def ranges(self):
-        """
-        The sample positions of the plaid sampling grid.
-        This may be useful for displaying result axes.
-
-        :return: A vector of monotonously increasing vectors, one per dimension,
-            indicating the sampling points for each dimension.
-        """
-        return self.__grid
-
-    @property
     def grid(self):
         """
         The sample positions of the plaid sampling grid.
@@ -488,33 +468,6 @@ class Solution(object):
     @property
     def dtype(self):
         return self.__field_mat.dtype
-
-    @property
-    def shape(self):
-        """
-        The shape of the sample volume in pixels.
-
-        :return: A vector with 1, 2, or 3 elements, representing the number of samples per dimension.
-        """
-        return self.__grid.shape
-
-    @property
-    def sample_pitch(self):
-        """
-        The distance between voxels per dimension (in m x m x m).
-
-        :return: A vector with 1, 2, or 3 elements, representing the physical distance between samples.
-        """
-        return self.__grid.step
-
-    @property
-    def volume(self):
-        """
-        The physical dimensions of the sample volume (in m x m x m).
-
-        :return: A vector with 1, 2, or 3 elements, representing the physical size of the sample volume.
-        """
-        return self.grid.extent
 
     @property
     def wavenumber(self):
@@ -583,7 +536,7 @@ class Solution(object):
         :param E: The new field. A vector array with the first dimension containing :math:`E_x, E_y, and E_z`,
             while the following dimensions are the spatial dimensions.
         """
-        self.__field_mat = self.__PO.to_simple_vector(E+0.0j) * (self.wavenumber**2)
+        self.__field_mat = self.__PO.to_simple_vector(E + 0.0j) * (self.wavenumber**2)
 
     @property
     def B(self):
@@ -820,7 +773,7 @@ class Solution(object):
 
             yield self
 
-    def solve(self, callback=None):
+    def solve(self, callback: Callable=None) -> Solution:
         """
         Runs the algorithm until the convergence criterion is met or until the maximum number of iterations is reached.
 

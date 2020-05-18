@@ -2,18 +2,15 @@ import unittest
 import numpy.testing as npt
 
 from macromax.solver import Solution, solve
-from macromax.utils.array import Grid, calc_ranges
+from macromax.utils.array import Grid
 import numpy as np
 import scipy.constants as const
 
 
 class TestSolution(unittest.TestCase):
     def setUp(self):
-        self.data_shape = np.array([50, 100, 200])
-        self.sample_pitch = np.array([1, 1, 1])
-        self.ranges = calc_ranges(self.data_shape, self.sample_pitch)
-        self.grid = Grid(self.data_shape, self.sample_pitch)
-        current_density = np.zeros([3, 1, *self.data_shape], dtype=np.complex64)
+        self.grid = Grid([50, 100, 200], 1)
+        current_density = np.zeros([3, 1, *self.grid.shape], dtype=np.complex64)
         thickness = 5
         current_density[:, 0, 2*thickness, 2*thickness, 2*thickness] = np.array([0.0, 1.0, 0.0])
         dist_in_boundary = np.maximum(0.0,
@@ -23,24 +20,11 @@ class TestSolution(unittest.TestCase):
         permittivity = np.eye(3)[:, :, np.newaxis, np.newaxis, np.newaxis] \
                        * (1.0 + 0.8j * dist_in_boundary[:, np.newaxis, np.newaxis])
         self.wavelength = 4.0
-        self.SOL = Solution(self.ranges, vacuum_wavelength=self.wavelength, epsilon=permittivity,
+        self.SOL = Solution(self.grid, vacuum_wavelength=self.wavelength, epsilon=permittivity,
                             current_density=current_density)
-
-    def test_ranges(self):
-        for (rng_sol, rng) in zip(self.SOL.ranges, self.ranges):
-            npt.assert_almost_equal(rng_sol.ravel(), rng)
 
     def test_grid(self):
         npt.assert_equal(self.SOL.grid == self.grid, True, err_msg='grid not set correctly')
-
-    def test_shape(self):
-        npt.assert_almost_equal(self.SOL.shape, self.data_shape)
-
-    def test_sample_pitch(self):
-        npt.assert_almost_equal(self.SOL.sample_pitch, self.sample_pitch)
-
-    def test_volume(self):
-        npt.assert_almost_equal(self.SOL.volume, self.sample_pitch * self.data_shape)
 
     def test_wavenumber(self):
         npt.assert_almost_equal(self.SOL.wavenumber, 2*np.pi/self.wavelength)

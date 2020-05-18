@@ -8,7 +8,7 @@ import numpy as np
 import time
 
 import macromax
-from macromax.utils.array import vector_to_axis, calc_ranges, calc_frequency_ranges
+from macromax.utils.array import Grid
 from examples import log
 
 
@@ -21,11 +21,10 @@ def show_polarizer(center_polarizer=True):
     sample_pitch = wavelength / 8
     boundary_thickness = 5e-6
 
-    x_range = calc_ranges(nb_samples, sample_pitch, np.floor(1 + nb_samples / 2) * sample_pitch - boundary_thickness)
+    x_range = np.arange(nb_samples) * sample_pitch - boundary_thickness
 
     # define the source
-    current_density = (np.abs(x_range) < sample_pitch/4)  # point source at 0
-    current_density = source_polarization * current_density[np.newaxis, :]
+    current_density = source_polarization * (np.abs(x_range) < sample_pitch/4)  # point source at 0
 
     # define the medium
     eps_pol = np.eye(3, dtype=np.complex64)
@@ -45,13 +44,6 @@ def show_polarizer(center_polarizer=True):
     for dim_idx in range(3):
         permittivity[dim_idx, dim_idx, ...] += (0.8j * np.maximum(0.0, dist_in_boundary))  # absorbing boundary
 
-    # # Impedance matched everywhere
-    # permeability = 1.0
-    # # Non-impedance matched glass
-    # permeability = np.ones((1, 1, len(x_range)), dtype=np.complex64)
-    # permeability[:, :, (x_range < -1e-6) | (x_range > 26e-6)] = np.exp(0.2j)  # absorbing boundary
-    # permeability[:, :, (x_range >= 10e-6) & (x_range < 20e-6)] = 1.0
-    # permeability = bandpass_and_remove_gain(permeability, 2, x_range)
     # No magnetic component
     permeability = 1.0
 
@@ -69,7 +61,7 @@ def show_polarizer(center_polarizer=True):
         field_ax.set_ylabel("$I_" + 'xyz'[plot_idx] + "$, $E_" + 'xyz'[plot_idx] + "$  [a.u.]")
 
         ax_m = axs[plot_idx][1]
-        ax_m.plot(x_range[-1] * 2e6, 0, color=[0, 0, 0], label='I')
+        ax_m.plot(x_range[-1] * 2e6, 0, color=[0, 0, 0], label='I')  # Add a dummy line outside the FOV for the legend
         ax_m.plot(x_range[-1] * 2e6, 0, color=[0, 0.7, 0], label='$E_{real}$')
         ax_m.plot(x_range[-1] * 2e6, 0, color=[1, 0, 0], label='$E_{imag}$')
         ax_m.plot(x_range * 1e6, permittivity[plot_idx, plot_idx].real, color=[0, 0, 1], label='$\epsilon_{real}$')
@@ -126,31 +118,6 @@ def show_polarizer(center_polarizer=True):
     log.info('Displaying final result.')
     display(solution)
     plt.show()
-
-
-def bandpass_and_remove_gain(v, dims, ranges, periods):
-    """
-    Helper function to smoothen inputs to the scale of the wavelength
-    :param v: the input array.
-    :param dims: the dimension to smoothen
-    :param ranges: the coordinate vectors of the dimensions to smoothen
-    :param periods: the standard deviation(s).
-    :return: The smoothened array.
-    """
-    if np.isscalar(dims):
-        dims = [dims]
-    if np.isscalar(ranges[0]):
-        ranges = [ranges]
-    if np.isscalar(periods):
-        periods = [periods] * len(ranges)
-    v_ft = np.fft.fftn(v, axes=dims)
-    for dim_idx in range(v.ndim - 2):
-        f_range = calc_frequency_ranges(ranges[dim_idx])[0]
-        filt = np.exp(-0.5*(np.abs(f_range) * periods[dim_idx])**2)
-        v_ft *= vector_to_axis(filt, dims[dim_idx], v_ft.ndim)
-    v = np.fft.ifftn(v_ft, axes=dims)
-    v[v.imag < 0] = v.real[v.imag < 0]  # remove and gain (may be introduced by rounding errors)
-    return v
 
 
 if __name__ == "__main__":

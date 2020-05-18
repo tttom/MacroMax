@@ -9,7 +9,7 @@ import numpy as np
 import time
 
 import macromax
-from macromax.utils.array import vector_to_axis, calc_frequency_ranges
+from macromax.utils.array import Grid
 from examples import log
 
 
@@ -139,13 +139,12 @@ def bandpass_and_remove_gain(v, dims, ranges, periods):
         dims = [dims]
     if np.isscalar(ranges[0]):
         ranges = [ranges]
+    grid = Grid.from_ranges(*ranges)
     if np.isscalar(periods):
         periods = [periods] * len(ranges)
     v_ft = np.fft.fftn(v, axes=dims)
     for dim_idx in range(v.ndim - 2):
-        f_range = calc_frequency_ranges(ranges[dim_idx])[0]
-        lowpass_filter = np.exp(-0.5*(np.abs(f_range) * periods[dim_idx])**2)
-        v_ft *= vector_to_axis(lowpass_filter, dims[dim_idx], v_ft.ndim)
+        v_ft *= np.exp(-0.5*(np.abs(grid.f[dim_idx]) * periods[dim_idx])**2)
     v = np.fft.ifftn(v_ft, axes=dims)
     v[v.imag < 0] = v.real[v.imag < 0]  # remove and gain (may be introduced by rounding errors)
     return v
