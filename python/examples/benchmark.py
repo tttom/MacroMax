@@ -7,7 +7,7 @@ import time
 
 import macromax
 from macromax import log
-from macromax.utils.array import calc_ranges
+from macromax.utils.array import Grid
 
 
 def calculate(dtype=np.complex128, vectorial=False):
@@ -17,9 +17,7 @@ def calculate(dtype=np.complex128, vectorial=False):
     k0 = 2 * np.pi / wavelength
     data_shape = np.array([64, 128])
     sample_pitch = np.ones(2) * wavelength / 4
-    grid = calc_ranges(data_shape, sample_pitch)
-    grid[0] = grid[0][:, np.newaxis]
-    grid[1] = grid[1][np.newaxis, :]
+    grid = Grid(data_shape, sample_pitch)
 
     current_density = np.exp(1j * k0 * grid[1])  # propagate along axis 1
     # Aperture the incoming beam

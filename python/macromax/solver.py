@@ -387,7 +387,7 @@ class Solution(object):
 
         # Now create the Green function operator
         # Calculate the convolution filter just once
-        g_scalar_ft = 1.0 / (self.__PO.calc_K2() - self.__alpha)
+        g_scalar_ft = 1.0 / (self.__PO.calc_k2() - self.__alpha)
         if self.__PO.vectorial:
             def g_ft_op(FFt):  # No need to represent the full matrix in memory
                 PiL_FFt = self.__PO.longitudinal_projection_ft(FFt)  # Creates K^2 on-the-fly and still memory intensive

@@ -1,54 +1,12 @@
 import unittest
 import numpy as np
 import numpy.testing as npt
-import numpy.fft as ft
 
-from macromax.utils.array import word_align, vector_to_axis, calc_frequency_ranges, add_dims, pad_to_length, extend_to_length
+from macromax.utils.array import word_align, vector_to_axis
 from macromax.utils.display import complex2rgb, grid2extent, hsv2rgb
 
 
 class TestSolution(unittest.TestCase):
-    def test_calc_frequency_ranges(self):
-        xf_range, = calc_frequency_ranges(np.arange(10), centered=True)
-        yf_range, = calc_frequency_ranges(np.arange(-3, 10 - 3), centered=True)
-        zf_range, = calc_frequency_ranges(np.arange(5), centered=True)
-        npt.assert_almost_equal(np.arange(-0.5, 0.5, 0.1), xf_range)
-        npt.assert_almost_equal(np.arange(-0.5, 0.5, 0.1), yf_range)
-        npt.assert_almost_equal(np.array([-0.4, -0.2, 0.0, 0.2, 0.4]), zf_range)
-
-        xf_range, = calc_frequency_ranges(np.arange(10))
-        yf_range, = calc_frequency_ranges(np.arange(-3, 10 - 3))
-        npt.assert_almost_equal(ft.ifftshift(np.arange(-0.5, 0.5, 0.1)), xf_range)
-        npt.assert_almost_equal(np.array([0.0, 0.1, 0.2, 0.3, 0.4, -0.5, -0.4, -0.3, -0.2, -0.1]), yf_range)
-
-        xf_range, = calc_frequency_ranges(np.arange(0, 1, 0.1), centered=True)
-        yf_range, = calc_frequency_ranges(np.arange(-0.3, 1 - 0.3, 0.1), centered=True)
-        npt.assert_almost_equal(np.arange(-5.0, 5.0), xf_range)
-        npt.assert_almost_equal(np.arange(-5.0, 5.0), yf_range)
-
-        xf_range, = calc_frequency_ranges(np.arange(0, 1, 0.1))
-        yf_range, = calc_frequency_ranges(np.arange(-0.3, 1 - 0.3, 0.1))
-        npt.assert_almost_equal(ft.ifftshift(np.arange(-5.0, 5.0)), xf_range)
-        npt.assert_almost_equal(np.array([0.0, 1, 2, 3, 4, -5, -4, -3, -2, -1]), yf_range)
-
-        xf_range, = calc_frequency_ranges(range(-3, 10 - 3), centered=True)
-        npt.assert_almost_equal(np.arange(-0.5, 0.5, 0.1), xf_range)
-
-        xf_range, = calc_frequency_ranges([1, 2, 3])
-        npt.assert_almost_equal([0, 1/3, -1/3], xf_range)
-
-        xf_range, = calc_frequency_ranges(range(0))
-        npt.assert_almost_equal([], xf_range)
-
-        xf_range, = calc_frequency_ranges(range(1), centered=True)
-        yf_range, = calc_frequency_ranges(range(4, 5), centered=True)
-        npt.assert_almost_equal(np.arange(1.0), xf_range)
-        npt.assert_almost_equal(np.arange(1.0), yf_range)
-
-        xf_range, yf_range = calc_frequency_ranges(range(5, 10+5, 1), np.arange(-0.5, 0.5, 0.1), centered=True)
-        npt.assert_almost_equal(np.arange(-0.5, 0.5, 0.1), xf_range)
-        npt.assert_almost_equal(np.arange(-5.0, 5.0), yf_range)
-
     def test_vector_to_axis(self):
         a = vector_to_axis(np.array([3, 1, 4]), axis=0, ndim=1)
         npt.assert_almost_equal(a, np.array([3, 1, 4]))
@@ -61,60 +19,6 @@ class TestSolution(unittest.TestCase):
 
         a = vector_to_axis(np.array(3), axis=0, ndim=1)
         npt.assert_almost_equal(a, np.array([3]))
-
-    def test_add_dims(self):
-        a = add_dims(np.array([3, 1, 4]), 1, 2)
-        npt.assert_almost_equal(a, np.array([[3, 1, 4]]))
-
-        a = add_dims(np.array([3, 1, 4]), 0, 1)
-        npt.assert_almost_equal(a, np.array([3, 1, 4]))
-
-        a = add_dims(np.array([3, 1, 4]), 0, 2)
-        npt.assert_almost_equal(a, np.array([[3], [1], [4]]))
-
-    def test_pad_to_length(self):
-        a = pad_to_length(np.array([3, 1, 4]), 5)
-        npt.assert_almost_equal(a, np.array([3, 1, 4, 0, 0]))
-
-        a = pad_to_length(np.array([3, 1, 4]), 6, padding_value=5)
-        npt.assert_almost_equal(a, np.array([3, 1, 4, 5, 5, 5]))
-
-        a = pad_to_length(np.array([3, 1, 4]), 3)
-        npt.assert_almost_equal(a, np.array([3, 1, 4]))
-
-        a = pad_to_length(np.array([np.pi]), 3)
-        npt.assert_almost_equal(a, np.array([np.pi, 0, 0]))
-
-        a = pad_to_length([np.pi], 3)
-        npt.assert_almost_equal(a, np.array([np.pi, 0, 0]))
-
-        a = pad_to_length(np.pi, 3)
-        npt.assert_almost_equal(a, np.array([np.pi, 0, 0]))
-
-        a = pad_to_length(range(3), 5)
-        npt.assert_almost_equal(a, np.array([0, 1, 2, 0, 0]))
-
-    def test_extend_to_length(self):
-        a = extend_to_length(np.array([3, 1, 4]), 5)
-        npt.assert_almost_equal(a, np.array([3, 1, 4, 4, 4]), err_msg='extending by two failed')
-
-        a = extend_to_length([3, 1, 4], 5)
-        npt.assert_almost_equal(a, np.array([3, 1, 4, 4, 4]), err_msg='extending a list by two failed')
-
-        a = extend_to_length(np.array([3, 1, 4]), 3)
-        npt.assert_almost_equal(a, np.array([3, 1, 4]), err_msg='extending by zero failed')
-
-        a = extend_to_length(np.array([np.pi]), 3)
-        npt.assert_almost_equal(a, np.array([np.pi, np.pi, np.pi]), err_msg='extending singleton failed')
-
-        a = extend_to_length([np.pi], 3)
-        npt.assert_almost_equal(a, np.array([np.pi, np.pi, np.pi]), err_msg='extending singleton list failed')
-
-        a = extend_to_length(np.pi, 3)
-        npt.assert_almost_equal(a, np.array([np.pi, np.pi, np.pi]), err_msg='extending scalar to vector failed')
-
-        a = extend_to_length(range(3), 5)
-        npt.assert_almost_equal(a, np.array([0, 1, 2, 2, 2]), err_msg='extending Python range failed')
 
     def test_complex2rgb(self):
         c = np.array([[1, np.exp(2j*np.pi/3)], [np.exp(-2j*np.pi/3), -1]], dtype=np.complex128)

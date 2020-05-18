@@ -11,7 +11,7 @@ import scipy.constants as const
 import time
 
 import macromax
-from macromax.utils.array import Grid, calc_ranges
+from macromax.utils.array import Grid
 from macromax.utils.display import complex2rgb, grid2extent
 from examples import log
 from macromax.parallel_ops_column import ParallelOperations

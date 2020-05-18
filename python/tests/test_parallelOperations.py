@@ -195,7 +195,7 @@ class TestParallelOperations(unittest.TestCase):
         npt.assert_almost_equal(B, C)
 
     def test_calc_K2(self):
-        A = self.PO.calc_K2()
+        A = self.PO.calc_k2()
         npt.assert_almost_equal(A[0, 0, 1, 1, 1] / ((2*np.pi/(self.sample_pitch * self.wavenumber)[0])**2),
                                 np.sum(1.0 / (self.shape ** 2)))
 

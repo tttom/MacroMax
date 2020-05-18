@@ -1,6 +1,6 @@
 from . import log
 
-from .utils.array import vector_to_axis, word_align, calc_ranges, calc_frequency_ranges, add_dims
+from .utils.array import vector_to_axis, word_align, Grid
 
 import numpy as np
 from numpy.lib import scimath as sm
@@ -643,7 +643,7 @@ class ParallelOperations:
 
         return result[:, np.newaxis, ...]  # const.piLF <- (K x K)/K**2
 
-    def calc_K2(self, data_shape=None):
+    def calc_k2(self, data_shape=None):
         """
         Helper def for calculation of the Fourier transform of the Green def
 
@@ -652,14 +652,12 @@ class ParallelOperations:
         """
         if data_shape is None:
             data_shape = self.data_shape
-        K2 = 0.0
-        for (dim_idx, dim_len) in enumerate(data_shape):
-            k_sub_range = 2.0 * const.pi * \
-                          calc_frequency_ranges(*calc_ranges([dim_len],
-                                                                         [self.sample_pitch[dim_idx]]))[0]
-            K2 = np.expand_dims(K2, axis=dim_idx) + add_dims(k_sub_range ** 2, dim_idx, dim_idx)
+        k2 = 0.0
+        k_grid = Grid(data_shape, self.sample_pitch).k
+        for axis in range(k_grid.ndim):
+            k2 = k2 + k_grid[axis]**2
 
-        return K2[np.newaxis, np.newaxis, ...]
+        return k2[np.newaxis, np.newaxis, ...]
 
     def mat3_eig(self, A):
         """
