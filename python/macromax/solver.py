@@ -130,9 +130,9 @@ class Solution(object):
             log.critical(message)
             raise Exception(message)
 
-        self.__last_update_norm = np.inf
+        self.__previous_update_norm = np.inf
 
-        self.__field_mat = None
+        self.__field_array = None
         self.__chi_op = None
         self.__gamma_op = None
 
@@ -539,7 +539,7 @@ class Solution(object):
         :return: A vector array with the first dimension containing Ex, Ey, and Ez,
             while the following dimensions are the spatial dimensions.
         """
-        return self.__field_mat[:, 0, ...] / (self.wavenumber**2)
+        return self.__field_array[:, 0, ...] / (self.wavenumber ** 2)
 
     @E.setter
     def E(self, E):
@@ -549,7 +549,7 @@ class Solution(object):
         :param E: The new field. A vector array with the first dimension containing :math:`E_x, E_y, and E_z`,
             while the following dimensions are the spatial dimensions.
         """
-        self.__field_mat = self.__PO.to_simple_vector(E + 0.0j) * (self.wavenumber**2)
+        self.__field_array = self.__PO.to_simple_vector(E + 0.0j) * (self.wavenumber ** 2)
 
     @property
     def B(self):
@@ -717,13 +717,13 @@ class Solution(object):
         self.__iteration = it
 
     @property
-    def last_update_norm(self):
+    def previous_update_norm(self):
         """
         The L2-norm of the last update, the difference between current and previous E-field.
 
         :return: A positive scalar indicating the norm of the last update.
         """
-        return self.__last_update_norm / (self.wavenumber**2)
+        return self.__previous_update_norm / (self.wavenumber ** 2)
 
     @property
     def residue(self):
@@ -734,7 +734,7 @@ class Solution(object):
             normalized to the norm of the current E.
         """
         if self.__residue is None:
-            self.__residue = self.__last_update_norm / np.linalg.norm(self.__field_mat)
+            self.__residue = self.__previous_update_norm / np.linalg.norm(self.__field_array)
 
         return self.__residue
 
@@ -746,35 +746,34 @@ class Solution(object):
         """
         while True:
             self.iteration += 1
-            log.debug('Starting iteration %d...' % self.iteration)
+            log.debug(f'Starting iteration {self.iteration}...')
             self.__residue = None  # Invalidate residue
 
-            # Calculate update
+            # Calculate update to the field (self.__field_array, d_field, and self.__source are scaled by k0^2)
             #d_field = self.__gamma_op(self.__green_function_op(self.__chi_op(self.__field_mat) + self.__source) - self.__field_mat)
-            d_field = self.__chi_op(self.__field_mat)
+            d_field = self.__chi_op(self.__field_array)
             d_field = self.__PO.add(d_field, self.__source)
             d_field = self.__green_function_op(d_field)
-            d_field -= self.__field_mat
+            d_field -= self.__field_array
             d_field = self.__gamma_op(d_field)
 
             # Check if the iteration is diverging
-            previous_update = self.__last_update_norm
             current_update_norm = np.linalg.norm(d_field)
-            relative_update_norm = current_update_norm / previous_update
+            relative_update_norm = current_update_norm / self.__previous_update_norm
             if relative_update_norm < 1.0:
-                log.debug('The field update is scaled by %0.3f < 1.' % relative_update_norm)
+                log.debug(f'The field update is scaled by {relative_update_norm:0.3f} < 1.')
                 # Update solution
-                if np.all(self.__field_mat.shape == d_field.shape):
-                    self.__field_mat += d_field
+                if np.all(self.__field_array.shape == d_field.shape):
+                    self.__field_array += d_field
                 else:
                     # The initial field can be a scalar constant such as 0.0
-                    d_field += self.__field_mat
-                    self.__field_mat = d_field
+                    d_field += self.__field_array
+                    self.__field_array = d_field
                     del d_field  # corrupted by previous operations
                 # Keep update norm for next iteration's convergence check
-                self.__last_update_norm = current_update_norm
+                self.__previous_update_norm = current_update_norm
 
-                log.debug('Updated field in iteration %d.' % self.iteration)
+                log.debug(f'Updated field in iteration {self.iteration}.')
             else:
                 log.warning(f'The field update is scaled by {relative_update_norm:0.3f} >= 1, ' +
                             'so the maximum singular value of the update matrix is larger than one. ' +

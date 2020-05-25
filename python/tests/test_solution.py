@@ -55,10 +55,10 @@ class TestSolution(unittest.TestCase):
         field_0 = self.SOL.E.copy()
         self.SOL = self.SOL.__iter__().__next__()
         field_1 = self.SOL.E.copy()
-        npt.assert_almost_equal(self.SOL.last_update_norm, np.sqrt(np.sum(np.abs(field_1-field_0)**2)) )
+        npt.assert_almost_equal(self.SOL.previous_update_norm, np.sqrt(np.sum(np.abs(field_1 - field_0) ** 2)))
         self.SOL = self.SOL.__iter__().__next__()
         field_2 = self.SOL.E.copy()
-        npt.assert_almost_equal(self.SOL.last_update_norm, np.sqrt(np.sum(np.abs(field_2-field_1)**2)) )
+        npt.assert_almost_equal(self.SOL.previous_update_norm, np.sqrt(np.sum(np.abs(field_2 - field_1) ** 2)))
 
     def test_residue(self):
         def norm(a):
@@ -120,7 +120,7 @@ class TestSolution(unittest.TestCase):
         #
         x_range = solution.grid[0]  # coordinates
         selected = (wavelength * 10 < x_range) & (x_range < x_range[-1] - boundary_thickness - wavelength * 10)
-        analytic_B = const.mu_0 * sample_pitch * current_density_amplitude / 2
+        analytic_B = const.mu_0 * sample_pitch * current_density_amplitude / 2  # The / 2 is because of Ampère's circuital law: half the wave is traveling forward while the other half is traveling backward.
         analytic_E = analytic_B * const.c
 
         reference_E = source_polarization * analytic_E * np.exp(1j * k0 * np.abs(x_range)) \
