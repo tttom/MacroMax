@@ -761,7 +761,7 @@ class Solution(object):
             previous_update = self.__last_update_norm
             current_update_norm = np.linalg.norm(d_field)
             relative_update_norm = current_update_norm / previous_update
-            if np.isfinite(relative_update_norm) and relative_update_norm < 1.0:
+            if relative_update_norm < 1.0:
                 log.debug('The field update is scaled by %0.3f < 1.' % relative_update_norm)
                 # Update solution
                 if np.all(self.__field_mat.shape == d_field.shape):
@@ -776,13 +776,15 @@ class Solution(object):
 
                 log.debug('Updated field in iteration %d.' % self.iteration)
             else:
-                log.warning('The field update is scaled by %0.3f >= 1, so the maximum singular value of the update matrix',
-                         ' is larger than one. Convergence issues may occur.' % relative_update_norm)
-                log.info('Increasing the imaginary part of alpha from %0.3g...' % self.__alpha.imag)
-                self.__update_operators(self.__alpha.real + 1.10j * self.__alpha.imag)
-                log.info('to %0.3g.' % self.__alpha.imag)
+                log.warning(f'The field update is scaled by {relative_update_norm:0.3f} >= 1, ' +
+                            'so the maximum singular value of the update matrix is larger than one. ' +
+                            'Convergence is not guaranteed.')
+                alpha_imag_current = self.__alpha.imag
+                alpha_imag_new = self.__alpha.real + 1.10j * self.__alpha.imag
+                log.info(f'Increasing the imaginary part of alpha from {alpha_imag_current:0.3g} to {alpha_imag_new:0.3g}.')
+                self.__update_operators(alpha_imag_new)
 
-                log.debug('Aborting field update in iteration %d.' % self.iteration)
+                log.debug(f'Aborting field update in iteration {self.iteration}.')
 
             yield self
 
