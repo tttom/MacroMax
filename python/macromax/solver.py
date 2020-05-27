@@ -321,9 +321,16 @@ class Solution(object):
                 return calc_sigmaEE(alpha_, self.__beta)  # beta is fixed to mu_inv so that chi_HH==0
 
             log.debug('beta = %0.4g, finding optimal alpha...' % self.__beta)
-            alpha_real, min_value = scipy.optimize.fmin(target_function_vec, 0.0, initial_simplex=[[0.0], [1.0]],
-                                                      disp=False, full_output=True,
-                                                      ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100, maxfun=100)[:2]
+            try:
+                alpha_real, min_value = scipy.optimize.fmin(target_function_vec, 0.0, initial_simplex=[[0.0], [1.0]],
+                                                            disp=False, full_output=True,
+                                                            ftol=alpha_tolerance, xtol=alpha_tolerance,
+                                                            maxiter=100, maxfun=100)[:2]
+            except TypeError:  # Some older scipy implementations don't seem to have the initial_simplex argument
+                alpha_real, min_value = scipy.optimize.fmin(target_function_vec, 0.0,
+                                                            disp=False, full_output=True,
+                                                            ftol=alpha_tolerance, xtol=alpha_tolerance,
+                                                            maxiter=100, maxfun=100)[:2]
 
             alpha = alpha_real + 1.0j * min_value
             log.debug('alpha = %0.4g + %0.4gi, or larger in the imaginary part' % (alpha.real, alpha.imag))

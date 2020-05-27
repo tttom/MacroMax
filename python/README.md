@@ -99,11 +99,21 @@ Alternative boundary conditions can be implemented by surrounding the calculatio
 Back reflections can be suppressed by e.g. linearly increasing the imaginary part of the permittivity with depth into a boundary with a thickness of a few wavelengths.
 
 ### Defining the source
-The coherent source is defined by an oscillating current density, to model e.g. an incident laser beam.
-It is sufficient to define its phase, amplitude, and the direction as a function the spatial coordinates; alongside the angular frequency, omega, of the coherent source.
-To avoid issues with numerical precision, the current density is multiplied by the angular frequency, omega, and the vacuum permeability, mu_0. The source values is proportional to the current density, J, and related as follows: S = i omega mu_0 J with units of rad s^-1 H m^-1 A m^-2 = rad V m^-3.
+The coherent source is defined by as a spatially-variant current density.
+Although the current density may be non-zero in all of space, it is more common to
+define a source at one of the edges of the volume, to model e.g. an incident laser beam;
+or even as a single voxel, to simulate a dipole emitter.
+The source density can be specified as a complex number, indicating the phase
+and amplitude of the current at each point. If an extended source is defined,
+care should be taken so that the source currents constructively interfere
+in the desired direction. I.e. the current density at neighboring voxels should
+have a phase difference matching the k-vector in the background medium.
+Optionally, instead of a current density, the internally-used source distribution may be
+specified directly. It is related to the current density as follows: `S = i omega mu_0 J` with units of rad s^-1 H m^-1 A m^-2 = rad V m^-3,
+where `omega` is the angular frequency, and `mu_0` is the vacuum permeability, mu_0. 
 
-The source distribution is stored as a complex ndarray with 1+N dimensions. The first dimension contains the current 3D direction and amplitude for each voxel. The complex argument indicates the relative phase at each voxel.
+The source distribution is stored as a complex ndarray with 1+N dimensions.
+The first dimension contains the current 3D direction and amplitude for each voxel. The complex argument indicates the relative phase at each voxel.
 
 ### Calculating the electromagnetic light field
 Once the ````macromax```` module is imported, the solution satisfying the macroscopic Maxwell's equations is calculated by calling:
@@ -258,6 +268,45 @@ ax[1].legend(loc='upper right')
 plt.show(block=True)  # Not needed for iPython Jupyter notebook
 
 ```
+
+### Optimization of time and memory efficiency
+Electromagnetic calculations tend to test the limits of the hardware.
+Two factors should be considered when optimizing the calculation: computation and memory.
+Naturally, the number of operations and the duration of each operation should be minimized.
+However, the latter is often dominated by memory accesses and copying of arrays.
+The memory usage therefore does not only affect the size of the problems that can be solved,
+it also tends to have an important impact on the total calculation time.
+ 
+A straightforward method to reduce memory usage is to switch from 128-bit
+precision complex numbers to 64-bit. By default, the precision of the 
+source_density is used, which is typically `np.complex128` or its real
+equivalent. The `Solution`'s default `dtype` can be overridden by specifying
+it as `solve(... dtype=np.complex64)`. Halving the storage requirements
+can eliminate additional copies between the main memory and CPU cache.
+In extreme cases it can also avoid swapping. Lower precision math also
+executes faster on many architectures.
+
+While oversampling to less than 1/10th of the wavelength may aid visualization,
+it is often sufficient to sample at a quarter of the wavelength.
+The sample solution represents a sinc-interpolated continuous function.
+The final result can be visualized with arbitrary resolution using interpolation.
+
+The number of operations can be kept to a minimum by:
+* using non-magnetic and non-chiral materials,
+* using isotropic materials,
+* limiting the largest difference in permittivity (including the absorbing boundary), and
+* using a scalar approximation
+whenever possible.
+
+Optimization of the implementation is another route to consider.
+Potentially areas of improvement are:
+* Profiling of memory usage and elimination of redundant temporary copies
+* In-place fast-Fourier transforms. When available, the [FFTW](http://fftw.org/) library is used;
+however, the drop-in fft and ifft replacements are used at the moment.
+* Moving the calculations to a GPU or a cloud-computing environment.
+Since the copying-overheads may quickly become a bottleneck, it is important
+to consider the memory requirements for the problem you want to solve.
+
 
 ## Development
 ### Source code organization
