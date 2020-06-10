@@ -99,7 +99,7 @@ Alternative boundary conditions can be implemented by surrounding the calculatio
 Back reflections can be suppressed by e.g. linearly increasing the imaginary part of the permittivity with depth into a boundary with a thickness of a few wavelengths.
 
 ### Defining the source
-The coherent source is defined by as a spatially-variant current density.
+The coherent source is defined by as a spatially-variant free current density.
 Although the current density may be non-zero in all of space, it is more common to
 define a source at one of the edges of the volume, to model e.g. an incident laser beam;
 or even as a single voxel, to simulate a dipole emitter.
@@ -128,10 +128,10 @@ The function arguments to ````macromax.solve(...)```` can be the following:
 
 * ````vacuum_wavelength|wave_number|anguler_frequency````: The wavelength in vacuum of the coherent illumination in units of meters. 
 
-* ````current_density```` or ````source_distribution````: An ndarray of complex values indicating the source value and direction at each sample point. The source values define the current density in the sample. The first dimension contains the vector index, the following dimensions contain the spatial dimensions.
+* ````current_density```` or ````source_distribution````: An ndarray of complex values indicating the source value and direction at each sample point. The source values define the free current density in the sample. The first dimension contains the vector index, the following dimensions contain the spatial dimensions.
 If the source distribution is not specified, it is calculated as 
 :math:`-i c k0 mu_0 J`, where `i` is the imaginary constant, `c`, `k0`, and `mu_0`, the light-speed, wavenumber, and permeability in 
-vacuum. Finally, `J` is the current density.
+vacuum. Finally, `J` is the free current density (excluding the movement of bound charges in a dielectric)
 
 * ````epsilon````: A complex ndarray that defines the 3x3 relative permittivity matrix at all sample points. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
 This input argument is unit-less, it is relative to the vacuum permittivity.
