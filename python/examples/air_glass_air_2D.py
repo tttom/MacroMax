@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import time
+import pathlib
 
 import macromax
 from macromax.utils.array import Grid
@@ -15,7 +16,8 @@ from examples import log
 
 
 def show_scatterer(vectorial=True):
-    output_name = 'air_glass_air_2D'
+    output_path = pathlib.Path('output').absolute()
+    output_filepath = pathlib.PurePath(output_path, 'air_glass_air_2D')
 
     #
     # Medium settings
@@ -73,25 +75,24 @@ def show_scatterer(vectorial=True):
                                   facecolor=np.array((0, 1, 1, 0.05)))
         axes.add_artist(rectangle)
 
-    fig, axs = plt.subplots(2, 2, frameon=False, figsize=(12, 9), sharex='all', sharey='all')
+    fig, axs = plt.subplots(1 + vectorial, 2, frameon=False, figsize=(12, 9), sharex='all', sharey='all')
     for ax in axs.ravel():
         ax.set_xlabel('y [$\mu$m]')
         ax.set_ylabel('x [$\mu$m]')
         ax.set_aspect('equal')
 
-    images = [axs.flatten()[idx].imshow(complex2rgb(np.zeros(grid.shape), 1, inverted=True),
-                                        extent=grid2extent(grid) * 1e6)
-              for idx in range(4)]
+    images = [ax.imshow(complex2rgb(np.zeros(grid.shape), 1, inverted=True), extent=grid2extent(grid) * 1e6)
+              for ax in axs.ravel()]
 
-    axs[0][1].set_title('$||E||^2$')
+    axs.ravel()[-1].set_title('$||E||^2$')
 
     # Display the medium without the boundaries
-    for idx in range(4):
-        axs.flatten()[idx].set_xlim((grid[1].flatten()[0] + boundary_thickness) * 1e6,
+    for idx in range(axs.size):
+        axs.ravel()[idx].set_xlim((grid[1].flatten()[0] + boundary_thickness) * 1e6,
                                        (grid[1].flatten()[-1] - boundary_thickness) * 1e6)
-        axs.flatten()[idx].set_ylim((grid[0].flatten()[0] + boundary_thickness) * 1e6,
+        axs.ravel()[idx].set_ylim((grid[0].flatten()[0] + boundary_thickness) * 1e6,
                                        (grid[0].flatten()[-1] - boundary_thickness) * 1e6)
-        axs.flatten()[idx].autoscale(False)
+        axs.ravel()[idx].autoscale(False)
 
     #
     # Display the current solution
@@ -102,14 +103,14 @@ def show_scatterer(vectorial=True):
         for dim_idx in range(nb_dims):
             images[dim_idx].set_data(complex2rgb(s.E[dim_idx], 1, inverted=True))
             figure_title = '$E_' + 'xyz'[dim_idx] + "$ it %d: rms error %0.1f%% " % (s.iteration, 100 * s.residue)
-            add_rectangle_to_axes(axs.flatten()[dim_idx])
-            axs.flatten()[dim_idx].set_title(figure_title)
+            add_rectangle_to_axes(axs.ravel()[dim_idx])
+            axs.ravel()[dim_idx].set_title(figure_title)
         intensity = np.linalg.norm(s.E, axis=0)
         intensity /= np.max(intensity)
         intensity_rgb = np.concatenate((intensity[:, :, np.newaxis], intensity[:, :, np.newaxis], intensity[:, :, np.newaxis]), axis=2)
         images[-1].set_data(intensity_rgb)
-        add_rectangle_to_axes(axs.flatten()[-1])
-        axs.flatten()[3].set_title('I')
+        add_rectangle_to_axes(axs.ravel()[-1])
+        axs.ravel()[-1].set_title('I')
 
         plt.draw()
         plt.pause(0.001)
@@ -148,13 +149,14 @@ def show_scatterer(vectorial=True):
     display(solution)
     plt.show(block=False)
     # Save the individual images
-    log.info('Saving results to folder %s...' % os.getcwd())
+    log.info('Saving results to %s...' % output_filepath.as_posix())
+    output_path.mkdir(parents=True, exist_ok=True)
     for axis in range(solution.E.shape[0]):
-        plt.imsave(output_name + '_E%s.png' % chr(ord('x') + axis), complex2rgb(solution.E[axis], 1, inverted=True),
+        plt.imsave(output_filepath.as_posix() + '_E%s.png' % chr(ord('x') + axis), complex2rgb(solution.E[axis], 1, inverted=True),
                    vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600)
     # Save the figure
     plt.ioff()
-    fig.savefig(output_name + '.pdf', bbox_inches='tight', format='pdf')
+    fig.savefig(output_filepath.as_posix() + '.pdf', bbox_inches='tight', format='pdf')
     plt.ion()
 
     return times, residues

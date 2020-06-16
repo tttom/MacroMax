@@ -9,6 +9,7 @@ import numpy as np
 import os
 import scipy.constants as const
 import time
+import pathlib
 
 import macromax
 from macromax.utils.array import Grid
@@ -20,6 +21,9 @@ from macromax.parallel_ops_column import ParallelOperations
 def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     if not vectorial:
         anisotropic = False
+
+    output_path = pathlib.Path('output').absolute()
+    output_filepath = pathlib.PurePath(output_path, 'rutile')
 
     #
     # Medium settings
@@ -148,7 +152,7 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
         if np.mod(s.iteration, 10) == 1:
             display(s)
 
-        return s.residue > 1e-3 and s.iteration < 10000
+        return s.residue > 1e-3 and s.iteration < 1e4
 
     # The actual work is done here:
     start_time = time.time()
@@ -161,12 +165,9 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     times = np.array(times) - start_time
     log.info("Calculation time: %0.3fs." % times[-1])
 
-    # Calculate total energy flow in propagation direction
-    # forward_poynting_vector = np.sum(solution.S[1, :, :], axis=0)
-    forward_E = np.mean(solution.E, axis=1)  # average over dimension x
-    forward_H = np.mean(solution.H, axis=1)  # average over dimension x
-    forward_poynting_vector = (0.5 / const.mu_0) * ParallelOperations.cross(forward_E, np.conj(forward_H)).real
-    forward_poynting_vector = forward_poynting_vector[1, :]
+    # Calculate total energy flow in the propagation direction
+    forward_poynting_vector = np.mean(solution.S, axis=1)  # average over dimension x
+    forward_poynting_vector = forward_poynting_vector[1 * vectorial, :]  # Ignore if not vectorial
     forward_poynting_vector_after_layer =\
         forward_poynting_vector[(grid[1].ravel() > layer_thickness / 2) &
                                 (grid[1].ravel() < grid[1].ravel()[-1] - boundary_thickness)]
@@ -183,16 +184,17 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     display(solution)
     plt.show(block=False)
     # Save the individual images
-    log.info('Saving results to folder %s...' % os.getcwd())
-    plt.imsave('rutile_orientation.png',
+    log.info('Saving results to %s...' % output_filepath.as_posix())
+    output_path.mkdir(parents=True, exist_ok=True)
+    plt.imsave(output_filepath.as_posix() + '_orientation.png',
                complex2rgb(epsilon_abs * np.exp(1j * orientation), normalization=True, inverted=True),
                vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600)
     for dim_idx in range(solution.E.shape[0]):
-        plt.imsave('rutile_E%s.png' % chr(ord('x') + dim_idx), complex2rgb(solution.E[dim_idx], 1, inverted=True),
+        plt.imsave(output_filepath.as_posix() + '_E%s.png' % chr(ord('x') + dim_idx), complex2rgb(solution.E[dim_idx], 1, inverted=True),
                    vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600)
     # Save the figure
     plt.ioff()
-    fig.savefig('rutile.pdf', bbox_inches='tight', format='pdf')
+    fig.savefig(output_filepath.as_posix() + '.pdf', bbox_inches='tight', format='pdf')
     plt.ion()
 
     return times, residues, forward_poynting_vector
@@ -349,8 +351,8 @@ def plot_circle(ax, radius=1, origin=(0, 0), nb_segments=40):
 
 if __name__ == "__main__":
     start_time = time.time()
-    # times, residues = show_scatterer(vectorial=False)  # calc time small 2.9s, large: 23.5s (320 MB)
-    # times, residues = show_scatterer(anisotropic=False)  # calc time small 11.2s, large: 96.1 (480MB)
+    # times, residues, forward_poynting_vector = show_scatterer(vectorial=False)  # calc time small 2.9s, large: 23.5s (320 MB)
+    # times, residues, forward_poynting_vector = show_scatterer(anisotropic=False)  # calc time small 11.2s, large: 96.1 (480MB)
     times, residues, forward_poynting_vector = show_scatterer(anisotropic=True, scattering_layer=True)  # calc time small 55.9s, large: 198.8s (740MB)
     log.info("Total time: %0.3fs." % (time.time() - start_time))
 
