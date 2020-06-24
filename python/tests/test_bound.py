@@ -2,21 +2,23 @@ import unittest
 import numpy as np
 import numpy.testing as npt
 
-from macromax.utils.bound import Bound, AbsorbingBound, LinearBound, PeriodicBound
+from macromax.utils.bound import Bound, Electric, Magnetic, AbsorbingBound, LinearBound, PeriodicBound
 from macromax.utils.array import Grid
 
 
 class TestBound(unittest.TestCase):
     def test_scalar(self):
         grid = Grid([10], 1e-6)
-        bound = LinearBound(grid, thickness=4e-6, max_extinction_coefficient=0.1)
+        n_background = 1.33
+        bound = LinearBound(grid, thickness=4e-6, max_extinction_coefficient=0.1,
+                            background_permittivity=n_background**2)
         kappa = np.array([0.100, 0.075, 0.050, 0.025,  0.0, 0.0, 0.025, 0.050, 0.075, 0.100])
         npt.assert_array_almost_equal(bound.extinction, kappa)
-        npt.assert_equal(bound.is_electric, True)
-        npt.assert_array_almost_equal(bound.electric_susceptibility, 1j*kappa)
-        npt.assert_equal(bound.background_permittivity, 1.0)
-        npt.assert_array_almost_equal(bound.permittivity, bound.background_permittivity + 1j*kappa)
-        npt.assert_equal(bound.is_magnetic, False)
+        npt.assert_equal(isinstance(bound, Electric), True)
+        npt.assert_equal(bound.background_permittivity, n_background**2)
+        npt.assert_array_almost_equal(bound.permittivity, (n_background + 1j*kappa)**2)
+        npt.assert_array_almost_equal(bound.electric_susceptibility, bound.permittivity - n_background**2)
+        npt.assert_equal(isinstance(bound, Magnetic), False)
         npt.assert_array_almost_equal(bound.magnetic_susceptibility, 0*kappa)
         npt.assert_array_equal(bound.thickness, np.ones((1, 2)) * 4e-6)
 
@@ -68,8 +70,8 @@ class TestBound(unittest.TestCase):
         grid = Grid([2, 10], 1e-6)
         bound = PeriodicBound(grid)
         npt.assert_array_equal(bound.thickness, [[0, 0], [0, 0]])
-        npt.assert_array_equal(bound.is_electric, False)
-        npt.assert_array_equal(bound.is_magnetic, False)
+        npt.assert_array_equal(isinstance(bound, Electric), False)
+        npt.assert_array_equal(isinstance(bound, Magnetic), False)
         npt.assert_array_equal(bound.electric_susceptibility, 0)
         npt.assert_array_equal(bound.magnetic_susceptibility, 0)
 

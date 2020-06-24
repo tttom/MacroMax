@@ -9,6 +9,7 @@ from .parallel_ops_column import ParallelOperations
 
 from . import log
 from .utils.array import Grid
+from .utils.bound import Bound, Electric, Magnetic, PeriodicBound
 
 
 def solve(grid: Union[Grid, Sequence, np.ndarray],
@@ -17,6 +18,7 @@ def solve(grid: Union[Grid, Sequence, np.ndarray],
           source_distribution: Union[float, Sequence, np.ndarray]=None,
           epsilon: Union[float, Sequence, np.ndarray]=None, xi: Union[float, Sequence, np.ndarray]=0.0,
           zeta: Union[float, Sequence, np.ndarray]=0.0, mu: Union[float, Sequence, np.ndarray]=1.0,
+          bound: Bound=None,
           initial_field: Union[float, Sequence, np.ndarray]=0.0, dtype=None,
           callback: Callable=lambda s: s.iteration < 1e4 and s.residue > 1e-4):
     """
@@ -33,7 +35,7 @@ def solve(grid: Union[Grid, Sequence, np.ndarray],
     :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
     :param vacuum_wavelength: alternative argument to the wavenumber = 2 pi / vacuum_wavelength
     :param current_density: (optional, instead of source_distribution) An array or function that returns
-    the (vectorial) current density input distribution, J. The current density has units of :math:`A m^-2`.
+    the free (vectorial) current density input distribution, J. The free current density has units of :math:`A m^-2`.
     :param source_distribution: (optional, instead of current_density) An array or function that returns
     the (vectorial) source input wave distribution. The source values relate to the current density, J,
     as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
@@ -48,6 +50,7 @@ def solve(grid: Union[Grid, Sequence, np.ndarray],
     points indicated by the grid specified as its input arguments.
     :param mu: an array or function that returns the (tensor) permeability at the
     points indicated by the grid specified as its input arguments.
+    :param bound: An object representing the boundary of the calculation volume. Default: None, PeriodicBound(grid)
     :param initial_field: optional start value for the E-field distribution (default: all zero E)
     :param dtype: optional numpy datatype for the internal operations and results. This must be a complex number type
     as numpy.complex128 or np.complex64.
@@ -59,7 +62,7 @@ def solve(grid: Union[Grid, Sequence, np.ndarray],
     return Solution(grid=grid,
                     wavenumber=wavenumber, angular_frequency=angular_frequency, vacuum_wavelength=vacuum_wavelength,
                     current_density=current_density, source_distribution=source_distribution,
-                    epsilon=epsilon, xi=xi, zeta=zeta, mu=mu,
+                    epsilon=epsilon, xi=xi, zeta=zeta, mu=mu, bound=bound,
                     initial_field=initial_field, dtype=dtype).solve(callback)
 
 
@@ -70,6 +73,7 @@ class Solution(object):
                  source_distribution: Union[float, Sequence, np.ndarray]=None,
                  epsilon: Union[float, Sequence, np.ndarray]=None, xi: Union[float, Sequence, np.ndarray]=0.0,
                  zeta: Union[float, Sequence, np.ndarray]=0.0, mu: Union[float, Sequence, np.ndarray]=1.0,
+                 bound: Bound=None,
                  initial_field: Union[float, Sequence, np.ndarray]=0.0, dtype=None):
         """
         Class a solution that can be further iterated towards a solution for Maxwell's equations in a media specified by
@@ -100,6 +104,7 @@ class Solution(object):
         by the `grid` input argument.
         :param mu: an array or function that returns the (tensor) permeability at the points indicated by the `grid`
         input argument.
+        :param bound: An object representing the boundary of the calculation volume. Default: None, PeriodicBound(grid)
         :param initial_field: optional start value for the E-field distribution (default: all zero E)
         :param dtype: optional numpy datatype for the internal operations and results. This must be a complex number type
         as numpy.complex128 or np.complex64.
@@ -157,6 +162,11 @@ class Solution(object):
         else:
             nb_pol_dims = 3
 
+        # Set boundary conditions
+        if bound is None:
+            bound = PeriodicBound(self.grid)  # Default boundaries are periodic
+        self.__bound = bound
+
         if dtype is None:
             dtype = np.asarray(source_distribution).dtype
         if not np.issubdtype(dtype, np.complexfloating):
@@ -169,16 +179,24 @@ class Solution(object):
         self.__PO = ParallelOperations(nb_pol_dims, self.grid * self.wavenumber, dtype=dtype)
 
         # The following requires the self.__PO to be defined
-        self.E = np.asarray(initial_field, dtype=dtype)
+        self.E = initial_field
+
+        # Adapt the material properties of the boundaries as defined by the `bound` argument.
+        epsilon = func2arr(epsilon)
+        if isinstance(self.__bound, Electric):
+            epsilon = epsilon + self.__bound.electric_susceptibility.astype(self.dtype)
+        mu = func2arr(mu)
+        if isinstance(self.__bound, Magnetic):
+            mu = mu + self.__bound.magnetic_susceptibility.astype(self.dtype)
 
         # Before the first iteration, the pre-conditioner must be determined and applied to the source and medium
         self.__prepare_preconditioner(
-            source_distribution, func2arr(epsilon), func2arr(xi), func2arr(zeta), func2arr(mu),
+            source_distribution, epsilon, func2arr(xi), func2arr(zeta), mu,
             self.grid.step, self.wavenumber
         )
         # Now we can forget epsilon, xi, zeta, mu, and source_distribution. Their information is encapsulated
         # in the newly created operator methods __chi_op, and __gamma_op
-        self.__residue = None  # Invalidate residue
+        self.__residue = None  # Invalid residue
 
     def __prepare_preconditioner(self, source_distribution, epsilon, xi, zeta, mu, sample_pitch, wavenumber):
         """
@@ -218,11 +236,12 @@ class Solution(object):
         # Do a quick check to see if the the media has no gain
         def has_gain(a):
             return np.any(
-                self.__PO.mat3_eig(-0.5j * (a - self.__PO.conjugate_transpose(a))).real < - 2*np.finfo(a.dtype).eps)
+                self.__PO.mat3_eig(-0.5j * (a - self.__PO.conjugate_transpose(a))).real < - 2*np.finfo(a.dtype).eps
+            )
 
         if has_gain(epsilon) or has_gain(xi) or has_gain(zeta) or has_gain(mu):
             def max_gain(a):
-                return np.max(-self.__PO.mat3_eig(-0.5j * (a - self.__PO.conjugate_transpose(a))).real)
+                return np.amax(-self.__PO.mat3_eig(-0.5j * (a - self.__PO.conjugate_transpose(a))).real)
             log.warning("Convergence not guaranteed!\n"
                         "Permittivity has a gain as large as %0.3g, xi up to %0.3g, zeta up to %0.3g,"
                         " and the permeability up to %0.3g." %
@@ -332,8 +351,8 @@ class Solution(object):
                                                             ftol=alpha_tolerance, xtol=alpha_tolerance,
                                                             maxiter=100, maxfun=100)[:2]
 
-            alpha = alpha_real + 1.0j * min_value
-            log.debug('alpha = %0.4g + %0.4gi, or larger in the imaginary part' % (alpha.real, alpha.imag))
+            alpha = alpha_real[0] + 1.0j * min_value
+            log.debug('Preconditioner constants: alpha = %0.4g + %0.4gi, or larger in the imaginary part' % (alpha.real, alpha.imag))
 
             del alpha_real
 
@@ -342,9 +361,9 @@ class Solution(object):
         del source_distribution
 
         alpha = self.__increase_bias_to_limit_kernel_width(alpha)
-        log.info('alpha = %0.4g + %0.4gi, beta = %0.4g' % (alpha.real, alpha.imag, self.__beta))
+        log.info(f'Preconditioner constants: alpha = {alpha.real:0.4g} + {alpha.imag:0.4g}i, beta = {self.__beta:0.4g}')
 
-        log.info('Preparing pre-conditioned operators...')
+        log.debug('Preparing pre-conditioned operators...')
         self.__chiEH = chiEH_beta / self.__beta
         del chiEH_beta
         self.__chiHE = chiHE_beta / self.__beta
@@ -442,16 +461,15 @@ class Solution(object):
         # Set the Green function
         self.__green_function_op = dyadic_green_function_op
 
-    def __increase_bias_to_limit_kernel_width(self, alpha, max_kernel_width_in_px=None, max_kernel_residue=1.0 / 100):
+    def __increase_bias_to_limit_kernel_width(self, alpha, max_kernel_width_in_px=None, max_kernel_residue=0.01):
         """
         Limit the kernel size by increasing alpha so that:
-        -log(max_kernel_residue)/(imag(sqrt(central_permittivity + 1i*alpha))) == max_kernel_radius_in_rad
-
-            -log(max_kernel_residue) / max_kernel_radius_in_rad == imag(sqrt(central_permittivity + 1i*alpha)) == B
-            B^4 + central_permittivity*B^2 - alpha^2/4 == 0
-            -central_permittivity +- sqrt(central_permittivity^2 + alpha^2) == 2 * B^2
-            -central_permittivity +- sqrt(central_permittivity^2 + alpha^2) == 2*(-log(max_kernel_residue) /
-                max_kernel_radius_in_rad)^2
+        -log(max_kernel_residue) / (imag(sqrt(central_permittivity + 1i*alpha))) == max_kernel_radius_in_rad
+        -log(max_kernel_residue) / max_kernel_radius_in_rad == imag(sqrt(central_permittivity + 1i*alpha)) == B
+        B^4 + central_permittivity*B^2 - alpha^2/4 == 0
+        -central_permittivity +- sqrt(central_permittivity^2 + alpha^2) == 2 * B^2
+        -central_permittivity +- sqrt(central_permittivity^2 + alpha^2) == 2*(-log(max_kernel_residue) /
+            max_kernel_radius_in_rad)^2
         Increase offset if needed to restrict kernel size.
 
         :param alpha: the complex constant in the pre-conditioner to ensure convergence
@@ -460,18 +478,22 @@ class Solution(object):
         :return: the adapted alpha value
         """
         if max_kernel_width_in_px is None:
-            max_kernel_width_in_px = self.grid.shape / 4.0
+            bound_thickness = self.__bound.thickness
+            # Ignore boundary thicknesses that are set to 0, these are clearly meant to be periodic boundaries
+            bound_thickness[bound_thickness == 0] = np.inf
+            max_kernel_width_in_px = np.amin(bound_thickness, axis=-1) / self.grid.step
+            max_kernel_width_in_px = np.minimum(max_kernel_width_in_px, self.grid.shape / 4.0)
 
-        max_kernel_radius_in_rad = np.min(max_kernel_width_in_px / self.grid.step) / 2.0 / self.wavenumber
+        max_kernel_radius_in_rad = np.amin(max_kernel_width_in_px / self.grid.step) / 2.0 / self.wavenumber
 
-        central_permittivity = alpha.real
-        susceptibility_offset = alpha.imag
+        central_permittivity, susceptibility_offset = alpha.real, alpha.imag + 0.05  # todo: How much margin should we add to make ||V|| clearly < 1?
         min_susceptibility_offset = np.sqrt(
             np.maximum(0.0,
                        (2.0*(-np.log(max_kernel_residue) / max_kernel_radius_in_rad)**2 + central_permittivity)**2 -
                        central_permittivity**2)
-        )
+        )  # TODO: Is this only accurate for 3D?
         susceptibility_offset = np.maximum(min_susceptibility_offset, susceptibility_offset)
+        log.debug(f'min_susceptibility_offset = {min_susceptibility_offset}')
 
         return alpha.real + 1.0j * susceptibility_offset
 
@@ -528,7 +550,7 @@ class Solution(object):
     @property
     def j(self):
         """
-        The current density, j, of the source vector field.
+        The free current density, j, of the source vector field.
 
         :return: A complex array indicating the amplitude and phase of the source vector field [A m^-2].
             The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field.
@@ -556,7 +578,7 @@ class Solution(object):
         :param E: The new field. A vector array with the first dimension containing :math:`E_x, E_y, and E_z`,
             while the following dimensions are the spatial dimensions.
         """
-        self.__field_array = self.__PO.to_simple_vector(E + 0.0j) * (self.wavenumber ** 2)
+        self.__field_array = self.__PO.to_simple_vector(np.asarray(E, dtype=self.dtype)) * (self.wavenumber ** 2)
 
     @property
     def B(self):
@@ -741,7 +763,7 @@ class Solution(object):
             normalized to the norm of the current E.
         """
         if self.__residue is None:
-            self.__residue = self.__previous_update_norm / np.linalg.norm(self.__field_array)
+            self.__residue = self.__previous_update_norm / np.linalg.norm(self.__field_array.ravel())
 
         return self.__residue
 
@@ -753,8 +775,8 @@ class Solution(object):
         """
         while True:
             self.iteration += 1
-            log.debug(f'Starting iteration {self.iteration}...')
             self.__residue = None  # Invalidate residue
+            log.debug(f'Starting iteration {self.iteration}...')
 
             # Calculate update to the field (self.__field_array, d_field, and self.__source are scaled by k0^2)
             #d_field = self.__gamma_op(self.__green_function_op(self.__chi_op(self.__field_mat) + self.__source) - self.__field_mat)
@@ -765,10 +787,10 @@ class Solution(object):
             d_field = self.__gamma_op(d_field)
 
             # Check if the iteration is diverging
-            current_update_norm = np.linalg.norm(d_field)
+            current_update_norm = np.linalg.norm(d_field.ravel())
             relative_update_norm = current_update_norm / self.__previous_update_norm
             if relative_update_norm < 1.0:
-                log.debug(f'The field update is scaled by {relative_update_norm:0.3f} < 1.')
+                log.debug(f'The norm of the field update has changed by a factor {relative_update_norm:0.3f}.')
                 # Update solution
                 if np.all(self.__field_array.shape == d_field.shape):
                     self.__field_array += d_field
@@ -786,9 +808,9 @@ class Solution(object):
                             'so the maximum singular value of the update matrix is larger than one. ' +
                             'Convergence is not guaranteed.')
                 alpha_imag_current = self.__alpha.imag
-                alpha_imag_new = self.__alpha.real + 1.10j * self.__alpha.imag
-                log.info(f'Increasing the imaginary part of alpha from {alpha_imag_current:0.3g} to {alpha_imag_new:0.3g}.')
-                self.__update_operators(alpha_imag_new)
+                alpha_new = self.__alpha.real + 1.10j * self.__alpha.imag
+                log.info(f'Increasing the imaginary part of alpha from {alpha_imag_current:0.3g} to {alpha_new.imag:0.3g}.')
+                self.__update_operators(alpha_new)
 
                 log.debug(f'Aborting field update in iteration {self.iteration}.')
 

@@ -7,6 +7,16 @@ from . import log
 from .array import Grid
 
 
+class Electric:
+    """ Mixin for Bound to indicate that the electric susceptibility is non-zero."""
+    pass
+
+
+class Magnetic:
+    """ Mixin for Bound to indicate that the magnetic susceptibility is non-zero."""
+    pass
+
+
 class Bound:
     """
     A base class to represent calculation-volume-boundaries.
@@ -36,17 +46,12 @@ class Bound:
         """
         The thickness as a 2D-array `thickness[axis, front_back]` in meters.
         """
-        return self.__thickness
+        return self.__thickness.copy()
 
     @property
     def background_permittivity(self) -> float:
         """A complex scalar indicating the permittivity of the background."""
         return self.__background_permittivity
-
-    @property
-    def is_electric(self) -> bool:
-        """True when the electric_susceptibility is not 0."""
-        return False
 
     @property
     def electric_susceptibility(self) -> np.ndarray:
@@ -63,11 +68,6 @@ class Bound:
         Note that the returned array may have singleton dimensions that must be broadcast!
         """
         return self.background_permittivity + self.electric_susceptibility
-
-    @property
-    def is_magnetic(self) -> bool:
-        """True when the magnetic_susceptibility is not 0."""
-        return False
 
     @property
     def magnetic_susceptibility(self) -> np.ndarray:
@@ -96,7 +96,7 @@ class PeriodicBound(Bound):
         super().__init__(grid=grid, thickness=0.0)
 
 
-class AbsorbingBound(Bound):
+class AbsorbingBound(Bound, Electric):
     def __init__(self, grid: Union[Grid, Sequence, np.ndarray], thickness: Union[float, Sequence, np.ndarray]=0.0,
                  extinction_coefficient_function: Union[Callable, Sequence, np.ndarray]=lambda rel_depth: rel_depth,
                  background_permittivity: float=1.0):
@@ -150,7 +150,9 @@ class AbsorbingBound(Bound):
         The electric susceptibility, chi_E, at every sample point.
         Note that the returned array may have singleton dimensions that must be broadcast!
         """
-        return 1j * self.extinction
+        n = np.lib.scimath.sqrt(self.background_permittivity)
+        epsilon = (n + 1j * self.extinction)**2
+        return epsilon - self.background_permittivity
 
 
 class LinearBound(AbsorbingBound):

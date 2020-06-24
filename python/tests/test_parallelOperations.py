@@ -49,7 +49,7 @@ class TestParallelOperations(unittest.TestCase):
         npt.assert_equal(self.PO.to_simple_matrix(np.pi * np.ones([3, 3, *self.grid.shape])), np.pi)
         npt.assert_equal(self.PO.to_simple_matrix(np.pi * np.eye(3)[:, :, np.newaxis, np.newaxis, np.newaxis]),
                          np.pi * self.PO.eye)
-        npt.assert_equal(self.PO.to_simple_matrix(np.arange(3)).shape, (3, 1, 1, 1, 1))
+        npt.assert_equal(self.PO.to_simple_matrix(np.arange(3)).shape, (1, 1, 1, 1, 3))
         A = self.PO.to_simple_matrix(np.tile(np.arange(3)[:, np.newaxis, np.newaxis, np.newaxis], [1, *self.grid.shape]))
         npt.assert_equal(A.ndim, 5)
         npt.assert_equal(A.shape[:2], (3, 1))
@@ -64,9 +64,8 @@ class TestParallelOperations(unittest.TestCase):
         npt.assert_equal(self.PO.to_full_matrix(None), 0.0 * self.PO.eye)
         npt.assert_equal(self.PO.to_full_matrix(3), 3.0 * self.PO.eye)
         npt.assert_equal(self.PO.to_full_matrix(np.pi), np.pi * self.PO.eye)
-        npt.assert_equal(self.PO.to_full_matrix(np.eye(3)), self.PO.eye)
-        npt.assert_equal(self.PO.to_full_matrix(np.arange(9).reshape(3, 3)), np.arange(9).reshape(3, 3, 1, 1, 1))
-        npt.assert_equal(self.PO.to_full_matrix(np.ones([3, 3])), np.ones([3, 3, 1, 1, 1]))
+        npt.assert_equal(self.PO.to_full_matrix(np.arange(9).reshape(3, 3, 1, 1, 1)), np.arange(9).reshape(3, 3, 1, 1, 1))
+        npt.assert_equal(self.PO.to_full_matrix(np.ones([3, 3, 1, 1, 1])), np.ones([3, 3, 1, 1, 1]))
 
     def test_ft(self):
         A = np.zeros([3, 3, *self.grid.shape], dtype=float)

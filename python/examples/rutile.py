@@ -6,8 +6,6 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-import os
-import scipy.constants as const
 import time
 import pathlib
 
@@ -15,7 +13,6 @@ import macromax
 from macromax.utils.array import Grid
 from macromax.utils.display import complex2rgb, grid2extent
 from examples import log
-from macromax.parallel_ops_column import ParallelOperations
 
 
 def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
@@ -144,7 +141,7 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
 
     def update_function(s):
         # Log progress
-        times.append(time.time())
+        times.append(time.perf_counter())
         residues.append(s.residue)
 
         if np.mod(s.iteration, 10) == 0:
@@ -155,15 +152,14 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
         return s.residue > 1e-3 and s.iteration < 1e4
 
     # The actual work is done here:
-    start_time = time.time()
+    start_time = time.perf_counter()
     solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
                               epsilon=permittivity, callback=update_function, dtype=np.complex64
                               )
-    log.info("Calculation time: %0.3fs." % (time.time() - start_time))
 
     # Display how the method converged
     times = np.array(times) - start_time
-    log.info("Calculation time: %0.3fs." % times[-1])
+    log.info(f'Calculation time: {times[-1]:0.3f} s.')
 
     # Calculate total energy flow in the propagation direction
     forward_poynting_vector = np.mean(solution.S, axis=1)  # average over dimension x
@@ -350,11 +346,11 @@ def plot_circle(ax, radius=1, origin=(0, 0), nb_segments=40):
 
 
 if __name__ == "__main__":
-    start_time = time.time()
+    start_time = time.perf_counter()
     # times, residues, forward_poynting_vector = show_scatterer(vectorial=False)  # calc time small 2.9s, large: 23.5s (320 MB)
     # times, residues, forward_poynting_vector = show_scatterer(anisotropic=False)  # calc time small 11.2s, large: 96.1 (480MB)
     times, residues, forward_poynting_vector = show_scatterer(anisotropic=True, scattering_layer=True)  # calc time small 55.9s, large: 198.8s (740MB)
-    log.info("Total time: %0.3fs." % (time.time() - start_time))
+    log.info("Total time: %0.3fs." % (time.perf_counter() - start_time))
 
     # Display how the method converged
     fig_summary, axs_summary = plt.subplots(1, 2, frameon=False, figsize=(12, 9))

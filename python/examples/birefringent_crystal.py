@@ -122,11 +122,11 @@ def show_birefringence():
         return s.residue > 1e-3 and s.iteration < 1e4
 
     # The actual work is done here:
-    start_time = time.time()
+    start_time = time.perf_counter()
     solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
                               epsilon=permittivity, callback=update_function, dtype=np.complex64
                               )
-    log.info("Calculation time: %0.3fs." % (time.time() - start_time))
+    log.info("Calculation time: %0.3fs." % (time.perf_counter() - start_time))
 
 
     # Show final result
@@ -136,6 +136,6 @@ def show_birefringence():
 
 
 if __name__ == "__main__":
-    start_time = time.time()
+    start_time = time.perf_counter()
     show_birefringence()
-    log.info("Total time: %0.3fs." % (time.time() - start_time))
+    log.info("Total time: %0.3fs." % (time.perf_counter() - start_time))

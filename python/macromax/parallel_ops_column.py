@@ -246,10 +246,16 @@ class ParallelOperations:
 
     def __fix_matrix_dims(self, arr):
         """
-        Converts the input to an array of the correct number of dimensions: len(self.matrix_shape) + len(self.data_shape)
-        while permitting singleton dimensions for the data dimensions shape[2:] and only permitting singleton dimensions
-        for the first two matrix dimensions (shape[:2]) when both are singletons.
-        The latter case is interpreted as the identity matrix.
+        Converts the input to an array of the full number of dimensions: len(self.matrix_shape) + len(self.data_shape).
+        For electric fields in 3-space, self.matrix_shape == (N, N) == (3, 3)
+        The first (left-most) dimensions of the output are either
+        - 1x1: The identity matrix for a scalar field, as sound waves or isotropic permittivity.
+        - Nx1: A vector for a vector field, as the electric field.
+        - NxN: A matrix for a matrix field, as anisotropic permittivity
+
+        None is interpreted as 0.
+        Singleton dimensions are added on the left so that all dimensions are present.
+        Inputs with 1xN are transposed (not conjugate) to Nx1 vectors.
 
         :param arr: The input can be scalar, which assumes that its value is assumed to be repeated for all space.
             The value can be a one-dimensional vector, in which case the vector is assumed to be repeated for all space.
@@ -258,17 +264,12 @@ class ParallelOperations:
         """
         if arr is None:
             arr = 0
-        if np.isscalar(arr):
-            arr = np.asarray(arr)
-        if arr.ndim == self.__total_dims:
-            return arr  # an input already with the correct number of dimensions
-        elif arr.ndim == self.__total_dims - 1 and np.any((np.array(arr.shape[:2]) != self.matrix_shape) & (np.array(arr.shape[:2]) != 1)):
-            return arr[:, np.newaxis, ...]  # a vector E input
-        # complete the dimensions to the right as required
-        orig_shape = arr.shape
-        new_shape = np.ones(self.__total_dims, dtype=np.int)
-        new_shape[:len(orig_shape)] = orig_shape
-        return arr.reshape(new_shape)
+        arr = np.array(arr)
+        while arr.ndim < self.__total_dims:
+            arr = arr[np.newaxis, ...]  # Make sure that the number of dimensions is correct (self.__total_dims)
+        if arr.shape[0] == 1 and arr.shape[1] > 1:
+            arr = arr.swapaxes(0, 1)
+        return arr
 
     def to_simple_matrix(self, mat):
         """
@@ -649,14 +650,12 @@ class ParallelOperations:
 
     def mat3_eig(self, A):
         """
-        Calculates the eigenvalues of the 3x3 matrices represented by A and
-        returns a new array of 3-vectors, one for each matrix in A and of the
-        same dimensions, baring the second dimension. When the first two
-        dimensions are 3x1 or 1x3, a diagonal matrix is assumed. When the first
-        two dimensions are singletons (1x1), a constant diagonal matrix is assumed
-        and only one eigenvalue is returned.
-        All dimensions are maintained in size except for dimension 2
-        Returns an array or one dimension less. 3 x data_shape
+        Calculates the eigenvalues of the 3x3 matrices represented by A and returns a new array of 3-vectors,
+        one for each matrix in A and of the same dimensions, baring the second dimension. When the first two
+        dimensions are 3x1 or 1x3, a diagonal matrix is assumed. When the first two dimensions are singletons (1x1),
+        a constant diagonal matrix is assumed and only one eigenvalue is returned.
+        Returns an array of one dimension less: 3 x data_shape.
+        With the exception of the first dimension, the shape is maintained.
 
         :param A: The set of 3x3 input matrices for which the eigenvalues are requested.
                   This must be an ndarray with the first two dimensions of size 3.
@@ -665,10 +664,15 @@ class ParallelOperations:
         """
         #
         # TODO: Check if this could be implemented faster / more accurately with an iterative algorithm,
-        # e.g. Given's rotation to make Hermitian tridiagonal + power iteration.
+        # e.g. Use a single Given's rotation or Householder reflection to make Hermitian tridiagonal + power iteration.
         #
-        data_shape = np.array(A.shape[2:])
-        matrix_shape = np.array(A.shape[:2])
+        matrix_shape = np.array(A.shape[:-self.grid.ndim])
+        data_shape = np.array(A.shape[-self.grid.ndim:])
+
+        if matrix_shape.size > 2:
+            raise ValueError(f'The matrix dimensions should be at most 2, not {matrix_shape.size}.')
+        while matrix_shape.size < 2:  # pad dimensions to 2
+            matrix_shape = matrix_shape[np.newaxis, ...]
         if np.all(matrix_shape == 3):
             C = np.zeros([4, *data_shape], dtype=A.dtype)
             # A 3x3 matrix in the first two dimensions
@@ -680,17 +684,19 @@ class ParallelOperations:
             C[2] = A[0, 0] + A[1, 1] + A[2, 2]
             C[3] = -1
 
-            D = self.calc_roots_of_low_order_polynomial(C)
+            result = self.calc_roots_of_low_order_polynomial(C)
         else:
-            if np.all((matrix_shape == 1) | (matrix_shape == 3)):
-                # Maybe a scalar or diagonal-as-column
-                D = A.copy()
+            if matrix_shape[0] == 1:  # Maybe a scalar or diagonal-as-column
+                result = A.copy()
+                result = result[0, ...]
+            elif matrix_shape[1] == 1:  # Maybe a scalar or diagonal-as-column
+                result = A.copy()
+                result = result[:, 0, ...]
             else:
-                message = 'The final two dimensions of the input array should be either of length 1 or of length 3.'
-                log.critical(message)
-                raise Exception(message)
+                raise ValueError('The vector dimensions of the input array should be of length 1 or 3, not '
+                                 + str(matrix_shape))
 
-        return D
+        return result
 
 
     def __get_k_ranges(self, input_shape=None, imaginary=False):

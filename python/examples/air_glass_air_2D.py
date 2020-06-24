@@ -5,7 +5,6 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import time
 import pathlib
 
@@ -123,7 +122,7 @@ def show_scatterer(vectorial=True):
 
     def update_function(s):
         # Log progress
-        times.append(time.time())
+        times.append(time.perf_counter())
         residues.append(s.residue)
 
         if np.mod(s.iteration, 10) == 0:
@@ -134,15 +133,14 @@ def show_scatterer(vectorial=True):
         return s.residue > 1e-4 and s.iteration < 1e4
 
     # The actual work is done here:
-    start_time = time.time()
+    start_time = time.perf_counter()
     solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
                               epsilon=permittivity, callback=update_function, dtype=np.complex64
                               )
-    log.info("Calculation time: %0.3fs." % (time.time() - start_time))
 
     # Display how the method converged
     times = np.array(times) - start_time
-    log.info("Calculation time: %0.3fs." % times[-1])
+    log.info(f'Calculation time: {times[-1]:0.3f} s.')
 
     # Show final result
     log.info('Displaying final result.')
@@ -171,10 +169,10 @@ def conj_inner(a, b):
 
 
 if __name__ == "__main__":
-    start_time = time.time()
+    start_time = time.perf_counter()
     # times, residues = show_scatterer(vectorial=False)
     times, residues = show_scatterer()
-    log.info("Total time: %0.3fs." % (time.time() - start_time))
+    log.info("Total time: %0.3fs." % (time.perf_counter() - start_time))
 
     # Display how the method converged
     fig_summary, axs_summary = plt.subplots(1, 2, frameon=False, figsize=(12, 9))

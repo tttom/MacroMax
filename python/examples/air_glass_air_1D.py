@@ -114,11 +114,11 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
         return s.residue > 1e-5 and s.iteration < 1e4
 
     # The actual work is done here:
-    start_time = time.time()
+    start_time = time.perf_counter()
     solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
                               epsilon=permittivity, mu=permeability, callback=update_function
                               )
-    log.info("Calculation time: %0.3fs." % (time.time() - start_time))
+    log.info("Calculation time: %0.3fs." % (time.perf_counter() - start_time))
 
     # Show final result
     log.info('Displaying final result.')
@@ -151,8 +151,8 @@ def bandpass_and_remove_gain(v, dims, ranges, periods):
 
 
 if __name__ == "__main__":
-    start_time = time.time()
+    start_time = time.perf_counter()
     show_air_glass_transition(impedance_matched=False, birefringent=False)
     # show_air_glass_transition(impedance_matched=True, birefringent=False)
-    log.info("Total time: %0.3fs." % (time.time() - start_time))
+    log.info("Total time: %0.3fs." % (time.perf_counter() - start_time))
     plt.show(block=True)
