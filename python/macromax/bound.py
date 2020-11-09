@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 from typing import Union, Sequence, Callable
 
-from . import log
-from .array import Grid
+from macromax.utils import log
+from macromax.utils.array import Grid
 
 
 class Electric:

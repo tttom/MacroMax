@@ -23,14 +23,14 @@ In the creation of this package, the ````pypandoc```` module is used for transla
 The code has been tested on Python 3.8 though may work on earlier versions.
 
 ### Installing
-Installing the ````macromax```` module and its mandatory dependencies is as straightforward as running the following command in a terminal: 
-````sh
-pip install macromax
-````
-While this is sufficient to get started, optional packages are useful to display the results and to speed-up the calculations.
-For efficiency, optional packages can be installed using: 
+MacroMax, and optional packages to maximize efficiency, can be installed using the Python package manager `pip`. This is as straightforward as running the following command in a terminal:
 ````sh
 pip install macromax multiprocessing pyFFTW
+````
+Note that on Anaconda (Windows), the use of `conda` may be necessary to install `fftw` first. 
+If these packages are not available on your platform, you can always install MacroMax and its mandatory dependencies using: 
+````sh
+pip install macromax
 ````
 More modest efficiency improvements are seen with Intel-specific implementations. The [mkl-fft](https://github.com/IntelPython/mkl_fft) package is only available for Intel(R) CPUs and may require compilation or relying on the [Anaconda](https://www.anaconda.com/) or [Intel Python](https://software.intel.com/content/www/us/en/develop/tools/distribution-for-python.html) distributions.
 
@@ -89,7 +89,7 @@ data_shape = (200, 400)
 sample_pitch = 50e-9  # or (50e-9, 50e-9)
 grid = macromax.Grid(data_shape, sample_pitch)
 ```
-This defines a uniformly spaced plaid grid, centered around the origin,
+The `Grid` Class defines a uniformly spaced plaid grid, centered around the origin,
 unless specified otherwise.
 
 
@@ -142,20 +142,25 @@ vacuum. Finally, `J` is the free current density (excluding the movement of boun
 * ````epsilon````: A complex ndarray that defines the 3x3 relative permittivity matrix at all sample points. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
 This input argument is unit-less, it is relative to the vacuum permittivity.
 
+* ````refractive_index````: A complex ndarray of refractive indices that can be specified as an alternative to the
+permittivity and/or permeability. Complex (extinction coefficient is imaginary) and negative refractive indices are permitted. 
+
+* ````bound````: An optional `macromax.Bound` object such as `PeriodicBound`, `AbsorbingBound`, or the more specific
+`LinearBound`. E.g. ````bound = LinearBound(grid, thickness=5e-6, max_extinction_coefficient=0.5)````.
+
 Anisotropic material properties such as permittivity can be defined as a square 3x3 matrix at each sample point. Isotropic materials may be represented by 1x1 scalars instead (the first two dimensions are singletons). Homogeneous materials may be specified with spatial singleton dimensions.
 
 Optionally one can also specify magnetic and coupling factors:
 
-* ````mu````: A complex ndarray that defines the 3x3 permeability matrix at all sample points. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
+* ````mu````: An optional complex ndarray that defines the 3x3 permeability matrix at all sample points. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
 
-* ````xi```` and ````zeta````: Complex ndarray that define the 3x3 coupling matrices at all sample points. This may be useful to model chiral materials. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
+* ````xi```` and ````zeta````: Optional complex ndarrays that define the 3x3 coupling matrices at all sample points. This may be useful to model chiral materials. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
 
 It is often useful to also specify a callback function that tracks progress. This can be done by defining the ````callback````-argument as a function that takes an intermediate solution as argument. This user-defined callback function can display the intermediate solution and check if the convergence is adequate. The callback function should return ````True```` if more iterations are required, and ````False```` otherwise. E.g.:
-
 ```python
-callback=lambda s: s.residue > 0.01 and s.iteration < 1000
+callback = lambda s: s.iteration < 1000 and s.residue > 0.001
 ```
-will iterate until the residue is at most 1% or until the number of iterations exceeds 1,000.
+will iterate until the residue is at most 0.1% or until the number of iterations exceeds 1,000.
 
 The solution object (of the Solution class) fully defines the state of the iteration and the current solution as described below.
 

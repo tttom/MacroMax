@@ -11,7 +11,7 @@ import pathlib
 import macromax
 from macromax.utils.array import Grid
 from macromax.utils.display import complex2rgb, grid2extent
-from macromax.utils.bound import LinearBound
+from macromax.bound import LinearBound
 from examples import log
 
 

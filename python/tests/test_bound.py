@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import numpy.testing as npt
 
-from macromax.utils.bound import Bound, Electric, Magnetic, AbsorbingBound, LinearBound, PeriodicBound
+from macromax.bound import Electric, Magnetic, LinearBound, PeriodicBound
 from macromax.utils.array import Grid
 
 

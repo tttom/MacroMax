@@ -9,7 +9,7 @@ from .parallel_ops import ParallelOperations
 
 from . import log
 from .utils.array import Grid
-from .utils.bound import Bound, Electric, Magnetic, PeriodicBound
+from macromax.bound import Bound, Electric, Magnetic, PeriodicBound
 
 
 array_like = Union[float, Sequence, np.ndarray]
@@ -367,7 +367,6 @@ class Solution(object):
                                                             maxiter=100, maxfun=100)[:2]
 
             alpha = alpha_real[0] + 1.0j * min_value
-            log.debug('Preconditioner constants: alpha = %0.4g + %0.4gi, or larger in the imaginary part' % (alpha.real, alpha.imag))
 
             del alpha_real
 
@@ -375,7 +374,7 @@ class Solution(object):
         self.__source = self.__PO.to_simple_matrix(source_distribution) / self.__beta  # Adjust for magnetic bias
         del source_distribution
         alpha = self.__increase_bias_to_limit_kernel_width(alpha)
-        log.info(f'Preconditioner constants: alpha = {alpha.real:0.4g} + {alpha.imag:0.4g}i, beta = {self.__beta:0.4g}')
+        log.debug(f'Preconditioner constants: alpha = {alpha.real:0.4g} + {alpha.imag:0.4g}i, beta = {self.__beta:0.4g}')
 
         log.debug('Preparing pre-conditioned operators...')
         self.__chiEH = chiEH_beta / self.__beta

@@ -19,7 +19,7 @@ import logging
 macromax.log.setLevel(logging.WARNING)  # Suppress MacroMax information logs
 from examples import log
 from macromax.utils.array import Grid
-from macromax.utils.bound import LinearBound
+from macromax.bound import LinearBound
 
 
 def calculate(dtype=np.complex64, vectorial=False, ndim=2) -> float:
