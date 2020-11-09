@@ -5,21 +5,23 @@ import scipy.constants as const
 import scipy.optimize
 from typing import Union, Sequence, Callable
 
-from .parallel_ops_column import ParallelOperations
+from .parallel_ops import ParallelOperations
 
 from . import log
 from .utils.array import Grid
 from .utils.bound import Bound, Electric, Magnetic, PeriodicBound
 
 
+array_like = Union[float, Sequence, np.ndarray]
+
+
 def solve(grid: Union[Grid, Sequence, np.ndarray],
-          wavenumber: float=None, angular_frequency: float=None, vacuum_wavelength: float=None,
-          current_density: Union[float, Sequence, np.ndarray]=None,
-          source_distribution: Union[float, Sequence, np.ndarray]=None,
-          epsilon: Union[float, Sequence, np.ndarray]=None, xi: Union[float, Sequence, np.ndarray]=0.0,
-          zeta: Union[float, Sequence, np.ndarray]=0.0, mu: Union[float, Sequence, np.ndarray]=1.0,
+          wavenumber: float = None, angular_frequency: float = None, vacuum_wavelength: float = None,
+          current_density: array_like = None, source_distribution: array_like = None,
+          epsilon: array_like=None, xi: array_like = 0.0, zeta: array_like=0.0, mu: array_like = 1.0,
+          refractive_index: array_like = None,
           bound: Bound=None,
-          initial_field: Union[float, Sequence, np.ndarray]=0.0, dtype=None,
+          initial_field: array_like = 0.0, dtype=None,
           callback: Callable=lambda s: s.iteration < 1e4 and s.residue > 1e-4):
     """
     Function to find a solution for Maxwell's equations in a media specified by the epsilon, xi,
@@ -50,6 +52,8 @@ def solve(grid: Union[Grid, Sequence, np.ndarray],
     points indicated by the grid specified as its input arguments.
     :param mu: an array or function that returns the (tensor) permeability at the
     points indicated by the grid specified as its input arguments.
+    :param refractive_index: an array or function that returns the (complex) (tensor) refractive_index, as the square
+    root of the permittivity, at the points indicated by the `grid` input argument.
     :param bound: An object representing the boundary of the calculation volume. Default: None, PeriodicBound(grid)
     :param initial_field: optional start value for the E-field distribution (default: all zero E)
     :param dtype: optional numpy datatype for the internal operations and results. This must be a complex number type
@@ -62,19 +66,18 @@ def solve(grid: Union[Grid, Sequence, np.ndarray],
     return Solution(grid=grid,
                     wavenumber=wavenumber, angular_frequency=angular_frequency, vacuum_wavelength=vacuum_wavelength,
                     current_density=current_density, source_distribution=source_distribution,
-                    epsilon=epsilon, xi=xi, zeta=zeta, mu=mu, bound=bound,
+                    epsilon=epsilon, xi=xi, zeta=zeta, mu=mu, refractive_index=refractive_index, bound=bound,
                     initial_field=initial_field, dtype=dtype).solve(callback)
 
 
 class Solution(object):
     def __init__(self, grid: Union[Grid, Sequence, np.ndarray],
                  wavenumber: float=None, angular_frequency: float=None, vacuum_wavelength: float=None,
-                 current_density: Union[float, Sequence, np.ndarray]=None,
-                 source_distribution: Union[float, Sequence, np.ndarray]=None,
-                 epsilon: Union[float, Sequence, np.ndarray]=None, xi: Union[float, Sequence, np.ndarray]=0.0,
-                 zeta: Union[float, Sequence, np.ndarray]=0.0, mu: Union[float, Sequence, np.ndarray]=1.0,
+                 current_density: array_like = None, source_distribution: array_like = None,
+                 epsilon: array_like = None, xi: array_like = 0.0, zeta: array_like = 0.0, mu: array_like = 1.0,
+                 refractive_index: array_like = None,
                  bound: Bound=None,
-                 initial_field: Union[float, Sequence, np.ndarray]=0.0, dtype=None):
+                 initial_field: array_like = 0.0, dtype=None):
         """
         Class a solution that can be further iterated towards a solution for Maxwell's equations in a media specified by
         the epsilon, xi, zeta, and mu distributions.
@@ -104,6 +107,8 @@ class Solution(object):
         by the `grid` input argument.
         :param mu: an array or function that returns the (tensor) permeability at the points indicated by the `grid`
         input argument.
+        :param refractive_index: an array or function that returns the (complex) (tensor) refractive_index, as the
+        square root of the permittivity, at the points indicated by the `grid` input argument.
         :param bound: An object representing the boundary of the calculation volume. Default: None, PeriodicBound(grid)
         :param initial_field: optional start value for the E-field distribution (default: all zero E)
         :param dtype: optional numpy datatype for the internal operations and results. This must be a complex number type
@@ -147,7 +152,7 @@ class Solution(object):
             if callable(f):
                 return f(*self.__grid)
             else:
-                return f  # already an array
+                return np.asarray(f)
 
         # Determine the source distribution, either directly, or from current_density (assuming this is a an EM problem)
         if source_distribution is None:
@@ -157,10 +162,12 @@ class Solution(object):
             source_distribution = func2arr(source_distribution)
 
         # Create an object to handle our parallel operations
-        if source_distribution.shape[0] == 1:
-            nb_pol_dims = 1
-        else:
+        if source_distribution.ndim > grid.ndim and source_distribution.shape[0] == 3:
             nb_pol_dims = 3
+            log.debug('Doing a vectorial calculation...')
+        else:
+            nb_pol_dims = 1
+            log.debug('Doing a scalar calculation...')
 
         # Set boundary conditions
         if bound is None:
@@ -182,7 +189,15 @@ class Solution(object):
         self.E = initial_field
 
         # Adapt the material properties of the boundaries as defined by the `bound` argument.
-        epsilon = func2arr(epsilon)
+        if epsilon is None:
+            refractive_index = func2arr(refractive_index).astype(dtype)
+            epsilon = refractive_index**2
+            if np.any(refractive_index.real.ravel() < 0):  # negative refractive index material
+                mu = mu * (1 - 2 * (refractive_index.real < 0))
+                epsilon *= (1 - 2 * (refractive_index.real < 0))
+        else:
+            epsilon = func2arr(epsilon).astype(dtype)
+
         if isinstance(self.__bound, Electric):
             epsilon = epsilon + self.__bound.electric_susceptibility.astype(self.dtype)
         mu = func2arr(mu)
@@ -359,7 +374,6 @@ class Solution(object):
         # Store the modified source distribution
         self.__source = self.__PO.to_simple_matrix(source_distribution) / self.__beta  # Adjust for magnetic bias
         del source_distribution
-
         alpha = self.__increase_bias_to_limit_kernel_width(alpha)
         log.info(f'Preconditioner constants: alpha = {alpha.real:0.4g} + {alpha.imag:0.4g}i, beta = {self.__beta:0.4g}')
 
@@ -498,7 +512,7 @@ class Solution(object):
         return alpha.real + 1.0j * susceptibility_offset
 
     @property
-    def grid(self):
+    def grid(self) -> Grid:
         """
         The sample positions of the plaid sampling grid.
         This may be useful for displaying result axes.
@@ -512,7 +526,7 @@ class Solution(object):
         return self.__PO.dtype
 
     @property
-    def wavenumber(self):
+    def wavenumber(self) -> float:
         """
         The vacuum wavenumber, :math:`k_0`, used in the calculation.
 
@@ -521,7 +535,7 @@ class Solution(object):
         return self.__wavenumber
 
     @property
-    def angular_frequency(self):
+    def angular_frequency(self) -> float:
         """
         The angular frequency, :math:`\omega`, used in the calculation.
 
@@ -530,7 +544,7 @@ class Solution(object):
         return self.__wavenumber * const.c
 
     @property
-    def wavelength(self):
+    def wavelength(self) -> float:
         """
         The vacuum wavelength, :math:`\lambda_0`, used in the calculation.
 
@@ -539,7 +553,7 @@ class Solution(object):
         return 2.0 * const.pi / self.__wavenumber
 
     @property
-    def magnetic(self):
+    def magnetic(self) -> bool:
         """
         Indicates if this media is considered magnetic.
 
@@ -548,27 +562,66 @@ class Solution(object):
         return self.__magnetic
 
     @property
-    def j(self):
+    def source_distribution(self) -> np.ndarray:
+        """
+        The source distribution, i k0 mu_0 times the current density j.
+
+        :return: A complex array indicating the amplitude and phase of the source vector field.
+        The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
+        and 3 in case of a vector field.
+        """
+        return self.__source[:, 0, ...] * self.__beta
+
+    @source_distribution.setter
+    def source_distribution(self, new_source_density: array_like):
+        """
+        Set the source distribution, i k0 mu_0 times the current density j.
+
+        :param new_source_density: A complex array indicating the amplitude and phase of the source vector field.
+        The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
+        and 3 in case of a vector field.
+        """
+        new_source_density = np.asarray(new_source_density).astype(self.__source.dtype)
+        if new_source_density.ndim < self.__source.ndim:
+            new_source_density = new_source_density[:, np.newaxis, ...]
+        new_source_density = np.broadcast_to(new_source_density, self.__source.shape)
+        self.__source[:] = self.__PO.astype(new_source_density / self.__beta)
+        self.__previous_update_norm = np.inf
+
+    @property
+    def j(self) -> np.ndarray:
         """
         The free current density, j, of the source vector field.
 
-        :return: A complex array indicating the amplitude and phase of the source vector field [A m^-2].
-            The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field.
+        :return: A complex array indicating the amplitude and phase of the current density vector field [A m^-2].
+        The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
+        and 3 in case of a vector field.
         """
-        source_distribution = self.__source * self.__beta
-        current_density = source_distribution / (1.0j * self.angular_frequency * const.mu_0)
+        return self.source_distribution / (1.0j * self.angular_frequency * const.mu_0)
 
-        return current_density[:, 0, ...]
+    @j.setter
+    def j(self, new_j: array_like):
+        """
+        Set the free current density, j, of the source vector field.
+
+        :param new_j: A complex array indicating the amplitude and phase of the current density vector field [A m^-2].
+        The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
+        and 3 in case of a vector field.
+        """
+        self.source_distribution = new_j * (1.0j * self.angular_frequency * const.mu_0)
 
     @property
-    def E(self):
+    def E(self) -> np.ndarray:
         """
         The electric field for every point in the sample space (SI units).
 
         :return: A vector array with the first dimension containing Ex, Ey, and Ez,
             while the following dimensions are the spatial dimensions.
         """
-        return self.__field_array[:, 0, ...] / (self.wavenumber ** 2)
+        result = self.__field_array[:, 0, ...] / (self.wavenumber ** 2)
+        if not isinstance(result, np.ndarray):
+            result = np.asarray(result)
+        return result
 
     @E.setter
     def E(self, E):
@@ -581,7 +634,7 @@ class Solution(object):
         self.__field_array = self.__PO.to_simple_vector(np.asarray(E, dtype=self.dtype)) * (self.wavenumber ** 2)
 
     @property
-    def B(self):
+    def B(self) -> np.ndarray:
         """
         The magnetic field for every point in the sample space (SI units).
         This is calculated from H and E.
@@ -591,10 +644,10 @@ class Solution(object):
         """
         B = self.__PO.curl(self.E[:, np.newaxis, ...]) / (1.0j * const.c)  # curl includes k0 by definition of __PO
 
-        return B[:, 0, ...]
+        return np.asarray(B)[:, 0, ...]
 
     @property
-    def D(self):
+    def D(self) -> np.ndarray:
         """
         The displacement field for every point in the sample space (SI units).
         This is calculated from E and H.
@@ -602,16 +655,15 @@ class Solution(object):
         :return: A vector array with the first dimension containing :math:`D_x, D_y, and D_z`,
             while the following dimensions are the spatial dimensions.
         """
-        J = (self.__beta / (1.0j * self.angular_frequency * const.mu_0)) * self.__source
-        D = (J - self.__PO.curl(self.H[:, np.newaxis, ...]) * self.wavenumber) / (1.0j * self.angular_frequency)  # curl includes k0 by definition of __PO
-        # epsilon = self.__chiEE ...
-        # D = const.epsilon_0 * self.__PO.mul(epsilon, self.E[:, np.newaxis, ...])\
-        #     + (self.__PO.mul(xi, self.H[:, np.newaxis, ...]) / const.c)
+        D = self.__PO.curl(self.H[:, np.newaxis, ...])  # curl includes k0 by definition of __PO
+        D *= self.wavenumber
+        D -= (self.__beta / (1.0j * self.angular_frequency * const.mu_0)) * self.__source
+        D *= 1j / self.angular_frequency
 
-        return D[:, 0, ...]
+        return np.asarray(D)[:, 0, ...]
 
     @property
-    def H(self):
+    def H(self) -> np.ndarray:
         """
         The magnetizing field for every point in the sample space (SI units).
         This is calculated from E.
@@ -633,10 +685,10 @@ class Solution(object):
             mu_H = (-1.0j / (const.mu_0 * const.c)) * self.__PO.curl(self.E[:, np.newaxis, ...])  # includes k0^-1 by the definition of __PO
             H = mu_inv * mu_H
 
-        return H[:, 0, ...]
+        return np.asarray(H)[:, 0, ...]
 
     @property
-    def S(self):
+    def S(self) -> np.ndarray:
         """
         The time-averaged Poynting vector for every point in space.
 
@@ -650,7 +702,7 @@ class Solution(object):
         return poynting_vector[:, 0, ...]
 
     @property
-    def energy_density(self):
+    def energy_density(self) -> np.ndarray:
         """
         R the energy density u
 
@@ -661,14 +713,14 @@ class Solution(object):
         H = self.H  # Can be calculated more efficiently from B and E, though avoiding code-replication for now.
         D = self.D  # Can be calculated more efficiently from H, though avoiding code-replication for now.
 
-        u = np.sum((E * np.conj(D)).real, axis=0)
-        u += np.sum((B * np.conj(H)).real, axis=0)
+        u = np.sum(np.asarray((E * np.conj(D)).real), axis=0)
+        u += np.sum(np.asarray((B * np.conj(H)).real), axis=0)
         u *= 0.5 * 0.5  # 0.5 * (E.D' + B.H'), the other 0.5 is because we time-average the products of real functions
 
         return u
 
     @property
-    def stress_tensor(self):
+    def stress_tensor(self) -> np.ndarray:
         """
         Maxwell's stress tensor for every point in space.
 
@@ -683,13 +735,13 @@ class Solution(object):
         H2 = np.sum(np.abs(H) ** 2, axis=0)
         result += self.__PO.outer(H, H) * const.mu_0
 
-        result -= (0.5 * self.__PO.eye) * (const.epsilon_0 * E2 + H2 * const.mu_0)
+        result -= (0.5 * np.asarray(self.__PO.eye)) * (const.epsilon_0 * E2 + H2 * const.mu_0)
         result = 0.5 * result  # TODO: Do we want the Abraham or Minkowski form?
 
         return result.real
 
     @property
-    def f(self):
+    def f(self) -> np.ndarray:
         """
         The electromagnetic force density (force per SI unit volume, not per voxel).
 
@@ -703,10 +755,10 @@ class Solution(object):
         # The time derivative of the Poynting vector averages to zero.
         # Make sure to remove imaginary part which must be due to rounding errors
 
-        return force[:, 0, ...]
+        return force[:, 0]
 
     @property
-    def torque(self):
+    def torque(self) -> np.ndarray:
         """
         The electromagnetic force density (force per SI unit volume, not per voxel).
 
@@ -726,7 +778,7 @@ class Solution(object):
         return torque
 
     @property
-    def iteration(self):
+    def iteration(self) -> int:
         """
         The current iteration number.
 
@@ -735,7 +787,7 @@ class Solution(object):
         return self.__iteration
 
     @iteration.setter
-    def iteration(self, it=0):
+    def iteration(self, it: int = 0):
         """
         The current iteration number.
         Resets the iteration count or sets it to a specified integer.
@@ -746,7 +798,7 @@ class Solution(object):
         self.__iteration = it
 
     @property
-    def previous_update_norm(self):
+    def previous_update_norm(self) -> float:
         """
         The L2-norm of the last update, the difference between current and previous E-field.
 
@@ -755,9 +807,12 @@ class Solution(object):
         return self.__previous_update_norm / (self.wavenumber ** 2)
 
     @property
-    def residue(self):
+    def residue(self) -> float:
         """
-        Returns the current residue.
+        Returns the current relative residue of the inverse problem E = H^{-1}S.
+        The relative residue is return as the l2-norm fraction ||E - H^{-1}S|| / ||E||, where H represents the
+        vectorial Helmholtz equation following Maxwell's equations and S the current density source. The solver
+        searches for the electric field, E, that minimizes the preconditioned inverse problem.
 
         :return: A non-negative real scalar that indicates the change in E with the previous iteration
             normalized to the norm of the current E.
@@ -765,7 +820,7 @@ class Solution(object):
         if self.__residue is None:
             self.__residue = self.__previous_update_norm / np.linalg.norm(self.__field_array.ravel())
 
-        return self.__residue
+        return float(self.__residue)
 
     def __iter__(self):
         """
@@ -816,18 +871,14 @@ class Solution(object):
 
             yield self
 
-    def solve(self, callback: Callable=None) -> Solution:
+    def solve(self, callback: Callable[[Solution], bool] = lambda _:_.iteration < 1e4 and _.residue > 1e-4) -> Solution:
         """
         Runs the algorithm until the convergence criterion is met or until the maximum number of iterations is reached.
 
         :param callback: optional callback function that overrides the one set for the solver.
             E.g. callback=lambda s: s.iteration < 100
-        :return: an array containing the final field E
+        :return: This Solution object, which can be used to query e.g. the final field E using Solution.E.
         """
-        if callback is None:
-            def callback(s):
-                return s.iteration < 1e4 and s.residue > 1e-4
-
         for sol in self:
             # sol is the current iteration result
             # now execute the user-specified callback function

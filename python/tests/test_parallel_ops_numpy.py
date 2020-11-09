@@ -1,7 +1,7 @@
 import unittest
 import numpy.testing as npt
 
-from macromax.parallel_ops_column import ParallelOperations
+from macromax.parallel_ops import ParallelOperations
 from macromax import Grid
 import numpy as np
 import scipy

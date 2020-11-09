@@ -1,7 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-
+try:
+    import multiprocessing
+    nb_threads = multiprocessing.cpu_count()
+    import os
+    for _ in ['OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS']:
+        os.environ[_] = str(nb_threads)
+    import mkl
+    mkl.set_num_threads(nb_threads)
+except ModuleNotFoundError:
+    pass
 import numpy as np
 import time
 
@@ -10,113 +19,79 @@ import logging
 macromax.log.setLevel(logging.WARNING)  # Suppress MacroMax information logs
 from examples import log
 from macromax.utils.array import Grid
+from macromax.utils.bound import LinearBound
 
 
-def calculate(dtype=np.complex128, vectorial=False):
+def calculate(dtype=np.complex64, vectorial=False, ndim=2) -> float:
     wavelength = 500e-9
     boundary_thickness = 2e-6
     beam_diameter = 1e-6
     k0 = 2 * np.pi / wavelength
-    data_shape = np.array([128, 256])
-    sample_pitch = np.ones(2) * wavelength / 4
+    data_shape = np.ones(ndim, dtype=int) * 128
+    if ndim < 3:
+        data_shape[1] *= 2
+    sample_pitch = wavelength / 4
     grid = Grid(data_shape, sample_pitch)
 
-    current_density = np.exp(1j * k0 * grid[1])  # propagate along axis 1
+    # Define source
+    source = np.exp(1j * k0 * grid[1])  # propagate along axis 1
     # Aperture the incoming beam
-    current_density = current_density * np.exp(-0.5*(np.abs(grid[1] - (grid[1].ravel()[0]+boundary_thickness))/wavelength)**2)
-    current_density = current_density * np.exp(-0.5*((grid[0] - grid[0].ravel()[int(len(grid[0])*1/2)])/(beam_diameter/2))**2)
-    if vectorial:
-        # polarize along axis 0
-        current_density = np.array([1, 0, 0])[:, np.newaxis, np.newaxis] * current_density
-    else:
-        current_density = current_density[np.newaxis, ...]
-    current_density = current_density.astype(dtype=dtype, copy=True)
+    source = source * np.exp(-0.5*(np.abs(grid[1] - (grid[1].ravel()[0]+boundary_thickness))/wavelength)**2)
+    source = source * np.exp(-0.5*((grid[0] - grid[0].ravel()[int(len(grid[0])*1/2)])/(beam_diameter/2))**2)
+    if vectorial:  # polarize along axis 0
+        polarization = np.array([1, 0, 0])
+        for _ in range(ndim):
+            polarization = polarization[:, np.newaxis]
+        source = polarization * source
 
-    permittivity = np.ones(data_shape)
-    # Add scatterer
-    permittivity[np.sqrt(grid[0]**2 + grid[1]**2) < 0.5*np.amin(data_shape * sample_pitch)/2] = 1.5**2
-    permittivity = permittivity[np.newaxis, np.newaxis, ...]  # mark this as isotropic
+    # Define material with scatterer
+    refractive_index = np.ones(data_shape)
+    refractive_index[np.sqrt(sum(_**2 for _ in grid)) < 0.5*np.amin(data_shape * sample_pitch)/2] = 1.5
 
     # Add boundary
-    dist_in_boundary = np.maximum(
-        np.maximum(0.0, -(grid[0] - (grid[0].ravel()[0]+boundary_thickness)))
-        + np.maximum(0.0, grid[0] - (grid[0].ravel()[-1]-boundary_thickness)),
-        np.maximum(0.0,-(grid[1] - (grid[1].ravel()[0]+boundary_thickness)))
-        + np.maximum(0.0, grid[1] - (grid[1].ravel()[-1]-boundary_thickness))
-    )
-    weight_boundary = dist_in_boundary / boundary_thickness
-    permittivity = permittivity + 0.3j * weight_boundary  # boundary
-
-    display = False
-    if display:
-        import matplotlib.pyplot as plt
-        from macromax.utils import complex2rgb, grid2extent
-
-        # Prepare the display
-        fig, axs = plt.subplots(1, 2, frameon=False, figsize=(12, 6))
-        for ax in axs.ravel():
-            ax.set_xlabel('y [$\mu$m]')
-            ax.set_ylabel('x [$\mu$m]')
-            ax.set_aspect('equal')
-
-        images = axs[0].imshow(complex2rgb(np.zeros(data_shape), 1), extent=grid2extent(grid[0].ravel(), grid[1].ravel()) * 1e6)
-        axs[1].imshow(complex2rgb(permittivity[0, 0], 1), extent=grid2extent(grid[0].ravel(), grid[1].ravel()) * 1e6)
-        axs[1].set_title('$\chi$')
-
-        #
-        # Display the current solution
-        #
-        def display(s):
-            log.info("2D: Displaying iteration %d: error %0.1f%%" % (s.iteration, 100 * s.residue))
-            images.set_data(complex2rgb(s.E[0], 1))
-            figure_title = '$E' + "$ it %d: rms error %0.1f%% " % (s.iteration, 100 * s.residue)
-            axs[0].set_title(figure_title)
-
-            plt.draw()
-            plt.pause(0.001)
-
-        def update_function(s):
-            if np.mod(s.iteration, 10) == 0:
-                log.info("Iteration %0.0f: rms error %0.1f%%" % (s.iteration, 100 * s.residue))
-            if np.mod(s.iteration, 10) == 0:
-                display(s)
-
-            return s.residue > 1e-3 and s.iteration < 1000
-    else:
-        def update_function(s):
-            return s.residue > 1e-4 and s.iteration < 1000
+    bound = LinearBound(grid, thickness=boundary_thickness, max_extinction_coefficient=0.3)
 
     start_time = time.perf_counter()
-    solution = macromax.solve((grid[0].ravel(), grid[1].ravel()), vacuum_wavelength=wavelength, current_density=current_density, epsilon=permittivity,
-                              callback=update_function
+    solution = macromax.solve(grid, vacuum_wavelength=wavelength, source_distribution=source, bound=bound,
+                              refractive_index=refractive_index, dtype=dtype,
+                              callback=lambda s: s.iteration < 1000 and s.residue > 1e-5
                               )
     total_time = time.perf_counter() - start_time
 
-    return total_time, solution.iteration, solution.residue
+    log.debug(f'Total time: {total_time:0.3f} s for {solution.iteration} iterations:' +
+             f' ({1000 * total_time / solution.iteration:0.3f} ms) for a residue of {solution.residue:0.6f}.')
+
+    return total_time / solution.iteration
+
+
+def measure(dtype=np.complex64, vectorial=False, ndim=2, nb_trials: int = 10) -> float:
+    log.info(('Vectorial' if vectorial else 'Scalar') + f' {ndim}D calculation with {dtype.__name__}...')
+    iteration_time = min(calculate(dtype=dtype, vectorial=vectorial, ndim=ndim) for _ in range(nb_trials))
+    log.info(f'Iteration time: {iteration_time * 1000:0.3f} ms.')
+    return iteration_time
 
 
 if __name__ == '__main__':
+    nb_trials = 10
+    benchmark_fft = False
+    ndim = 2
     log.info(f'MacroMax version {macromax.__version__}')
 
-    log.info('Vectorial 2D calculation with np.complex128...')
-    total_time, nb_iterations, residue = calculate(vectorial=True)
-    log.info('Total time: %0.3f s for %d iterations: (%0.3f ms) for a residue of %0.6f.'
-             % (total_time, nb_iterations, 1000 * total_time / nb_iterations, residue))
+    if benchmark_fft:
+        log.info('Benchmarking FFT...')
+        from macromax.utils import ft
 
-    log.info('Vectorial 2D calculation with np.complex64...')
-    total_time, nb_iterations, residue = calculate(dtype=np.complex64, vectorial=True)
-    log.info('Total time: %0.3f s for %d iterations: (%0.3f ms) for a residue of %0.6f.'
-             % (total_time, nb_iterations, 1000 * total_time / nb_iterations, residue))
+        data_shape = np.array([1024, 1200, 6], dtype=np.int)
+        nb_iterations = 100
+        res = np.random.randn(*data_shape) + 1j * np.random.randn(*data_shape)
 
-    log.info('Scalar 2D calculation with np.complex128...')
-    total_time, nb_iterations, residue = calculate()
-    log.info('Total time: %0.3f s for %d iterations: (%0.3f ms) for a residue of %0.6f.'
-             % (total_time, nb_iterations, 1000 * total_time / nb_iterations, residue))
+        start_time = time.perf_counter()
+        for _ in range(nb_iterations):
+            res = ft.fftn(res)
+        total_time = time.perf_counter() - start_time
+        log.info(f'Total time for FFT: {total_time:0.3f} s for {nb_iterations:d} iterations: ({total_time / nb_iterations:0.3f} ms).')
 
-    log.info('Scalar 2D calculation with np.complex64...')
-    total_time, nb_iterations, residue = calculate(dtype=np.complex64)
-    log.info('Total time: %0.3f s for %d iterations: (%0.3f ms) for a residue of %0.6f.'
-             % (total_time, nb_iterations, 1000 * total_time / nb_iterations, residue))
-
-
-
+    measure(dtype=np.complex128, vectorial=True, ndim=ndim, nb_trials=nb_trials)
+    measure(dtype=np.complex64, vectorial=True, ndim=ndim, nb_trials=nb_trials)
+    measure(dtype=np.complex128, vectorial=False, ndim=ndim, nb_trials=nb_trials)
+    measure(dtype=np.complex64, vectorial=False, ndim=ndim, nb_trials=nb_trials)

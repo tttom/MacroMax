@@ -3,7 +3,6 @@
 #
 # Example code showing light scattering by a layer of rutile (TiO2) particles.
 
-
 import matplotlib.pyplot as plt
 import numpy as np
 import time

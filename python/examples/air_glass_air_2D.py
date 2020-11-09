@@ -11,27 +11,27 @@ import pathlib
 import macromax
 from macromax.utils.array import Grid
 from macromax.utils.display import complex2rgb, grid2extent
+from macromax.utils.bound import LinearBound
 from examples import log
 
 
-def show_scatterer(vectorial=True):
+def show_plate(vectorial=True):
     output_path = pathlib.Path('output').absolute()
     output_filepath = pathlib.PurePath(output_path, 'air_glass_air_2D')
 
     #
-    # Medium settings
+    # Calculation settings
     #
-    scale = 2
+    oversampling_factor = 1  # increasing should be similar to sinc-interpolation
     wavelength = 500e-9
-    medium_refractive_index = 1.0  # 1.4758, 2.7114
     boundary_thickness = 2e-6
-    beam_diameter = 1.0e-6 * scale
-    plate_thickness = 2.5e-6 * scale
+    beam_diameter = 5e-6
+    plate_thickness = 5e-6
+    plate_refractive_index = 1.5  # try making this negative (prepare to be patient though and avoid over sampling!)
 
     k0 = 2 * np.pi / wavelength
-    grid = Grid(np.array([256, 256]) * scale, wavelength / 16)
+    grid = Grid(np.ones(2) * 128 * oversampling_factor, wavelength / 4 / oversampling_factor)
     incident_angle = 30 * np.pi / 180
-    # incident_angle = np.arctan(1.5)  # Brewster's angle
 
     log.info('Calculating fields over a %0.1fum x %0.1fum area...' % tuple(grid.extent * 1e6))
 
@@ -39,48 +39,32 @@ def show_scatterer(vectorial=True):
     incident_k = rot_Z(incident_angle) * k0 @ np.array([1, 0, 0])
     source_polarization = (rot_Z(incident_angle) @ np.array([0, 1, 1j]) / np.sqrt(2))[:, np.newaxis, np.newaxis]
     current_density = np.exp(1j * (incident_k[0]*grid[0] + incident_k[1]*grid[1]))
-    # Aperture the incoming beam
-    # source = source * np.exp(-0.5*(np.abs(grid[1] - (grid[1].ravel()[0]+boundary_thickness))
-    #                                * medium_refractive_index / wavelength)**2)  # source position
     source_pixel = grid.shape[0] - int(boundary_thickness / grid.step[0])
     current_density[:source_pixel, :] = 0
     current_density[source_pixel+1:, :] = 0
-    current_density = current_density * np.exp(-0.5*((grid[1] - grid[1].ravel()[int(len(grid[0])*1/4)])/(beam_diameter/2))**2)  # beam aperture
-    current_density = current_density[np.newaxis, ...]
+    current_density = current_density * np.exp(-0.5*((grid[1] - grid[1].ravel()[grid.shape[0]//3])/(beam_diameter/2))**2)  # beam aperture
     if vectorial:
         current_density = current_density * source_polarization
 
-    # define the glass plate
-    refractive_index = 1.0 + 0.5 * np.ones(grid[1].shape) * (np.abs(grid[0]) < plate_thickness/2)
-    permittivity = np.array(refractive_index**2, dtype=np.complex64)
-    permittivity = permittivity[np.newaxis, np.newaxis, :, :]
+    # define the plate
+    refractive_index = 1 + (plate_refractive_index - 1) * np.ones(grid[1].shape) * (np.abs(grid[0]) < plate_thickness/2)
 
-    # Add boundary
-    dist_in_boundary = np.maximum(
-        np.maximum(0.0, -(grid[0] - (grid[0].ravel()[0]+boundary_thickness)))
-        + np.maximum(0.0, grid[0] - (grid[0].ravel()[-1]-boundary_thickness)),
-        np.maximum(0.0, -(grid[1] - (grid[1].ravel()[0]+boundary_thickness)))
-        + np.maximum(0.0, grid[1] - (grid[1].ravel()[-1]-boundary_thickness))
-    )
-    weight_boundary = dist_in_boundary / boundary_thickness
-    for axis in range(permittivity.shape[0]):
-        permittivity[axis, axis, :, :] += 0.5j * weight_boundary  # boundary
+    # Set the boundary conditions
+    bound = LinearBound(grid, thickness=boundary_thickness, max_extinction_coefficient=0.25)
 
     # Prepare the display
-    def add_rectangle_to_axes(axes):
-        rectangle = plt.Rectangle(np.array((grid[1].ravel()[0], -plate_thickness / 2))*1e6,
-                                  (grid.extent[1])*1e6, plate_thickness*1e6,
-                                  edgecolor=np.array((0, 1, 1, 0.25)), linewidth=1, fill=True,
-                                  facecolor=np.array((0, 1, 1, 0.05)))
-        axes.add_artist(rectangle)
-
     fig, axs = plt.subplots(1 + vectorial, 2, frameon=False, figsize=(12, 9), sharex='all', sharey='all')
     for ax in axs.ravel():
         ax.set_xlabel('y [$\mu$m]')
         ax.set_ylabel('x [$\mu$m]')
         ax.set_aspect('equal')
+        rectangle = plt.Rectangle(np.array((grid[1].ravel()[0], -plate_thickness / 2))*1e6,
+                                  (grid.extent[1])*1e6, plate_thickness*1e6,
+                                  edgecolor=np.array((0, 1, 1, 0.50)), linewidth=1, fill=True,
+                                  facecolor=np.array((0, 1, 1, 0.10)))
+        ax.add_artist(rectangle)
 
-    images = [ax.imshow(complex2rgb(np.zeros(grid.shape), 1, inverted=True), extent=grid2extent(grid) * 1e6)
+    images = [ax.imshow(complex2rgb(np.zeros(grid.shape), 1, inverted=True), extent=grid2extent(grid) / 1e-6)
               for ax in axs.ravel()]
 
     axs.ravel()[-1].set_title('$||E||^2$')
@@ -88,9 +72,9 @@ def show_scatterer(vectorial=True):
     # Display the medium without the boundaries
     for idx in range(axs.size):
         axs.ravel()[idx].set_xlim((grid[1].flatten()[0] + boundary_thickness) * 1e6,
-                                       (grid[1].flatten()[-1] - boundary_thickness) * 1e6)
+                                  (grid[1].flatten()[-1] - boundary_thickness) * 1e6)
         axs.ravel()[idx].set_ylim((grid[0].flatten()[0] + boundary_thickness) * 1e6,
-                                       (grid[0].flatten()[-1] - boundary_thickness) * 1e6)
+                                  (grid[0].flatten()[-1] - boundary_thickness) * 1e6)
         axs.ravel()[idx].autoscale(False)
 
     #
@@ -99,19 +83,17 @@ def show_scatterer(vectorial=True):
     def display(s):
         log.info('Displaying iteration %d: error %0.1f%%' % (s.iteration, 100 * s.residue))
         nb_dims = s.E.shape[0]
-        for dim_idx in range(nb_dims):
-            images[dim_idx].set_data(complex2rgb(s.E[dim_idx], 1, inverted=True))
-            figure_title = '$E_' + 'xyz'[dim_idx] + "$ it %d: rms error %0.1f%% " % (s.iteration, 100 * s.residue)
-            add_rectangle_to_axes(axs.ravel()[dim_idx])
-            axs.ravel()[dim_idx].set_title(figure_title)
+        for axis in range(nb_dims):
+            images[axis].set_data(complex2rgb(s.E[axis], 1, inverted=True))
+            figure_title = '$E_' + 'xyz'[axis] + "$ it %d: rms error %0.1f%% " % (s.iteration, 100 * s.residue)
+            # add_rectangle_to_axes(axs.ravel()[dim_idx])
+            axs.ravel()[axis].set_title(figure_title)
         intensity = np.linalg.norm(s.E, axis=0)
-        intensity /= np.max(intensity)
+        intensity /= np.amax(intensity)
         intensity_rgb = np.concatenate((intensity[:, :, np.newaxis], intensity[:, :, np.newaxis], intensity[:, :, np.newaxis]), axis=2)
         images[-1].set_data(intensity_rgb)
-        add_rectangle_to_axes(axs.ravel()[-1])
         axs.ravel()[-1].set_title('I')
 
-        plt.draw()
         plt.pause(0.001)
 
     #
@@ -127,7 +109,6 @@ def show_scatterer(vectorial=True):
 
         if np.mod(s.iteration, 10) == 0:
             log.info("Iteration %0.0f: rms error %0.3f%%" % (s.iteration, 100 * s.residue))
-        if np.mod(s.iteration, 10) == 1:
             display(s)
 
         return s.residue > 1e-4 and s.iteration < 1e4
@@ -135,7 +116,8 @@ def show_scatterer(vectorial=True):
     # The actual work is done here:
     start_time = time.perf_counter()
     solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, callback=update_function, dtype=np.complex64
+                              refractive_index=refractive_index, bound=bound,
+                              callback=update_function, dtype=np.complex64
                               )
 
     # Display how the method converged
@@ -160,18 +142,9 @@ def show_scatterer(vectorial=True):
     return times, residues
 
 
-def conj_transpose(a):
-    return np.conj(a).swapaxes(-2, -1)
-
-
-def conj_inner(a, b):
-    return np.sum(np.conj(a) * b, axis=-1, keepdims=True)
-
-
 if __name__ == "__main__":
     start_time = time.perf_counter()
-    # times, residues = show_scatterer(vectorial=False)
-    times, residues = show_scatterer()
+    times, residues = show_plate(vectorial=True)
     log.info("Total time: %0.3fs." % (time.perf_counter() - start_time))
 
     # Display how the method converged
