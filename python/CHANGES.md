@@ -1,5 +1,10 @@
 # Macroscopic Maxwell Solver Change Log
 
+## Version 0.1.4
+* Streamlined iteration: 3x speed improvement of benchmark with PyFFTW on Intel Core i7-6700.
+* Reorganized parallel_ops backend.
+* Expanded unit testing.
+
 ## Version 0.1.3
 * Input arguments for isotropic materials or scalar calculations do not require singleton dimensions on the left anymore.
 * `macromax.solve(...)` and `macromax.Solution(...)` now take the optional input argument `refractive_index` as

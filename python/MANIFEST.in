@@ -18,6 +18,9 @@ include examples/polarizer.py
 include examples/rutile.py
 include examples/benchmark.py
 
-include tests/*.py
+include tests/__init__.py
+include tests/test_solution.py
+include tests/test_parallelOperations.py
+include tests/test_grid.py
 
 prune *.log
