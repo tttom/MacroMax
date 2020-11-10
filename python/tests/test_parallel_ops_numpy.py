@@ -1,29 +1,41 @@
 import unittest
 import numpy.testing as npt
 
-from macromax.parallel_ops import ParallelOperations
+from macromax.parallel_ops_numpy import ParallelOpsNumpy
 from macromax import Grid
 import numpy as np
 import scipy
 
 
 class TestParallelOperations(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__nb_pol_dims: int = 3
+        self.__grid: Grid = Grid([5, 10, 20], 100e-9)
+        self.__wavenumber: float = 10e6
+
+    @property
+    def nb_pol_dims(self) -> int:
+        return self.__nb_pol_dims
+
+    @property
+    def grid(self) -> Grid:
+        return self.__grid
+
+    @property
+    def wavenumber(self) -> float:
+        return self.__wavenumber
+
     def setUp(self):
-        self.nb_pol_dims = 3
-        self.grid = Grid([5, 10, 20], 100e-9)
-        self.wavenumber = 10e6
-        self.PO = ParallelOperations(self.nb_pol_dims, self.grid * self.wavenumber)
+        self.PO = ParallelOpsNumpy(self.nb_pol_dims, self.grid * self.wavenumber)
 
     def test_eye(self):
         result = self.PO.eye
         npt.assert_almost_equal(result.shape, np.array([3, 3, 1, 1, 1]), err_msg='eye shape not correct')
         npt.assert_almost_equal(result[:, :, 0, 0, 0], np.eye(3), err_msg='eye property not identity matrix')
 
-    def test_nb_dims(self):
-        npt.assert_almost_equal(self.PO.matrix_shape[0], 3, err_msg='returned number of dimensions incorrect')
-
-    def test_matrix_shape(self):
-        npt.assert_almost_equal(self.PO.matrix_shape, (3, 3), err_msg='returned matrix shape incorrect')
+    def test_vector_length(self):
+        npt.assert_almost_equal(self.PO.vector_length, 3, err_msg='returned vector length is incorrect')
 
     def test_grid(self):
         npt.assert_equal(self.PO.grid == self.grid * self.wavenumber, True, err_msg='grid not set correctly')
@@ -43,57 +55,36 @@ class TestParallelOperations(unittest.TestCase):
         npt.assert_equal(self.PO.is_scalar(np.array([[[1.0]]])), True, err_msg='is_scalar did not detect np.array([[[1.0]]]) as a scalar')
         npt.assert_equal(self.PO.is_scalar(np.array([1.0, 1.0])), False, err_msg='is_scalar detected np.array([1.0, 1.0]) as a scalar')
 
-    def test_to_simple_matrix(self):
-        npt.assert_equal(self.PO.to_simple_matrix(2), 2)
-        npt.assert_equal(self.PO.to_simple_matrix(np.zeros([3, 3, *self.grid.shape])), 0.0)
-        npt.assert_equal(self.PO.to_simple_matrix(np.pi * np.ones([3, 3, *self.grid.shape])), np.pi)
-        npt.assert_equal(self.PO.to_simple_matrix(np.pi * np.eye(3)[:, :, np.newaxis, np.newaxis, np.newaxis]),
+    def test_to_matrix_field(self):
+        npt.assert_equal(self.PO.to_matrix_field(2), 2)
+        npt.assert_equal(self.PO.to_matrix_field(np.zeros([3, 3, *self.grid.shape])), 0.0)
+        npt.assert_equal(self.PO.to_matrix_field(np.pi * np.ones([3, 3, *self.grid.shape])), np.pi)
+        npt.assert_equal(self.PO.to_matrix_field(np.pi * np.eye(3)[:, :, np.newaxis, np.newaxis, np.newaxis]),
                          np.pi * self.PO.eye)
-        npt.assert_equal(self.PO.to_simple_matrix(np.arange(3)).shape, (1, 1, 1, 1, 3))
-        A = self.PO.to_simple_matrix(np.tile(np.arange(3)[:, np.newaxis, np.newaxis, np.newaxis], [1, *self.grid.shape]))
+        npt.assert_equal(self.PO.to_matrix_field(np.arange(3)).shape, (1, 1, 1, 1, 3))
+        A = self.PO.to_matrix_field(np.tile(np.arange(3)[:, np.newaxis, np.newaxis, np.newaxis], [1, *self.grid.shape]))
         npt.assert_equal(A.ndim, 5)
         npt.assert_equal(A.shape[:2], (3, 1))
-
-    def test_to_simple_vector(self):
-        npt.assert_equal(self.PO.to_simple_vector(2), 2 * np.ones([3, 1, 1, 1, 1]))
-        A = self.PO.to_simple_matrix(np.tile(np.arange(3)[:, np.newaxis, np.newaxis, np.newaxis], [1, *self.grid.shape]))
-        npt.assert_equal(A.ndim, 5)
-        npt.assert_equal(A.shape[:2], (3, 1))
-
-    def test_to_full_matrix(self):
-        npt.assert_equal(self.PO.to_full_matrix(None), 0.0 * self.PO.eye)
-        npt.assert_equal(self.PO.to_full_matrix(3), 3.0 * self.PO.eye)
-        npt.assert_equal(self.PO.to_full_matrix(np.pi), np.pi * self.PO.eye)
-        npt.assert_equal(self.PO.to_full_matrix(np.arange(9).reshape(3, 3, 1, 1, 1)), np.arange(9).reshape(3, 3, 1, 1, 1))
-        npt.assert_equal(self.PO.to_full_matrix(np.ones([3, 3, 1, 1, 1])), np.ones([3, 3, 1, 1, 1]))
 
     def test_ft(self):
         A = np.zeros([3, 3, *self.grid.shape], dtype=float)
         A[:, :, 0, 0, 0] = 1
         npt.assert_equal(self.PO.ft(A), np.ones([3, 3, *self.grid.shape]))
         B = np.arange(9 * np.prod(self.grid.shape)).reshape((3, 3, *self.grid.shape))
-        npt.assert_equal(self.PO.ift(self.PO.ft(B)), B)
+        npt.assert_almost_equal(self.PO.ift(self.PO.ft(B)), B, decimal=11,
+                                err_msg='Fourier Transform did not work as expected.')
 
     def test_ift(self):
         A = np.zeros([3, 3, *self.grid.shape], dtype=float)
         A[:, :, 0, 0, 0] = 1
         npt.assert_equal(self.PO.ift(A), np.ones([3, 3, *self.grid.shape]) / np.prod(self.grid.shape))
         B = np.arange(9 * np.prod(self.grid.shape)).reshape((3, 3, *self.grid.shape))
-        npt.assert_equal(self.PO.ft(self.PO.ift(B)), B)
-
-    def test_transpose(self):
-        npt.assert_equal(self.PO.transpose(np.array([[[[[1.0]]]], [[[[1.0j]]]], [[[[0.0]]]]])),
-                         np.array([[[[[1.0]]], [[[1.0j]]], [[[0.0]]]]]))
+        npt.assert_almost_equal(self.PO.ft(self.PO.ift(B)), B, decimal=11,
+                                err_msg='Inverse Fourier Transform did not work as expected.')
 
     def test_conjugate_transpose(self):
-        npt.assert_equal(self.PO.conjugate_transpose(np.array([[[[[1.0]]]], [[[[1.0j]]]], [[[[0.0]]]]])),
+        npt.assert_equal(self.PO.adjoint(np.array([[[[[1.0]]]], [[[[1.0j]]]], [[[[0.0]]]]])),
                          np.array([[[[[1.0]]], [[[-1.0j]]], [[[0.0]]]]]))
-
-    def test_mat_add(self):
-        npt.assert_equal(self.PO.add(3 * self.PO.eye, 2), 5 * self.PO.eye)
-        A = np.arange(9).reshape((3, 3, 1, 1, 1))
-        B = np.arange(8, -1, -1).reshape((3, 3, 1, 1, 1))
-        npt.assert_equal(self.PO.add(A, B), 0 * A + 8)
 
     def test_mat_subtract(self):
         npt.assert_equal(self.PO.subtract(3 * self.PO.eye, 2), self.PO.eye)
@@ -193,8 +184,8 @@ class TestParallelOperations(unittest.TestCase):
         C[:, 0, 0, 5, 10] = np.array([0, 5.5, 5.5])
         npt.assert_almost_equal(B, C)
 
-    def test_calc_K2(self):
-        A = self.PO.calc_k2()
+    def test_k2(self):
+        A = self.PO.k2
         npt.assert_almost_equal(A[1, 1, 1] / ((2*np.pi/(self.grid.step * self.wavenumber)[0])**2),
                                 np.sum(1.0 / (self.grid.shape ** 2)))
 
@@ -202,7 +193,7 @@ class TestParallelOperations(unittest.TestCase):
         D = np.diag([4, 5, 6j])[:, :, np.newaxis, np.newaxis, np.newaxis]
         nI = 2.7*np.eye(3)[:, :, np.newaxis, np.newaxis, np.newaxis]
         # A = np.array([[1.0, 2j, 3], [-4j, 5, 6], [7, 8, 9]])[:, :, np.newaxis, np.newaxis, np.newaxis]
-        # H = A + self.PO.conjugate_transpose(A)
+        # H = A + self.PO.adjoint(A)
         npt.assert_almost_equal(np.sort(self.PO.mat3_eig(D), axis=0), np.array([6j, 4, 5]).reshape(3, 1, 1, 1))
 
         Q = scipy.linalg.orth(np.arange(9).reshape([3, 3]) ** 2 + 1j * np.arange(9).reshape([3, 3]))

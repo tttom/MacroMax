@@ -255,24 +255,35 @@ class Grid(Sequence):
             axes = np.arange(self.ndim-1, -1, -1)
         return self.project(axes)
 
-    def project(self, axes: Union[int, slice, Sequence, np.array]=0) -> Grid:
+    def project(self, axes_to_keep: Union[int, slice, Sequence, np.array, None]=None,
+                axes_to_remove: Union[int, slice, Sequence, np.array, None] = None) -> Grid:
         """
         Removes all but the specified axes and reduces the dimensions to the number of specified axes.
-        :param axes: The indices of the axes to keep.
+        :param axes_to_keep: The indices of the axes to keep.
+        :param axes_to_remove: The indices of the axes to remove. Default: None
         :return: A Grid object with ndim == len(axes) and shape == shape[axes].
         """
-        if isinstance(axes, slice):
-            axes = np.arange(self.ndim)[axes]
-        if np.isscalar(axes):
-            axes = [axes]
-        axes = np.array(axes)
+        if axes_to_keep is None:
+            axes_to_keep = np.arange(self.ndim)
+        elif isinstance(axes_to_keep, slice):
+            axes_to_keep = np.arange(self.ndim)[axes_to_keep]
+        if np.isscalar(axes_to_keep):
+            axes_to_keep = [axes_to_keep]
+        axes_to_keep = np.array(axes_to_keep)
+        if axes_to_remove is None:
+            axes_to_remove = []
+        elif isinstance(axes_to_remove, slice):
+            axes_to_remove = np.arange(self.ndim)[axes_to_remove]
+        if np.isscalar(axes_to_remove):
+            axes_to_remove = [axes_to_remove]
+        axes_to_keep = np.array([_ for _ in axes_to_keep if _ not in axes_to_remove])
 
-        if np.any(axes >= self.ndim) or np.any(axes < -self.ndim):
+        if np.any(axes_to_keep >= self.ndim) or np.any(axes_to_keep < -self.ndim):
             raise IndexError(f"Axis range {axes} requested from a Grid of dimension {self.ndim}.")
 
-        return Grid(shape=self.shape[axes], step=self.step[axes], center=self.center[axes], flat=self.flat[axes],
-                    origin_at_center=self.origin_at_center[axes],
-                    center_at_index=self.center_at_index[axes]
+        return Grid(shape=self.shape[axes_to_keep], step=self.step[axes_to_keep], center=self.center[axes_to_keep], flat=self.flat[axes_to_keep],
+                    origin_at_center=self.origin_at_center[axes_to_keep],
+                    center_at_index=self.center_at_index[axes_to_keep]
                     )
 
     #
