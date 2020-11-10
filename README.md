@@ -10,7 +10,27 @@ The method iteratively corrects an estimated solution for the electric field (de
 The [source code](https://github.com/tttom/MacroMax) is available on [GitHub](https://github.com/tttom/MacroMax) under the
 **[MIT License](https://opensource.org/licenses/MIT): [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)**
 
-### Pure Python and Matlab implementations
-Please follow the links for further information and the source code:
+## What is this method good for?
+The algorithm is particularly efficient for solving complex scattering:
+* wave problems such as those encountered in electromagnetism and acoustics,
+* subject to temporal coherent (monochromatic) irradiation,
+* and a limited variation of a gain-free potential (permittivity),
+* in complex, heterogeneous, materials.
+
+Although incoherent and aperiodic problems can be solved by solving multiple coherent problems,
+alternative methods might be more appropriate for this type of problems.
+
+## When not to use this method?
+With the exception of gain materials, MacroMax works for a wide variety of problems. However, more appropriate solutions may exist when:
+* an approximate solution is sufficient, &larr; e.g. the beam propagation method
+* the material has a simple structure, &larr; e.g. Mie scattering from a perfect sphere
+* coherence is not important, &larr; e.g. ray tracing
+* the variation in the complex potential (permittivity) is very large, e.g. due to the presence of conductors &larr; e.g. finite element methods
+* the material has gain, e.g. an active laser cavity &larr; e.g. finite element method
+* aperiodic time-dependence is important, &larr; e.g. finite difference method
+The convergence rate of MacroMax is approximately inversely proportional to the variation in the potential. Materials with a refractive index or extinction coefficients larger than 5 will generally lead to slow convergence. By consequence, the presence of a superconductor would lead to infinitely slow convergence (a.k.a. divergence).
+
+## Pure Python and Matlab implementations
+Please follow the links for further information, source code, and examples:
 * [Python](python)
 * [Matlab](matlab)
