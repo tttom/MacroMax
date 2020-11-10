@@ -25,12 +25,12 @@ The code has been tested on Python 3.8 though may work on earlier versions.
 ### Installing
 MacroMax, and optional packages to maximize efficiency, can be installed using the Python package manager `pip`. This is as straightforward as running the following command in a terminal:
 ````sh
-pip install macromax multiprocessing pyFFTW
+pip install --upgrade macromax multiprocessing pyFFTW
 ````
 Note that on Anaconda (Windows), the use of `conda` may be necessary to install `fftw` first. 
 If these packages are not available on your platform, you can always install MacroMax and its mandatory dependencies using: 
 ````sh
-pip install macromax
+pip install --upgrade macromax
 ````
 More modest efficiency improvements are seen with Intel-specific implementations. The [mkl-fft](https://github.com/IntelPython/mkl_fft) package is only available for Intel(R) CPUs and may require compilation or relying on the [Anaconda](https://www.anaconda.com/) or [Intel Python](https://software.intel.com/content/www/us/en/develop/tools/distribution-for-python.html) distributions.
 
@@ -52,6 +52,15 @@ The basic calculation procedure consists of the following steps:
 4. display the solution
 
 The ````macromax```` module must be imported to be able to use the ````solve```` function. The module also contains several utility functions that may help in defining the property and source distributions.
+
+### Running the examples
+The examples are contained within their own `exmples` module. Locate or download the entire folder, including the `__init__.py`.
+From the containin folder run each example as a module. E.g.:
+```sh
+cd AppData\Local\Programs\Python\Python38\Lib\site-packages\macromax\
+python -m examples.air_glass_air_1D
+```
+
 
 ### Loading the Python 3 module
 The ````macromax```` module can be imported using:
@@ -318,7 +327,7 @@ Since the copying-overheads may quickly become a bottleneck, it is important
 to consider the memory requirements for the problem you want to solve.
 
 
-## Development
+## Library Development
 ### Source code organization
 The source code is organized as follows:
 * [/](.) (root): Module description and distribution files.
@@ -329,7 +338,7 @@ The source code is organized as follows:
 
 The library functions are contained in ````macromax/````:
 * [solver](macromax/solver.py): Defines the ````solve(...)```` function and the ````Solution```` class.
-* [parallel_ops_column](macromax/parallel_ops_numpy.py): Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
+* [parallel_ops](macromax/parallel_ops.py): Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
 * [utils/](macromax/utils/): Defines utility functions that can be used to prepare and interpret function arguments.
 
 The included examples in the [examples/](examples/) folder are:
