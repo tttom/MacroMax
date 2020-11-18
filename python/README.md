@@ -20,7 +20,7 @@ The ````torch````, ````multiprocessing```` and ````pyfftw```` or alternatively `
 The examples require ````matplotlib```` for displaying the results.
 In the creation of this package, the ````pypandoc```` module is used for translating this document to other formats. This is only necessary for software development.
 
-The code has been tested on Python 3.7 and 3.8, though it is expected to work on later versions.
+The code has been tested on Python 3.7 and 3.8, though it is expected to work on versions 3.6 and above.
 
 ### Installing
 Installing the ````macromax```` module and its mandatory dependencies is as straightforward as running the following command in a terminal: 
@@ -90,6 +90,7 @@ Reminder: this library module requires Python 3, ````numpy````, and ````scipy```
 The material properties are sampled on a plaid uniform rectangular grid of voxels. The sample points are defined by one or more linearly increasing coordinate ranges, one range per dimensions. The coordinates must be specified in meters, e.g.:
 
 ```python
+import numpy as np
 x_range = 50e-9 * np.arange(1000)
 ```
 

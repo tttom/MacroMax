@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from typing import Union, Sequence
 import numpy as np
 
@@ -105,7 +103,7 @@ class Grid(Sequence):
         self.__center_at_index = center_at_index
 
     @staticmethod
-    def from_ranges(*ranges: Union[int, float, complex, Sequence, np.ndarray]) -> Grid:
+    def from_ranges(*ranges: Union[int, float, complex, Sequence, np.ndarray]):
         """
         Converts one or more ranges of numbers to a single Grid object representation.
         The ranges can be specified as separate parameters or as a tuple.
@@ -194,7 +192,7 @@ class Grid(Sequence):
     #
 
     @property
-    def as_flat(self) -> Grid:
+    def as_flat(self):
         """
         :return: A new Grid object where all the ranges are 1d-vectors (flattened or raveled)
         """
@@ -207,7 +205,7 @@ class Grid(Sequence):
                     flat=True, origin_at_center=origin_at_center)
 
     @property
-    def as_non_flat(self) -> Grid:
+    def as_non_flat(self):
         """
         :return: A new Grid object where all the ranges are 1d-vectors (flattened or raveled)
         """
@@ -220,7 +218,7 @@ class Grid(Sequence):
                     flat=False, origin_at_center=origin_at_center)
 
     @property
-    def as_origin_at_0(self) -> Grid:
+    def as_origin_at_0(self):
         """
         :return: A new Grid object where all the ranges are ifftshifted so that the origin as at index 0.
         """
@@ -231,7 +229,7 @@ class Grid(Sequence):
                     flat=flat, origin_at_center=False)
 
     @property
-    def as_origin_at_center(self) -> Grid:
+    def as_origin_at_center(self):
         """
         :return: A new Grid object where all the ranges have the origin at the center index, even when the number of
         elements is odd.
@@ -242,21 +240,21 @@ class Grid(Sequence):
         return Grid(shape=shape, step=step, center=center, center_at_index=center_at_index,
                     flat=flat, origin_at_center=True)
 
-    def swapaxes(self, axes: Union[slice, Sequence, np.array]) -> Grid:
+    def swapaxes(self, axes: Union[slice, Sequence, np.array]):
         """Reverses the order of the specified axes."""
         axes = np.array(axes).flatten()
         all_axes = np.arange(self.ndim)
         all_axes[axes] = axes[::-1]
         return self.transpose(all_axes)
 
-    def transpose(self, axes: Union[None, slice, Sequence, np.array]=None) -> Grid:
+    def transpose(self, axes: Union[None, slice, Sequence, np.array]=None):
         """Reverses the order of all axes."""
         if axes is None:
             axes = np.arange(self.ndim-1, -1, -1)
         return self.project(axes)
 
     def project(self, axes_to_keep: Union[int, slice, Sequence, np.array, None]=None,
-                axes_to_remove: Union[int, slice, Sequence, np.array, None] = None) -> Grid:
+                axes_to_remove: Union[int, slice, Sequence, np.array, None] = None):
         """
         Removes all but the specified axes and reduces the dimensions to the number of specified axes.
         :param axes_to_keep: The indices of the axes to keep.
@@ -325,7 +323,7 @@ class Grid(Sequence):
     #
 
     @property
-    def f(self) -> Grid:
+    def f(self):
         """ The equivalent frequency Grid. """
         shape, step, flat = self.shape, 1 / self.extent, self.flat
         if not self.multidimensional:
@@ -334,14 +332,14 @@ class Grid(Sequence):
         return Grid(shape=shape, step=step, flat=flat, origin_at_center=False, center_at_index=True)
 
     @property
-    def k(self) -> Grid:
+    def k(self):
         """ The equivalent k-space Grid. """
         return self.f * (2 * np.pi)
 
     #
     # Arithmetic methods
     #
-    def __add__(self, term) -> Grid:
+    def __add__(self, term):
         """ Add a (scalar) offset to the Grid coordinates. """
         d = self.__dict__
         new_center = self.center + np.asarray(term)
@@ -350,7 +348,7 @@ class Grid(Sequence):
         d['center'] = new_center
         return Grid(**d)
 
-    def __mul__(self, factor: Union[int, float, complex, Sequence, np.array]) -> Grid:
+    def __mul__(self, factor: Union[int, float, complex, Sequence, np.array]):
         """
         Scales all ranges with a factor.
         :param factor: A scalar factor for all dimensions, or a vector of factors, one for each dimension.
@@ -370,7 +368,7 @@ class Grid(Sequence):
         d['center'] = new_center
         return Grid(**d)
 
-    def __matmul__(self, other: Grid) -> Grid:
+    def __matmul__(self, other):
         """
         Determines the Grid spanning the tensor space, with ndim equal to the sum of both ndims.
         :param other: The Grid with the right-hand dimensions.
@@ -383,11 +381,11 @@ class Grid(Sequence):
                     center_at_index=(*self.center_at_index, *other.center_at_index)
                     )
 
-    def __sub__(self, term: Union[int, float, complex, Sequence, np.ndarray]) -> Grid:
+    def __sub__(self, term: Union[int, float, complex, Sequence, np.ndarray]):
         """ Subtract a (scalar) value from all Grid coordinates. """
         return self + (- term)
 
-    def __truediv__(self, denominator: Union[int, float, complex, Sequence, np.ndarray]) -> Grid:
+    def __truediv__(self, denominator: Union[int, float, complex, Sequence, np.ndarray]):
         """ Divide the grid coordinates by a value.
         :param denominator: The denominator to divide by.
         :returns A new Grid with the divided coordinates.
@@ -474,12 +472,12 @@ class Grid(Sequence):
                     center_at_index=center_at_index, origin_at_center=origin_at_center)
 
     @property
-    def immutable(self) -> Grid:
+    def immutable(self):
         """ Return a new immutable Grid object. """
         return Grid(**self.__dict__)
 
     @property
-    def mutable(self) -> MutableGrid:
+    def mutable(self):
         """ Return a new MutableGrid object. """
         return MutableGrid(**self.__dict__)
 

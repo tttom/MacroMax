@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import numpy as np
 import scipy.constants as const
 import scipy.optimize
@@ -889,7 +887,7 @@ class Solution(object):
 
             yield self
 
-    def solve(self, callback: Callable[[Solution], bool] = lambda _:_.iteration < 1e4 and _.residue > 1e-4) -> Solution:
+    def solve(self, callback: Callable = lambda _: _.iteration < 1e4 and _.residue > 1e-4):
         """
         Runs the algorithm until the convergence criterion is met or until the maximum number of iterations is reached.
 
