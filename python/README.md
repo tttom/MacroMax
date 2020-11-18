@@ -15,12 +15,12 @@ The [source code](https://github.com/tttom/MacroMax) is available on [GitHub](ht
 ### Prerequisites
 
 This library requires Python 3 with the modules ````numpy```` and ````scipy```` for the main calculations. These modules will be automatically installed.
-The ````multiprocessing```` and ````pyfftw```` or ````mkl-fft```` (Intel(R) CPU specific) modules are recommended to speed up the calculations.
+The ````torch````, ````multiprocessing```` and ````pyfftw```` or alternatively ````mkl-fft```` (Intel(R) CPU specific) modules are recommended to speed up the calculations.
 
 The examples require ````matplotlib```` for displaying the results.
 In the creation of this package, the ````pypandoc```` module is used for translating this document to other formats. This is only necessary for software development.
 
-The code has been tested on Python 3.8 though may work on earlier versions.
+The code has been tested on Python 3.7 and 3.8, though it is expected to work on later versions.
 
 ### Installing
 Installing the ````macromax```` module and its mandatory dependencies is as straightforward as running the following command in a terminal: 
@@ -28,17 +28,30 @@ Installing the ````macromax```` module and its mandatory dependencies is as stra
 pip install macromax
 ````
 While this is sufficient to get started, optional packages are useful to display the results and to speed-up the calculations.
-For efficiency, optional packages can be installed using: 
+
+#### Optimizing execution speed
+The calculation time can be reduced to a fraction by using multi-core CPUs and the FFTW library. Simply install the optional packages with: 
 ````sh
 pip install macromax multiprocessing pyFFTW
 ````
-The [mkl-fft](https://github.com/IntelPython/mkl_fft) package is only available for Intel(R) CPUs and may require compilation or relying on the [Anaconda](https://www.anaconda.com/) or [Intel Python](https://software.intel.com/content/www/us/en/develop/tools/distribution-for-python.html) distributions.
+Alternatively, the [mkl-fft](https://github.com/IntelPython/mkl_fft) package is available for Intel(R) CPUs, though it may require compilation or relying on the [Anaconda](https://www.anaconda.com/) or [Intel Python](https://software.intel.com/content/www/us/en/develop/tools/distribution-for-python.html) distributions.
 
+NVidia CUDA-enabled GPU can be leveraged to offer an even more significant boost in efficiency. This can be as simple as installing the appropriate [CUDA drivers](https://www.nvidia.co.uk/Download/index.aspx?lang=en-uk) and the PyTorch module following the [PyTorch Guide](https://pytorch.org/).
+Note that for PyTorch to work correctly, Nvidia drivers need to be up to date and match the installed CUDA version, e.g. for CUDA 11.0 you could install PyTorch as follows: 
+```sh
+pip install torch===1.7.0+cu110 -f https://download.pytorch.org/whl/torch_stable.html
+```
+Specifics for your CUDA version and operating system are listed on [PyTorch Guide](https://pytorch.org/).
+
+When PyTorch and a GPU are detected, these will be used by default. If not, FFTW and mkl-fft will be used if available. NumPy and SciPy will be used otherwise.
+
+#### Additional packages
 The module comes with a submodule containing example code that should run as-is on most desktop installations of Python.
 Some systems may require the installation of the ubiquous ````matplotlib```` graphics library: 
 ````sh
 pip install matplotlib
 ````
+Building and distributing the library may require further packages as indicated below.
 
 ## Usage
 The basic calculation procedure consists of the following steps:
@@ -324,7 +337,7 @@ The source code is organized as follows:
 
 The library functions are contained in ````macromax/````:
 * [solver](macromax/solver.py): Defines the ````solve(...)```` function and the ````Solution```` class.
-* [parallel_ops_column](macromax/parallel_ops_numpy.py): Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
+* [parallel_ops_column](macromax/backend/numpy.py): Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
 * [utils/](macromax/utils/): Defines utility functions that can be used to prepare and interpret function arguments.
 
 The included examples in the [examples/](examples/) folder are:

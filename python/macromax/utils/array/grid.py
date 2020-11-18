@@ -279,7 +279,7 @@ class Grid(Sequence):
         axes_to_keep = np.array([_ for _ in axes_to_keep if _ not in axes_to_remove])
 
         if np.any(axes_to_keep >= self.ndim) or np.any(axes_to_keep < -self.ndim):
-            raise IndexError(f"Axis range {axes} requested from a Grid of dimension {self.ndim}.")
+            raise IndexError(f"Axis range {axes_to_keep} requested from a Grid of dimension {self.ndim}.")
 
         return Grid(shape=self.shape[axes_to_keep], step=self.step[axes_to_keep], center=self.center[axes_to_keep], flat=self.flat[axes_to_keep],
                     origin_at_center=self.origin_at_center[axes_to_keep],

@@ -2,15 +2,15 @@ import numpy as np
 from typing import Union
 from numbers import Complex
 
-from . import log
+from .. import log
 
-from .utils import ft
-from .utils.array import Grid
-from .parallel_ops import ParallelOps, array_like
+from macromax.utils import ft
+from macromax.utils.array import Grid
+from macromax.backend.__init__ import BackEnd, array_like
 array_like = Union[array_like, np.ndarray]
 
 
-class ParallelOpsNumpy(ParallelOps):
+class BackEndNumpy(BackEnd):
     """
     A class that provides methods to work with arrays of matrices or block-diagonal matrices, represented as ndarrays,
     where the first two dimensions are those of the matrix, and the final dimensions are the coordinates over

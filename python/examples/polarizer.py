@@ -90,7 +90,9 @@ def show_polarizer(center_polarizer=True):
             abs_line[plot_idx].set_ydata(np.abs(field_to_display) ** 2 / max_val_to_display)
             real_line[plot_idx].set_ydata(np.real(field_to_display))
             imag_line[plot_idx].set_ydata(np.imag(field_to_display))
-            ax.set_ylim(np.array((-1, 1)) * np.maximum(np.max(np.abs(field_to_display)), np.max(abs(field_to_display) ** 2 / max_val_to_display)) * 1.05 )
+            if np.amax(np.abs(field_to_display)) > np.finfo(field_to_display.dtype).eps:
+                ax.set_ylim(np.array((-1, 1)) * np.maximum(np.amax(np.abs(field_to_display)),
+                                                           np.amax(abs(field_to_display) ** 2 / max_val_to_display)) * 1.05)
             figure_title = "$E_" + 'xyz'[plot_idx] + "$ Iteration %d, " % s.iteration
             ax.set_title(figure_title)
 

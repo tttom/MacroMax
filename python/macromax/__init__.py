@@ -33,7 +33,8 @@ except IOError:
 # Import in main name space
 from .solver import solve, Solution
 from .utils.array import Grid
+import macromax.backend
 
 __version__ = '0.1.4'
 
-__all__ = ['__version__', 'solve', 'Solution', 'Grid', 'log']
+__all__ = ['__version__', 'solve', 'Solution', 'Grid', 'log', 'backend']

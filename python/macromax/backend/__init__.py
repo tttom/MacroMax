@@ -1,23 +1,25 @@
 import numpy as np
-from numpy.lib import scimath as sm
 import scipy.constants as const
-from typing import Callable, Union, Sequence
+from typing import Callable, Union, Sequence, List, Dict
 from numbers import Complex
 from abc import ABC, abstractmethod
+import json
 
-from . import log
+from .. import log
 
-from .utils.array import vector_to_axis, Grid
+from macromax.utils.array import vector_to_axis, Grid
 
 
-__all__ = ['ParallelOps', 'get_parallel_ops_implementation', 'array_like', 'tensor_type']
+__all__ = ['config', 'load', 'BackEnd', 'array_like', 'tensor_type']
 
+
+__config_list = None
 
 tensor_type = np.ndarray
 array_like = Union[Complex, Sequence, tensor_type]
 
 
-class ParallelOps(ABC):
+class BackEnd(ABC):
     """
     A class that provides methods to work with arrays of matrices or block-diagonal matrices, represented as ndarrays,
     where the first two dimensions are those of the matrix, and the final dimensions are the coordinates over
@@ -88,6 +90,11 @@ class ParallelOps(ABC):
             dtype = self.dtype
         return np.asarray(arr, dtype)
 
+    def asnumpy(self, arr: array_like) -> np.ndarray:
+        if not isinstance(arr, np.ndarray):
+            arr = np.asarray(arr)
+        return arr
+
     @property
     def eps(self) -> float:
         return np.finfo(self.dtype).eps
@@ -97,10 +104,12 @@ class ParallelOps(ABC):
         """Allocates a new vector array of shape grid.shape and word-aligned for efficient calculations."""
         pass
 
-    def align_array(self, arr: array_like) -> tensor_type:
-        """Copy array to a new array that is word-aligned."""
-        alligned_arr = self.copy(arr)
-        return alligned_arr
+    def assign(self, arr: array_like, out: tensor_type) -> tensor_type:
+        arr = self.to_matrix_field(arr)
+        if np.any(arr.shape[-self.grid.ndim:] != self.grid.shape):
+            arr = np.tile(arr, self.grid.shape // arr.shape[-self.grid.ndim:])
+        out[:] = self.astype(arr)
+        return out
 
     def copy(self, arr: array_like) -> tensor_type:
         """Makes an independent copy of an ndarray."""
@@ -109,6 +118,9 @@ class ParallelOps(ABC):
     def ravel(self, arr: array_like) -> tensor_type:
         """Returns a flattened view of the array."""
         return arr.ravel()
+
+    def sign(self, arr: array_like) -> tensor_type:
+        return np.sign(arr)
 
     def first(self, arr: array_like) -> Complex:
         """Returns the first element of the flattened array."""
@@ -125,7 +137,7 @@ class ParallelOps(ABC):
         Returns an identity tensor that can be multiplied using singleton expansion. This can be useful for scalar
         additions or subtractions.
 
-        :return: an array with the number of dimensions matching that of the ParallelOperation's data set.
+        :return: an array with the number of dimensions matching that of the BackEnds's data set.
         """
         if self.__eye is None:
             nb_rows = self.vector_length
@@ -133,15 +145,21 @@ class ParallelOps(ABC):
                 np.eye(nb_rows, dtype=int).reshape((nb_rows, nb_rows, *np.ones(len(self.grid.shape), dtype=int))))
         return self.__eye
 
-    def any(self, arr):
+    def any(self, arr: array_like) -> bool:
+        """Returns True if all elements of the array are True."""
         return np.any(arr)
-
-    def amax(self, arr):
-        return np.amax(arr)
 
     def allclose(self, arr: array_like, other: array_like = 0.0) -> bool:
         """Returns True if all elements in arr are close to other."""
         return np.allclose(arr, other)
+
+    def amax(self, arr: array_like) -> float:
+        """Returns the maximum of the flattened array."""
+        return np.amax(arr)
+
+    def sort(self, arr: array_like) -> tensor_type:
+        """Sorts array elements along the first (left-most) axis."""
+        return np.sort(arr, axis=0)
 
     @abstractmethod
     def ft(self, arr: array_like) -> tensor_type:
@@ -301,6 +319,8 @@ class ParallelOps(ABC):
 
         :return: An array of matrix products with all but the first two dimensions broadcast as needed.
         """
+        left_factor = self.astype(left_factor)
+        right_factor = self.astype(right_factor)
         if self.is_scalar(left_factor) or self.is_scalar(right_factor):
             if out is not None:
                 result = out
@@ -308,6 +328,11 @@ class ParallelOps(ABC):
             else:
                 result = left_factor * right_factor
         else:
+            if out is None:
+                product_shape = (left_factor.shape[0], right_factor.shape[1],
+                                 *np.maximum(np.array(left_factor.shape[2:], dtype=int),
+                                             np.array(right_factor.shape[2:], dtype=int)))
+                out = np.empty(shape=product_shape, dtype=self.dtype)
             result = np.einsum('ij...,jk...->ik...', left_factor, right_factor, out=out)
 
         return result
@@ -358,6 +383,7 @@ class ParallelOps(ABC):
             :param field_array_ft: The input vector array of dimensions ``[vector_length, 1, *data_shape]``.
             :return: The Fourier transform of the curl of F.
         """
+        field_array_ft = self.astype(field_array_ft)
         # Calculate the curl
         curl_field_array_ft = self.allocate_array(shape=[self.vector_length, *field_array_ft.shape[1:]], dtype=self.dtype)
         # as the cross product without representing the first factor in full
@@ -423,6 +449,7 @@ class ParallelOps(ABC):
             The input is of the shape ``[m, n, x, y, z, ...]``
         :return: The Fourier transform of the divergence of the field in the shape ``[n, 1, x, y, z]``.
         """
+        field_array_ft = self.astype(field_array_ft)
         div_field_array_ft = self.allocate_array(shape=field_array_ft.shape[1:], dtype=self.dtype, fill_value=0)
         for dim_idx in range(np.minimum(len(self.k), field_array_ft.ndim-2)):
             div_field_array_ft += 1j * self.k[dim_idx] * field_array_ft[dim_idx, :, ...]
@@ -457,7 +484,7 @@ class ParallelOps(ABC):
         :return: The Fourier transform of the transversal projection.
         """
         transversal_ft = self.array_ift_input
-        transversal_ft[:] = field_array_ft.astype(dtype=self.dtype)  # Get it in place for an Inverse Fourier Transform
+        transversal_ft[:] = self.astype(field_array_ft)  # Get it in place for an Inverse Fourier Transform
         transversal_ft -= self.longitudinal_projection_ft(field_array_ft)
         return transversal_ft
 
@@ -474,11 +501,16 @@ class ParallelOps(ABC):
         data_shape = data_shape[2:]
         nb_data_dims = np.minimum(len(data_shape), len(self.grid.step))
         nb_output_dims = np.maximum(nb_data_dims, nb_input_vector_dims)
+        field_array_ft = self.astype(field_array_ft)
 
-        zero_k2 = tuple(np.zeros(1, dtype=int) for _ in range(nb_data_dims))
+        zero_k2 = tuple(0 for _ in range(nb_data_dims))
 
         # Store the DC components for later use
         field_dc = [field_array_ft[out_dim_idx, 0][zero_k2] for out_dim_idx in range(nb_data_dims)]
+
+        # field_dc = field_array_ft[:, 0, 0]
+        # while field_dc.ndim > 1:
+        #     field_dc = field_dc[:, 0]
 
         # Pre-alocate a working array
         if self.__longitudinal_projection is None:
@@ -508,7 +540,6 @@ class ParallelOps(ABC):
         """
         :return: A list of the k-vector components along each axis.
         """
-        dtype = np.float32 if self.dtype == np.complex64 else np.float64
         if self.__k is None:
             self.__k = [self.copy(self.astype(_)) for _ in self.grid.k]
         return self.__k
@@ -522,7 +553,7 @@ class ParallelOps(ABC):
         """
         if self.__k2 is None:
             k2 = sum(_**2 for _ in self.k)
-            self.__k2 = self.align_array(k2)
+            self.__k2 = self.copy(k2)
         return self.__k2
 
     def mat3_eig(self, A: array_like) -> tensor_type:
@@ -543,13 +574,14 @@ class ParallelOps(ABC):
         # TODO: Check if this could be implemented faster / more accurately with an iterative algorithm,
         # e.g. Use a single Given's rotation or Householder reflection to make Hermitian tridiagonal + power iteration.
         #
+        A = self.astype(A)
         matrix_shape = np.array(A.shape[:-self.grid.ndim])
         data_shape = np.array(A.shape[-self.grid.ndim:])
 
         if matrix_shape.size > 2:
             raise ValueError(f'The matrix dimensions should be at most 2, not {matrix_shape.size}.')
         while matrix_shape.size < 2:  # pad dimensions to 2
-            matrix_shape = matrix_shape[np.newaxis, ...]
+            matrix_shape = (1, *matrix_shape)
         if np.all(matrix_shape == 3):
             # C = np.zeros([4, *data_shape], dtype=A.dtype)
             C = self.allocate_array([4, *data_shape])
@@ -595,7 +627,7 @@ class ParallelOps(ABC):
             return 2 * (arr >= 0) - 1
 
         def is_significant(arr):
-            return self.astype(np.abs(arr) > np.sqrt(self.eps), dtype=bool)
+            return self.astype(self.abs(arr) > (self.eps ** 0.5), dtype=bool)
 
         def add_roots(coeffs):
             """
@@ -607,9 +639,9 @@ class ParallelOps(ABC):
             # Although the coefficients are integers, the calculations may be real and complex.
             coeffs = self.astype(coeffs)
             coeffs = coeffs[..., np.newaxis]  # add a singleton dimension to avoid problems with vectors
-            roots_added = np.zeros(coeffs[0].shape, dtype=np.uint8)
+            roots_added = self.allocate_array(coeffs[0].shape, dtype=int, fill_value=0)
             for outer_dim_idx in range(coeffs.shape[0]):
-                lower_order = np.where(coeffs[-1] == 0)
+                lower_order = self.allclose(coeffs[-1])
                 for dim_idx in np.arange(coeffs.shape[0]-1, 0, -1):
                     coeffs[dim_idx][lower_order] = coeffs[dim_idx-1][lower_order]
                 coeffs[0][lower_order] = 0
@@ -628,13 +660,15 @@ class ParallelOps(ABC):
             :return: The array with the dummy roots placed at the end and replaced by nan.
             """
             roots = roots[..., np.newaxis]  # add a singleton dimension to avoid problems with vectors
+            roots = self.astype(roots)
             roots_added = roots_added[..., np.newaxis]  # add a singleton dimension to avoid problems with vectors
+            roots_added = self.astype(roots_added, dtype=int)
             for dim_idx in np.arange(roots.shape[0]-1, -1, -1):
                 is_zero = ~is_significant(roots[dim_idx])  # not
                 remove_zero = self.astype(is_zero & (roots_added > 0), dtype=bool)
                 roots[dim_idx][remove_zero] = np.nan
                 roots_added[remove_zero] -= 1
-            roots = np.sort(roots, axis=0)
+            roots = self.sort(roots)
             return roots[..., 0]
 
         if nb_terms < 2:
@@ -648,9 +682,9 @@ class ParallelOps(ABC):
             # C[0] + C[1]*X + C[2]*X**2 == 0
             C, nb_roots_added = add_roots(C)
             d = C[1] ** 2 - 4.0 * C[2] * C[0]
-            sqrt_d = sm.sqrt(d)
-            q = -0.5 * (C[1] + sign((np.conj(C[1]) * sqrt_d).real) * sqrt_d)
-            X = np.array((q / C[2], C[0] / (q + (1 - is_significant(C[0])) * (1 - is_significant(q)))))
+            sqrt_d = d ** 0.5
+            q = -0.5 * (C[1] + sign((self.conj(C[1]) * sqrt_d).real) * sqrt_d)
+            X = self.astype([q / C[2], C[0] / (q + ~is_significant(C[0]) * ~is_significant(q))], dtype=self.dtype)
             X = remove_roots(X, nb_roots_added)
         elif nb_terms == 4:  # cubic
             C, nb_roots_added = add_roots(C)
@@ -663,13 +697,14 @@ class ParallelOps(ABC):
             R = a ** 3 + (- a * b + c) / 2
             del b, c
 
-            S2 = R ** 2 - Q ** 3
-            complex_root = self.astype(True, dtype=bool)  #TODO: fix numerical issues with real roots.  is_significant(R.imag) | is_significant(Q.imag) | (S2 >= 0)
+            S2 = R**2 - Q**3
+            # complex_root = is_significant(R.imag) | is_significant(Q.imag) | (S2 >= 0)  # TODO: function not available on torch yet with complex
+            complex_root = self.astype(True, dtype=bool)
             not_around_origin = is_significant(Q)  # avoiding division by zero in case the roots are centered around zero
-            RQm32 = sm.power(R, 1/3) / (not_around_origin * sm.sqrt(Q) + (~not_around_origin))
-            AB_all_real_roots = -self.astype(Q)**0.5 * (RQm32 + 1j * sm.sqrt(1.0 - RQm32**2))
-            S = sm.sqrt(S2)  # S**2 = R**2 - Q**3 => Q**3 == R**2 - S**2 = (R-S)*(R+S)
-            A_complex_root = -sm.power(R + sign(np.real(np.conj(R) * S)) * S, 1/3)
+            RQm32 = R ** (1/3) / (not_around_origin * Q ** 0.5 + (~not_around_origin))
+            AB_all_real_roots = -self.astype(Q)**0.5 * (RQm32 + 1j * (1.0 - RQm32**2) ** 0.5)
+            S = S2 ** 0.5  # S**2 = R**2 - Q**3 => Q**3 == R**2 - S**2 = (R-S)*(R+S)
+            A_complex_root = - (R + sign(np.real(self.conj(R) * S)) * S) ** (1/3)
             # Combine the different calculations for A
             A = complex_root * A_complex_root + (~complex_root) * AB_all_real_roots
             # choose sign of sqrt so that real(conj(R) * sqrt(R**2 - Q**3)) >= 0
@@ -677,13 +712,13 @@ class ParallelOps(ABC):
             # if A insignificant, then R + np.sign(np.real(np.conj(R) * S)) * S == 0
             #  and can be divided out of Q^3 = R^2 - S^2 = (R-S)*(R+S)
             B_complex_roots = Q / (A + (~A_significant))  # avoiding division by zero
-            B_complex_roots_origin = - sm.power(R - np.sign(np.real(np.conj(R) * S)) * S, 1/3)
+            B_complex_roots_origin = - (R - self.sign((self.conj(R) * S).real) * S) ** (1/3)
 
             # Combine the different calculations for B
             B = complex_root * (A_significant * B_complex_roots + (~A_significant) * B_complex_roots_origin) \
                 + (~complex_root) * (-AB_all_real_roots)
-            complex_triangle = vector_to_axis(np.exp(2j * const.pi * np.array([-1, 0, 1]) / 3), 0, output_shape.size)
-            X = A[np.newaxis, ...] * complex_triangle + B[np.newaxis, ...] * np.conj(complex_triangle)
+            complex_triangle = self.astype(vector_to_axis(np.exp(2j * const.pi * np.array([-1, 0, 1]) / 3), 0, output_shape.size))
+            X = A[np.newaxis, ...] * complex_triangle + B[np.newaxis, ...] * self.conj(complex_triangle)
             X -= a[np.newaxis, ...]
 
             X = remove_roots(X, nb_roots_added)
@@ -714,25 +749,65 @@ class ParallelOps(ABC):
         return np.linalg.norm(arr.ravel())
 
 
-def get_parallel_ops_implementation(nb_pol_dims: int, grid: Grid, dtype) -> ParallelOps:
-    try:
-        import torch
-        gpu_available = torch.cuda.is_available() and torch.cuda.device_count() > 0
-        log.info(f'PyTorch version {torch.__version__} ' + ('with' if gpu_available else 'but no') + 'GPU detected.')
-        if not gpu_available:
-            raise ImportError('PyTorch installed by no CUDA GPU found!')
-        try:
-            import torch.fft
-            fftn_available = True
-        except ImportError:
-            fftn_available = False
-        if not fftn_available:
-            raise ImportError('Function torch.fft.fftn not available in this version of PyTorch, please upgrade to version 1.7.0.')
+def config(*args: Sequence[Dict]):
+    global __config_list
+    if any(not isinstance(_, Dict) and 'type' in _ for _ in args):
+        raise TypeError("Configuration must be specified as a dictionary or a series of dictionaries with the key 'type'.")
+    __config_list = [*args]
 
-        from .parallel_ops_torch import ParallelOpsTorch
-        log.info('Detected PyTorch, using ParallelOpsTorch...')
-        return ParallelOpsTorch(nb_pol_dims, grid, dtype)
-    except ImportError:
-        log.info('PyTorch module not detected, falling back to ParallelOpsNumpy.')
-        from .parallel_ops_numpy import ParallelOpsNumpy
-        return ParallelOpsNumpy(nb_pol_dims, grid, dtype)
+
+def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) -> BackEnd:
+    global __config_list
+    if config_list is None:
+        if __config_list is None:
+            try:
+                with open('backend_config.json', 'r') as file:
+                    config_list = json.load(file)
+                    if isinstance(config, Dict):
+                        config_list = [config_list]
+            except FileNotFoundError as e:
+                config_list = []
+            except json.decoder.JSONDecodeError as e:
+                log.warning(f'Could not read {file.name}.')
+                config_list = []
+        else:
+            config_list = __config_list
+
+    config_list += [{'type': 'torch', 'device': 'cuda'}]
+    config_list += [{'type': 'numpy'}]  # always use numpy as a backup plan
+
+    for c in config_list:
+        config_type = c.get('type', 'unknown').lower()
+        try:
+            if config_type == 'torch':
+                import torch
+                device = c.get('device', 'cuda').lower()
+                want_cuda = device[:4] == 'cuda'
+                gpu_available = torch.cuda.is_available()
+                log.info(f'PyTorch version {torch.__version__} ' + ('with' if gpu_available else 'but no') + ' GPU detected.')
+                if want_cuda and not gpu_available:
+                    raise ImportError('PyTorch installed but no CUDA GPU found!')
+                try:
+                    import torch.fft
+                    fftn_available = True
+                except ImportError:
+                    fftn_available = False
+                if not fftn_available:
+                    raise ImportError('Function torch.fft.fftn not available in this version of PyTorch, please upgrade to version 1.7.0.')
+
+                from .torch import BackEndTorch
+                log.info('Detected PyTorch, using BackEndTorch...')
+                try:
+                    return BackEndTorch(nb_pol_dims, grid, dtype, device=device)
+                except Exception as re:
+                    log.warning(f'Could not initialize PyTorch with device {device}.')
+                    # raise ImportError(str(re))
+                    print(type(re))
+            elif config_type == 'numpy':
+                from .numpy import BackEndNumpy
+                return BackEndNumpy(nb_pol_dims, grid, dtype)
+            else:
+                log.warning(f'Backend config type {config_type} not recognized.')
+        except ImportError as ie:
+            log.info(f'Backend type "{config_type}" not detected.')
+    raise TypeError('No viable backend detected!')
