@@ -25,39 +25,39 @@ def solve(grid: Union[Grid, Sequence, np.ndarray],
     zeta, and mu distributions in the presence of a current source.
 
     :param grid: A Grid object or a Sequence of vectors with uniformly increasing values that indicate the positions
-    in a plaid grid of sample points for the material and solution. In the one-dimensional case, a simple increasing
-    Sequence of uniformly-spaced numbers may be provided as an alternative. The length of the ranges determines the
-    data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
-    specified as ndarrays.
+        in a plaid grid of sample points for the material and solution. In the one-dimensional case, a simple increasing
+        Sequence of uniformly-spaced numbers may be provided as an alternative. The length of the ranges determines the
+        data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
+        specified as ndarrays.
     :param wavenumber: the wavenumber in vacuum = 2 pi / vacuum_wavelength.
-    The wavelength in the same units as used for the other inputs/outputs.
+        The wavelength in the same units as used for the other inputs/outputs.
     :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
     :param vacuum_wavelength: alternative argument to the wavenumber = 2 pi / vacuum_wavelength
-    :param current_density: (optional, instead of source_distribution) An array or function that returns
-    the free (vectorial) current density input distribution, J. The free current density has units of :math:`A m^-2`.
+    :param current_density: (optional, instead of source_distribution) An array or function that returns the free
+        (vectorial) current density input distribution, J. The free current density has units of :math:`A m^-2`.
     :param source_distribution: (optional, instead of current_density) An array or function that returns
-    the (vectorial) source input wave distribution. The source values relate to the current density, J,
-    as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
-    :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
-    More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
-    not rely on the vacuum permeability constant, :math:`mu_0`.
+        the (vectorial) source input wave distribution. The source values relate to the current density, J,
+        as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
+        :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
+        More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
+        not rely on the vacuum permeability constant, :math:`mu_0`.
     :param epsilon: an array or function that returns the (tensor) epsilon that represents the permittivity at
-    the points indicated by the grid specified as its input arguments.
+        the points indicated by the grid specified as its input arguments.
     :param xi: an array or function that returns the (tensor) xi for bi-(an)isotropy at the
-    points indicated by the grid specified as its input arguments.
+        points indicated by the grid specified as its input arguments.
     :param zeta: an array or function that returns the (tensor) zeta for bi-(an)isotropy at the
-    points indicated by the grid specified as its input arguments.
+        points indicated by the grid specified as its input arguments.
     :param mu: an array or function that returns the (tensor) permeability at the
-    points indicated by the grid specified as its input arguments.
+        points indicated by the grid specified as its input arguments.
     :param refractive_index: an array or function that returns the (complex) (tensor) refractive_index, as the square
-    root of the permittivity, at the points indicated by the `grid` input argument.
+        root of the permittivity, at the points indicated by the `grid` input argument.
     :param bound: An object representing the boundary of the calculation volume. Default: None, PeriodicBound(grid)
     :param initial_field: optional start value for the E-field distribution (default: all zero E)
     :param dtype: optional numpy datatype for the internal operations and results. This must be a complex number type
-    as numpy.complex128 or np.complex64.
+        as numpy.complex128 or np.complex64.
     :param callback: optional function that will be called with as argument this solver.
-    This function can be used to check and display progress. It must return a boolean value of True to
-    indicate that further iterations are required.
+        This function can be used to check and display progress. It must return a boolean value of True to
+        indicate that further iterations are required.
     :return: The Solution object that has the E and H fields, as well as iteration information.
     """
     return Solution(grid=grid,
@@ -85,31 +85,31 @@ class Solution(object):
         data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
         specified as ndarrays.
         :param wavenumber: the wavenumber in vacuum = 2pi / vacuum_wavelength.
-        The wavelength in the same units as used for the other inputs/outputs.
+            The wavelength in the same units as used for the other inputs/outputs.
         :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
         :param vacuum_wavelength: alternative argument to the wavenumber = 2 pi / vacuum_wavelength
         :param current_density: (optional, instead of source_distribution) An array or function that returns
-        the (vectorial) current density input distribution, J. The current density has units of :math:`A m^-2`.
+            the (vectorial) current density input distribution, J. The current density has units of :math:`A m^-2`.
         :param source_distribution: (optional, instead of current_density) An array or function that returns
-        the (vectorial) source input wave distribution. The source values relate to the current density, J,
-        as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
-        :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
-        More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
-        not rely on the vacuum permeability constant, :math:`mu_0`.
+            the (vectorial) source input wave distribution. The source values relate to the current density, J,
+            as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
+            :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
+            More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
+            not rely on the vacuum permeability constant, :math:`mu_0`.
         :param epsilon: an array or function that returns the (tensor) epsilon that represents the permittivity at the
-        points indicated by the `grid` input argument.
+            points indicated by the `grid` input argument.
         :param xi: an array or function that returns the (tensor) xi for bi-(an)isotropy at the points indicated by
-        the `grid` input argument.
+            the `grid` input argument.
         :param zeta: an array or function that returns the (tensor) zeta for bi-(an)isotropy at the points indicated
-        by the `grid` input argument.
+            by the `grid` input argument.
         :param mu: an array or function that returns the (tensor) permeability at the points indicated by the `grid`
-        input argument.
+            input argument.
         :param refractive_index: an array or function that returns the (complex) (tensor) refractive_index, as the
-        square root of the permittivity, at the points indicated by the `grid` input argument.
+            square root of the permittivity, at the points indicated by the `grid` input argument.
         :param bound: An object representing the boundary of the calculation volume. Default: None, PeriodicBound(grid)
         :param initial_field: optional start value for the E-field distribution (default: all zero E)
         :param dtype: optional numpy datatype for the internal operations and results. This must be a complex number type
-        as numpy.complex128 or np.complex64.
+            as numpy.complex128 or np.complex64.
         """
         self.__iteration = 0
 
@@ -555,7 +555,6 @@ class Solution(object):
     def wavelength(self) -> float:
         """
         The vacuum wavelength, :math:`\lambda_0`, used in the calculation.
-
         :return: A scalar indicating the vacuum wavelength used in the calculation.
         """
         return 2.0 * const.pi / self.__wavenumber
@@ -564,7 +563,6 @@ class Solution(object):
     def magnetic(self) -> bool:
         """
         Indicates if this media is considered magnetic.
-
         :return: A boolean, True when magnetic, False otherwise.
         """
         return self.__magnetic
@@ -573,7 +571,6 @@ class Solution(object):
     def source_distribution(self) -> np.ndarray:
         """
         The source distribution, i k0 mu_0 times the current density j.
-
         :return: A complex array indicating the amplitude and phase of the source vector field.
         The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
         and 3 in case of a vector field.
@@ -584,7 +581,6 @@ class Solution(object):
     def source_distribution(self, new_source_density: array_like):
         """
         Set the source distribution, i k0 mu_0 times the current density j.
-
         :param new_source_density: A complex array indicating the amplitude and phase of the source vector field.
         The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
         and 3 in case of a vector field.
@@ -601,7 +597,6 @@ class Solution(object):
     def j(self) -> np.ndarray:
         """
         The free current density, j, of the source vector field.
-
         :return: A complex array indicating the amplitude and phase of the current density vector field [A m^-2].
         The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
         and 3 in case of a vector field.
@@ -612,7 +607,6 @@ class Solution(object):
     def j(self, new_j: array_like):
         """
         Set the free current density, j, of the source vector field.
-
         :param new_j: A complex array indicating the amplitude and phase of the current density vector field [A m^-2].
         The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
         and 3 in case of a vector field.
@@ -623,9 +617,8 @@ class Solution(object):
     def E(self) -> np.ndarray:
         """
         The electric field for every point in the sample space (SI units).
-
         :return: A vector array with the first dimension containing Ex, Ey, and Ez,
-            while the following dimensions are the spatial dimensions.
+        while the following dimensions are the spatial dimensions.
         """
         result = self.__field_array[:, 0, ...] / (self.wavenumber ** 2)
         result = self.__BE.asnumpy(result)
@@ -635,9 +628,8 @@ class Solution(object):
     def E(self, E):
         """
         The electric field for every point in the sample space (SI units).
-
         :param E: The new field. A vector array with the first dimension containing :math:`E_x, E_y, and E_z`,
-            while the following dimensions are the spatial dimensions.
+        while the following dimensions are the spatial dimensions.
         """
         self.__BE.assign(E * (self.wavenumber ** 2), self.__field_array)
         self.__previous_update_norm = np.inf
@@ -647,9 +639,8 @@ class Solution(object):
         """
         The magnetic field for every point in the sample space (SI units).
         This is calculated from H and E.
-
         :return: A vector array with the first dimension containing :math:`B_x, B_y, and B_z`,
-            while the following dimensions are the spatial dimensions.
+        while the following dimensions are the spatial dimensions.
         """
         B = self.__BE.curl(self.E[:, np.newaxis, ...]) / (1.0j * const.c)  # curl includes k0 by definition of __PO
 
@@ -660,9 +651,8 @@ class Solution(object):
         """
         The displacement field for every point in the sample space (SI units).
         This is calculated from E and H.
-
         :return: A vector array with the first dimension containing :math:`D_x, D_y, and D_z`,
-            while the following dimensions are the spatial dimensions.
+        while the following dimensions are the spatial dimensions.
         """
         # D = (J - self.__PO.curl(self.H[:, np.newaxis, ...]) * self.wavenumber) / (1.0j * self.angular_frequency)  # curl includes k0 by definition of __PO
         D = self.__BE.curl(self.H[:, np.newaxis, ...])
@@ -677,9 +667,8 @@ class Solution(object):
         """
         The magnetizing field for every point in the sample space (SI units).
         This is calculated from E.
-
         :return: A vector array with the first dimension containing :math:`H_x, H_y, and H_z`,
-            while the following dimensions are the spatial dimensions.
+        while the following dimensions are the spatial dimensions.
         """
         if self.magnetic:
             # Use stored matrices to safe the space
@@ -701,9 +690,8 @@ class Solution(object):
     def S(self) -> np.ndarray:
         """
         The time-averaged Poynting vector for every point in space.
-
         :return: A vector array with the first dimension containing :math:`S_x, S_y, and S_z`,
-            while the following dimensions are the spatial dimensions.
+        while the following dimensions are the spatial dimensions.
         """
         E = self.E[:, np.newaxis, ...]
         H = self.H[:, np.newaxis, ...]
@@ -715,7 +703,6 @@ class Solution(object):
     def energy_density(self) -> np.ndarray:
         """
         R the energy density u
-
         :return: A real array indicating the energy density in space.
         """
         E = self.E
@@ -733,9 +720,8 @@ class Solution(object):
     def stress_tensor(self) -> np.ndarray:
         """
         Maxwell's stress tensor for every point in space.
-
         :return: A real and symmetric matrix-array with the stress tensor for every point in space.
-            The units are :math:`N / m^2`.
+        The units are :math:`N / m^2`.
         """
         E = self.E[:, np.newaxis, ...]
         E2 = np.sum(np.abs(E) ** 2, axis=0)
@@ -755,10 +741,9 @@ class Solution(object):
     def f(self) -> np.ndarray:
         """
         The electromagnetic force density (force per SI unit volume, not per voxel).
-
         :return: A vector array representing the electro-magnetic force exerted per unit volume.
-            The first dimension contains :math:`f_x, f_y, and f_z`, while the following dimensions are the spatial dimensions.
-            The units are :math:`N / m^3`.
+        The first dimension contains :math:`f_x, f_y, and f_z`, while the following dimensions are the spatial dimensions.
+        The units are :math:`N / m^3`.
         """
         # Could be written more efficiently by either caching H or explicitly calculating the stress tensor
         # in this method. Leaving this for now, so to avoid code replication.
@@ -772,10 +757,9 @@ class Solution(object):
     def torque(self) -> np.ndarray:
         """
         The electromagnetic force density (force per SI unit volume, not per voxel).
-
         :return: A vector array representing the electro-magnetic torque exerted per unit volume.
-            The first dimension contains torque_x, torque_y, and torque_z, while the following dimensions are the spatial
-            dimensions. The units are :math:`N m / m^3 = N m^{-2}`.
+        The first dimension contains torque_x, torque_y, and torque_z, while the following dimensions are the spatial
+        dimensions. The units are :math:`N m / m^3 = N m^{-2}`.
         """
         # Could be written more efficiently by either caching H or explicitly calculating the stress tensor
         # in this method. Leaving this for now, so to avoid code replication.

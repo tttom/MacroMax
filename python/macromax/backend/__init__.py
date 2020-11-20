@@ -261,14 +261,12 @@ class BackEnd(ABC):
         - 1x1: The identity matrix for a scalar field, as sound waves or isotropic permittivity.
         - Nx1: A vector for a vector field, as the electric field.
         - NxN: A matrix for a matrix field, as anisotropic permittivity
-
         None is interpreted as 0.
         Singleton dimensions are added on the left so that all dimensions are present.
         Inputs with 1xN are transposed (not conjugate) to Nx1 vectors.
-
         :param arr: The input can be scalar, which assumes that its value is assumed to be repeated for all space.
-            The value can be a one-dimensional vector, in which case the vector is assumed to be repeated for all space.
-        :return: An array with ndim == len(self.matrix_shape) + len(self.grid.shape) and with each non-singleton
+        The value can be a one-dimensional vector, in which case the vector is assumed to be repeated for all space.
+        :return: An array with `ndim == len(self.matrix_shape) + len(self.grid.shape)` and with each non-singleton
         dimension matching those of the nb_rows and data_shape.
         """
         if arr is None:
