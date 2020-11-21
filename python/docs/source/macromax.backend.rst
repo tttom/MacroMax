@@ -17,12 +17,10 @@ macromax.backend.numpy submodule
     :undoc-members:
     :show-inheritance:
 
+macromax.backend.torch submodule
+--------------------------------
 
-..
-    macromax.backend.torch submodule
-    --------------------------------
-
-    .. automodule:: macromax.backend.torch
-        :members:
-        :undoc-members:
-        :show-inheritance:
+.. automodule:: macromax.backend.torch
+    :members:
+    :undoc-members:
+    :show-inheritance:
