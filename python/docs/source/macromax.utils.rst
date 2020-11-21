@@ -10,13 +10,14 @@ Subpackages
    macromax.utils.array
    macromax.utils.display
 
-Submodules
-----------
+macromax.utils.ft module
+------------------------
 
-.. toctree::
-   :maxdepth: 4
+.. automodule:: macromax.utils.ft
+   :members:
+   :undoc-members:
+   :show-inheritance:
 
-   macromax.utils.ft
 
 Module contents
 ---------------
