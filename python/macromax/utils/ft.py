@@ -4,7 +4,7 @@ try:
     from mkl_fft import *
     from numpy.fft import fftshift, ifftshift
     log.debug("Using mkl_fft for Fast Fourier transforms.")
-except ModuleNotFoundError:
+except (ModuleNotFoundError, TypeError):
     try:
         import pyfftw
         from pyfftw.interfaces.scipy_fft import *

@@ -1,6 +1,11 @@
 macromax.utils.display package
 ==============================
 
+.. automodule:: macromax.utils.display
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 macromax.utils.display.complex2rgb submodule
 --------------------------------------------
 
@@ -21,15 +26,6 @@ macromax.utils.display.hsv submodule
 ------------------------------------
 
 .. automodule:: macromax.utils.display.hsv
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: macromax.utils.display
    :members:
    :undoc-members:
    :show-inheritance:

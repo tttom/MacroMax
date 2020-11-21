@@ -1,9 +1,6 @@
 macromax.backend package
 ========================
 
-Module contents
----------------
-
 .. automodule:: macromax.backend
     :members:
     :undoc-members:

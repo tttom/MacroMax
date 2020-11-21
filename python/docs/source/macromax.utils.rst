@@ -1,28 +1,25 @@
 macromax.utils package
 ======================
 
-Subpackages
------------
-
-.. toctree::
-   :maxdepth: 4
-
-   macromax.utils.array
-   macromax.utils.display
+.. automodule:: macromax.utils
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 macromax.utils.ft module
 ------------------------
 
 .. automodule:: macromax.utils.ft
-   :members:
-   :undoc-members:
-   :show-inheritance:
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
+Subpackages
+-----------
 
-Module contents
----------------
+.. toctree::
+    :maxdepth: 4
 
-.. automodule:: macromax.utils
-   :members:
-   :undoc-members:
-   :show-inheritance:
+    macromax.utils.array
+    macromax.utils.display
+

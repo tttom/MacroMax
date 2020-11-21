@@ -1,6 +1,11 @@
 macromax.utils.array package
 ============================
 
+.. automodule:: macromax.utils.array
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
 macromax.utils.array.grid submodule
 -----------------------------------
 
@@ -21,15 +26,6 @@ macromax.utils.array.word\_align submodule
 ------------------------------------------
 
 .. automodule:: macromax.utils.array.word_align
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: macromax.utils.array
    :members:
    :undoc-members:
    :show-inheritance:
