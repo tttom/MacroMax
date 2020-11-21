@@ -1,27 +1,24 @@
 macromax.utils.array package
 ============================
 
-Submodules
-----------
-
-macromax.utils.array.grid module
---------------------------------
+macromax.utils.array.grid submodule
+-----------------------------------
 
 .. automodule:: macromax.utils.array.grid
    :members:
    :undoc-members:
    :show-inheritance:
 
-macromax.utils.array.vector\_to\_axis module
---------------------------------------------
+macromax.utils.array.vector\_to\_axis submodule
+-----------------------------------------------
 
 .. automodule:: macromax.utils.array.vector_to_axis
    :members:
    :undoc-members:
    :show-inheritance:
 
-macromax.utils.array.word\_align module
----------------------------------------
+macromax.utils.array.word\_align submodule
+------------------------------------------
 
 .. automodule:: macromax.utils.array.word_align
    :members:

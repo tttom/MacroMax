@@ -9,7 +9,7 @@ try:
         os.environ[_] = str(nb_threads)
     import mkl
     mkl.set_num_threads(nb_threads)
-except ModuleNotFoundError:
+except ImportError:
     pass
 import numpy as np
 import time

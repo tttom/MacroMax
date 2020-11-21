@@ -54,36 +54,39 @@ class BackEnd(ABC):
     @property
     def vector_length(self) -> int:
         """
-        :return: The shape of the square matrix that transforms a single vector in the set.
+        The shape of the square matrix that transforms a single vector in the set.
         This is a pair of identical integer numbers.
         """
         return self.__nb_rows
 
     @property
     def ft_axes(self) -> tuple:
+        """The integer indices of the spatial dimensions, i.e. on which to Fourier Transform."""
         return tuple(range(self.__cutoff, self.__total_dims))  # Don't Fourier transform the matrix dimensions
 
     @property
     def grid(self) -> Grid:
         """
-        :return: A Grid object representing the sample points in the spatial dimensions.
+        A Grid object representing the sample points in the spatial dimensions.
         """
         return self.__grid
 
     @property
     def vectorial(self) -> bool:
         """
-        :return: A boolean indicating if this object represents a vector space (as opposed to a scalar space).
+        A boolean indicating if this object represents a vector space (as opposed to a scalar space).
         """
         return self.vector_length > 1
 
     @property
     def dtype(self):
+        """The scalar data type that is processed by this back-end."""
         return self.__dtype
 
     def astype(self, arr: array_like, dtype=None) -> tensor_type:
         """
-        :param
+        :param arr: An object that is, or can be converted to, an ndarray.
+        :param dtype: (optional) scalar data type of the returned array elements
         :return: torch.Tensor type
         """
         if dtype is None:
@@ -91,20 +94,42 @@ class BackEnd(ABC):
         return np.asarray(arr, dtype)
 
     def asnumpy(self, arr: array_like) -> np.ndarray:
+        """
+        Convert the internal array (or tensor) presentation to a numpy.ndarray.
+        :param arr: The to-be-converted array.
+        :return: The corresponding numpy ndarray.
+        """
         if not isinstance(arr, np.ndarray):
             arr = np.asarray(arr)
         return arr
 
     @property
     def eps(self) -> float:
+        """The precision of the data type (self.dtype) of this back-end."""
         return np.finfo(self.dtype).eps
 
     @abstractmethod
     def allocate_array(self, shape: array_like = None, dtype = None, fill_value: Complex = None) -> tensor_type:
-        """Allocates a new vector array of shape grid.shape and word-aligned for efficient calculations."""
+        """
+        Allocates a new vector array of shape grid.shape and word-aligned for efficient calculations.
+
+        :param shape: (optional) The shape of the returned array.
+        :param dtype: (optional) The scalar data type of the elements in the array. This may be converted to an equivalent,
+            back-end, specific data type.
+        :param fill_value: (optional) A scalar value to pre-populate the array. The default (None) does not pre-populate
+            the array, leaving it in a random state.
+        :return: A reference to the array.
+        """
         pass
 
     def assign(self, arr: array_like, out: tensor_type) -> tensor_type:
+        """
+        Assign the values of one array to those of another.
+
+        :param arr: The values that need to be assigned to another array.
+        :param out: (optional) The target array, which must be of the same shape.
+        :return: The target array or a newly allocated array with the same values as those in arr.
+        """
         arr = self.to_matrix_field(arr)
         if np.any(arr.shape[-self.grid.ndim:] != self.grid.shape):
             arr = np.tile(arr, self.grid.shape // arr.shape[-self.grid.ndim:])
@@ -120,6 +145,11 @@ class BackEnd(ABC):
         return arr.ravel()
 
     def sign(self, arr: array_like) -> tensor_type:
+        """
+        Returns an array with values of -1 where arr is negative, 0 where arr is 0, and 1 where arr is positive.
+        :param arr: The array to check.
+        :return: np.sign(arr) or equivalent.
+        """
         return np.sign(arr)
 
     def first(self, arr: array_like) -> Complex:
@@ -186,28 +216,42 @@ class BackEnd(ABC):
 
     @property
     def array_ft_input(self) -> np.ndarray:
+        """The pre-allocate array for Fourier Transform inputs"""
         if self.__array_ft_input is None:
             self.__array_ft_input = self.allocate_array()
         return self.__array_ft_input
 
     @property
     def array_ft_output(self) -> np.ndarray:
+        """The pre-allocate array for Fourier Transform outputs"""
         if self.__array_ft_output is None:
             self.__array_ft_output = self.allocate_array()
         return self.__array_ft_output
 
     @property
     def array_ift_input(self) -> np.ndarray:
+        """The pre-allocate array for Inverse Fourier Transform inputs"""
         return self.array_ft_output
 
     @property
     def array_ift_output(self) -> np.ndarray:
+        """The pre-allocate array for Inverse Fourier Transform outputs"""
         return self.array_ft_input
 
-    def conj(self, arr) -> tensor_type:
+    def conj(self, arr: array_like) -> tensor_type:
+        """
+        Returns the conjugate of the elements in the input.
+        :param arr: The input array.
+        :return: arr.conj or equivalent
+        """
         return np.conj(arr)
 
-    def abs(self, arr) -> tensor_type:
+    def abs(self, arr: array_like) -> tensor_type:
+        """
+        Returns the absolute value (magnitude) of the elements in the input.
+        :param arr: The input array.
+        :return: np.abs(arr) or equivalent
+        """
         return np.abs(arr)
 
     def convolve(self, operation_ft: Callable[[array_like], array_like], arr: array_like) -> tensor_type:
@@ -748,6 +792,11 @@ class BackEnd(ABC):
 
 
 def config(*args: Sequence[Dict]):
+    """
+    Configure a specific back-end, overriding the automatic detection.
+    E.g. backend.config()
+    :param args: A dictionary or a sequence of dictionaries with at least the 'type' key.
+    """
     global __config_list
     if any(not isinstance(_, Dict) and 'type' in _ for _ in args):
         raise TypeError("Configuration must be specified as a dictionary or a series of dictionaries with the key 'type'.")
@@ -755,6 +804,15 @@ def config(*args: Sequence[Dict]):
 
 
 def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) -> BackEnd:
+    """
+    Load the default or configured backend (using backend.config().
+
+    :param nb_pol_dims: The number of polarization dimensions: 1 for scalar, 3 for vectorial calculations.
+    :param grid: The uniformly-spaced Cartesian calculation grid as a Grid object.
+    :param dtype: The scalar data type. E.g. np.complex64 or np.complex128.
+    :param config_list: List of alternative backend configurations.
+    :return: A BackEnd object to start the calculation with.
+    """
     global __config_list
     if config_list is None:
         if __config_list is None:

@@ -8,12 +8,14 @@ def hsv2rgb(hue: Union[float, Sequence, np.ndarray]=None,
             axis=-1) -> np.ndarray:
     """
     Converts a hue-saturation-intensity value image to a red-green-blue image.
+
     :param hue: A 2D numpy.array with the hue.
-    If the saturation is not provided, the first argument will be interpreted as a 3D numpy.array with the HSV image, the channel must be in the final right-hand dimension.
+        If the saturation is not provided, the first argument will be interpreted as a 3D numpy.array with the HSV image,
+        the channel must be in the final right-hand dimension.
     :param saturation: (optional) a 2D numpy.array with the saturation.
     :param value: (optional) a 2D numpy.array with the value.
     :param axis: (default: -1) The channel axis of the output array, and also the input array if neither saturation, nor
-    value are provided.
+        value are provided.
     :return: rgb_image: a 3D numpy.array with the RGB image, the channel in the final right-hand dimension, or axis if provided.
     """
     if saturation is None and value is None:
@@ -49,12 +51,13 @@ def rgb2hsv(red: Union[float, Sequence, np.ndarray],
             axis=-1) -> np.ndarray:
     """
     Converts a red-green-blue value image to a hue-saturation-intensity image.
+
     :param red: An 2D numpy.array with the red channel.
-    If neither green and blue are provided, then this will be interpreted as a stack of the red, green, and blue channels.
+        If neither green and blue are provided, then this will be interpreted as a stack of the red, green, and blue channels.
     :param green: (optional) a 2D numpy.array with the green channel.
     :param blue: (optional) a 2D numpy.array with the blue channel.
     :param axis: (default: -1) The channel axis of the output array, and also the input array if neither saturation, nor
-    value are provided.
+        value are provided.
     :return: hsv_image: a 3D numpy.array with the HSV image
     """
     if green is None and blue is None:

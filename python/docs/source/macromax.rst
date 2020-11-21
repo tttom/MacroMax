@@ -23,9 +23,9 @@ macromax.bound submodule
 ------------------------
 
 .. automodule:: macromax.bound
-:members:
-        :undoc-members:
-        :show-inheritance:
+    :members:
+    :undoc-members:
+    :show-inheritance:
 
 Subpackages
 -----------

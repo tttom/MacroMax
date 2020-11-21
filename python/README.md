@@ -1,6 +1,6 @@
-# Macroscopic Maxwell Solver
+# Introduction
 
-## Introduction
+## Introduction to the Macroscopic Maxwell Solver
 This Python 3 module enables solving the macroscopic Maxwell equations in complex dielectric materials.
 
 The material properties are defined on a rectangular grid (1D, 2D, or 3D) for which each voxel defines an isotropic or anisotropic permittivity. Optionally, a heterogeneous (anisotropic) permeability as well as bi-anisotropic coupling factors may be specified (e.g. for chiral media). The source, such as an incident laser field, is specified as an oscillating current-density distribution.
@@ -11,7 +11,6 @@ The [source code](https://github.com/tttom/MacroMax) is available on [GitHub](ht
 **[MIT License](https://opensource.org/licenses/MIT): [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)**
 
 ## Installation
-
 ### Prerequisites
 
 This library requires Python 3 with the modules ````numpy```` and ````scipy```` for the main calculations. These modules will be automatically installed.

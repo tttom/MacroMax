@@ -80,10 +80,10 @@ class Solution(object):
         the epsilon, xi, zeta, and mu distributions.
 
         :param grid: A Grid object or a Sequence of vectors with uniformly increasing values that indicate the positions
-        in a plaid grid of sample points for the material and solution. In the one-dimensional case, a simple increasing
-        Sequence of uniformly-spaced numbers may be provided as an alternative. The length of the ranges determines the
-        data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
-        specified as ndarrays.
+            in a plaid grid of sample points for the material and solution. In the one-dimensional case, a simple increasing
+            Sequence of uniformly-spaced numbers may be provided as an alternative. The length of the ranges determines the
+            data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
+            specified as ndarrays.
         :param wavenumber: the wavenumber in vacuum = 2pi / vacuum_wavelength.
             The wavelength in the same units as used for the other inputs/outputs.
         :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
@@ -572,8 +572,8 @@ class Solution(object):
         """
         The source distribution, i k0 mu_0 times the current density j.
         :return: A complex array indicating the amplitude and phase of the source vector field.
-        The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
-        and 3 in case of a vector field.
+        The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar
+        field, and 3 in case of a vector field.
         """
         return self.__source[:, 0, ...] * self.__beta
 
@@ -582,8 +582,8 @@ class Solution(object):
         """
         Set the source distribution, i k0 mu_0 times the current density j.
         :param new_source_density: A complex array indicating the amplitude and phase of the source vector field.
-        The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
-        and 3 in case of a vector field.
+            The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar
+            field, and 3 in case of a vector field.
         """
         new_source_density = self.__BE.to_matrix_field(new_source_density)
         # if new_source_density.ndim < self.__source.ndim:
@@ -608,8 +608,8 @@ class Solution(object):
         """
         Set the free current density, j, of the source vector field.
         :param new_j: A complex array indicating the amplitude and phase of the current density vector field [A m^-2].
-        The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
-        and 3 in case of a vector field.
+            The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
+            and 3 in case of a vector field.
         """
         self.source_distribution = new_j * (1.0j * self.angular_frequency * const.mu_0)
 
@@ -629,7 +629,7 @@ class Solution(object):
         """
         The electric field for every point in the sample space (SI units).
         :param E: The new field. A vector array with the first dimension containing :math:`E_x, E_y, and E_z`,
-        while the following dimensions are the spatial dimensions.
+            while the following dimensions are the spatial dimensions.
         """
         self.__BE.assign(E * (self.wavenumber ** 2), self.__field_array)
         self.__previous_update_norm = np.inf
@@ -671,6 +671,7 @@ class Solution(object):
         while the following dimensions are the spatial dimensions.
         """
         if self.magnetic:
+            # Use stored matrices to safe the space
             # Use stored matrices to safe the space
             mu_inv = self.__BE.subtract(1.0, self.__chiHH) * self.__beta
 
@@ -804,13 +805,12 @@ class Solution(object):
     @property
     def residue(self) -> float:
         """
-        Returns the current relative residue of the inverse problem E = H^{-1}S.
-        The relative residue is return as the l2-norm fraction ||E - H^{-1}S|| / ||E||, where H represents the
+        Returns the current relative residue of the inverse problem :math:`E = H^{-1}S`.
+        The relative residue is return as the l2-norm fraction :math:`||E - H^{-1}S|| / ||E||`, where H represents the
         vectorial Helmholtz equation following Maxwell's equations and S the current density source. The solver
         searches for the electric field, E, that minimizes the preconditioned inverse problem.
-
         :return: A non-negative real scalar that indicates the change in E with the previous iteration
-            normalized to the norm of the current E.
+        normalized to the norm of the current E.
         """
         if self.__residue is None:
             self.__residue = self.__previous_update_norm / self.__BE.norm(self.__field_array)

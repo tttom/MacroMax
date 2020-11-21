@@ -1,27 +1,24 @@
 macromax.utils.display package
 ==============================
 
-Submodules
-----------
-
-macromax.utils.display.complex2rgb module
------------------------------------------
+macromax.utils.display.complex2rgb submodule
+--------------------------------------------
 
 .. automodule:: macromax.utils.display.complex2rgb
    :members:
    :undoc-members:
    :show-inheritance:
 
-macromax.utils.display.grid2extent module
------------------------------------------
+macromax.utils.display.grid2extent submodule
+--------------------------------------------
 
 .. automodule:: macromax.utils.display.grid2extent
    :members:
    :undoc-members:
    :show-inheritance:
 
-macromax.utils.display.hsv module
----------------------------------
+macromax.utils.display.hsv submodule
+------------------------------------
 
 .. automodule:: macromax.utils.display.hsv
    :members:

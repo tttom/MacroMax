@@ -1,4 +1,8 @@
-# Macroscopic Maxwell Solver Change Log
+# Version History
+
+## Version 0.1.5
+* Added PyTorch back-end, thus enabling the use of a GPU (NVidia CUDA).
+* Ensured backwards compatibility with Python 3.6.
 
 ## Version 0.1.4
 * Streamlined iteration: 3x speed improvement of benchmark with PyFFTW on Intel Core i7-6700.
