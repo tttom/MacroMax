@@ -36,6 +36,7 @@ class Bound:
 
     @property
     def grid(self):
+        """The Grid object indicating the uniform Cartesian grid of the entire calculation volume."""
         return self.__grid
 
     @property
@@ -93,6 +94,7 @@ class Bound:
 
     @property
     def outside(self) -> np.ndarray:
+        """Returns a boolean array indicating True for the voxels in the boundaries, i.e. outside the area of the calculation."""
         return np.logical_not(self.inside)
 
 
@@ -125,6 +127,7 @@ class AbsorbingBound(Bound, Electric):
 
     @property
     def is_electric(self) -> bool:
+        """True when this boundary affects the permittivity, extinction coefficient, or complex refractive index."""
         return True
 
     @property

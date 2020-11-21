@@ -531,6 +531,7 @@ class Solution(object):
 
     @property
     def dtype(self):
+        """The scalar data type used in the calculation. This is either np.complex64 or np.complex128."""
         return self.__BE.dtype
 
     @property
