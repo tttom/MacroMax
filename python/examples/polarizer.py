@@ -8,7 +8,10 @@ import numpy as np
 import time
 
 import macromax
-from examples import log
+try:
+    from examples import log
+except ImportError:
+    from macromax import log  # Fallback in case this script is not started as part of the examples package.
 
 
 def show_polarizer(center_polarizer=True):
@@ -39,9 +42,7 @@ def show_polarizer(center_polarizer=True):
         elif abs(pos - 90e-6) < 5e-6:
             permittivity[:, :, pos_idx] = rot_x(-np.pi/2) @ eps_pol @ rot_x(np.pi/2)
 
-    dist_in_boundary = np.maximum(-(x_range - (x_range[0] + boundary_thickness)), x_range - (x_range[-1]-boundary_thickness)) / boundary_thickness
-    for dim_idx in range(3):
-        permittivity[dim_idx, dim_idx, ...] += (0.8j * np.maximum(0.0, dist_in_boundary))  # absorbing boundary
+    bound = macromax.bound.LinearBound(x_range, thickness=boundary_thickness, max_extinction_coefficient=0.3)
 
     # No magnetic component
     permeability = 1.0
@@ -112,7 +113,7 @@ def show_polarizer(center_polarizer=True):
 
     # The actual work is done here:
     solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, mu=permeability, callback=update_function
+                              epsilon=permittivity, mu=permeability, bound=bound, callback=update_function
                               )
 
     # Show final result

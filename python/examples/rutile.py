@@ -11,7 +11,10 @@ import pathlib
 import macromax
 from macromax.utils.array import Grid
 from macromax.utils.display import complex2rgb, grid2extent
-from examples import log
+try:
+    from examples import log
+except ImportError:
+    from macromax import log  # Fallback in case this script is not started as part of the examples package.
 
 
 def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):

@@ -11,7 +11,10 @@ import time
 import macromax
 from macromax.utils.array import vector_to_axis, Grid
 from macromax.utils.display import complex2rgb, grid2extent
-from examples import log
+try:
+    from examples import log
+except ImportError:
+    from macromax import log  # Fallback in case this script is not started as part of the examples package.
 
 
 def show_birefringence():
@@ -20,7 +23,7 @@ def show_birefringence():
     #
     data_shape = np.array([128, 256]) * 2
     wavelength = 500e-9
-    boundary_thickness = 3e-6
+    boundary_thickness = 5e-6
     beam_diameter = 2.5e-6
     k0 = 2 * np.pi / wavelength
     sample_pitch = np.array([1, 1]) * wavelength / 8
@@ -33,7 +36,7 @@ def show_birefringence():
     current_density = np.exp(1j * (incident_k[0]*grid[0] + incident_k[1]*grid[1]))
     # Aperture the incoming beam
     current_density = current_density * np.exp(-0.5*(np.abs(grid[1] - (grid[1].ravel()[0]+boundary_thickness))/wavelength)**2)
-    current_density = current_density * np.exp(-0.5*((grid[0] - grid[0].ravel()[int(len(grid[0])*1/4)])/(beam_diameter/2))**2)
+    current_density = current_density * np.exp(-0.5*((grid[0] - grid[0].ravel()[int(len(grid[0])/4)])/(beam_diameter/2))**2)
     current_density = source_polarization * current_density
 
     permittivity = np.tile(np.eye(3, dtype=np.complex128)[:, :, np.newaxis, np.newaxis], (1, 1, *data_shape))
@@ -42,16 +45,8 @@ def show_birefringence():
     permittivity[:, :, :, int(data_shape[1]*(1-5/8)/2)+np.arange(int(data_shape[1]*5/8))] = \
         np.tile(epsilon_crystal[:, :, np.newaxis, np.newaxis], (1, 1, data_shape[0], int(data_shape[1]*5/8)))
 
-    # Add boundary
-    dist_in_boundary = np.maximum(
-        np.maximum(0.0, -(grid[0] - (grid[0].ravel()[0]+boundary_thickness)))
-        + np.maximum(0.0, grid[0] - (grid[0].ravel()[-1]-boundary_thickness)),
-        np.maximum(0.0,-(grid[1] - (grid[1].ravel()[0]+boundary_thickness)))
-        + np.maximum(0.0, grid[1] - (grid[1].ravel()[-1]-boundary_thickness))
-    )
-    weight_boundary = dist_in_boundary / boundary_thickness
-    for dim_idx in range(3):
-        permittivity[dim_idx, dim_idx, :, :] += -1.0 + (1.0 + 0.2j * weight_boundary)  # boundary
+    # Define boundaries
+    bound = macromax.bound.LinearBound(grid, thickness=boundary_thickness, max_extinction_coefficient=0.1)
 
     # Prepare the display
     fig, axs = plt.subplots(3, 2, frameon=False, figsize=(12, 9))
@@ -124,10 +119,9 @@ def show_birefringence():
     # The actual work is done here:
     start_time = time.perf_counter()
     solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, callback=update_function, dtype=np.complex64
+                              epsilon=permittivity, bound=bound, callback=update_function, dtype=np.complex64
                               )
     log.info("Calculation time: %0.3fs." % (time.perf_counter() - start_time))
-
 
     # Show final result
     log.info('Displaying final result.')

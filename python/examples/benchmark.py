@@ -17,9 +17,12 @@ import time
 import macromax
 import logging
 macromax.log.setLevel(logging.WARNING)  # Suppress MacroMax information logs
-from examples import log
 from macromax.utils.array import Grid
 from macromax.bound import LinearBound
+try:
+    from examples import log
+except ImportError:
+    from macromax import log  # Fallback in case this script is not started as part of the examples package.
 
 
 def calculate(dtype=np.complex64, vectorial=False, ndim=2) -> float:

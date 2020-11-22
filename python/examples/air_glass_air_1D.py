@@ -10,7 +10,10 @@ import time
 
 import macromax
 from macromax import Grid
-from examples import log
+try:
+    from examples import log
+except ImportError:
+    from macromax import log  # Fallback in case this script is not started as part of the examples package.
 
 
 def show_air_glass_transition(impedance_matched=False, birefringent=False):
@@ -23,25 +26,21 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     x_range = sample_pitch * np.arange(nb_samples) - 5e-6
 
     # define the source
-    current_density = (np.abs(x_range) < sample_pitch/4)  # point source at 0
-    current_density = source_polarization * current_density[np.newaxis, :]
+    current_density = (np.abs(x_range) < sample_pitch / 2)  # point source at 0
+    current_density = source_polarization * current_density
 
     # define the medium
     epsilon_material = np.array([1.5, 1.48, 1.5]) ** 2
     has_object = (x_range >= 10e-6) & (x_range < 200e-6)
-    permittivity = np.ones((1, 1, len(x_range)), dtype=np.complex64)
+    permittivity = np.ones(len(x_range), dtype=np.complex64)
     # absorbing boundary
     boundary_thickness = 5e-6
-    dist_in_boundary = np.maximum(0.0, np.maximum(-(x_range - (x_range[0] + boundary_thickness)),
-                                                  x_range - (x_range[-1] - boundary_thickness)) / boundary_thickness)
-    permittivity += 0.5j * dist_in_boundary  # The first two dimensions are singleton dims
+    bound = macromax.bound.LinearBound(x_range, thickness=boundary_thickness, max_extinction_coefficient=0.25)
 
-    if birefringent:
-        permittivity = np.eye(3)[:, :, np.newaxis] * permittivity
-        for dim_idx in range(3):
-            permittivity[dim_idx, dim_idx, has_object] += epsilon_material[dim_idx]
-    else:
-        permittivity[:, :, has_object] += epsilon_material[0]
+    nb_pol_dims = 1 + 2 * birefringent
+    permittivity = np.eye(nb_pol_dims)[:, :, np.newaxis] * permittivity
+    for dim_idx in range(nb_pol_dims):
+        permittivity[dim_idx, dim_idx, has_object] += epsilon_material[dim_idx]
     # permittivity = bandpass_and_remove_gain(permittivity, 2, x_range, wavelength/2)
 
     if impedance_matched:
@@ -116,7 +115,7 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     # The actual work is done here:
     start_time = time.perf_counter()
     solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, mu=permeability, callback=update_function
+                              epsilon=permittivity, mu=permeability, bound=bound, callback=update_function
                               )
     log.info("Calculation time: %0.3fs." % (time.perf_counter() - start_time))
 
@@ -153,6 +152,5 @@ def bandpass_and_remove_gain(v, dims, ranges, periods):
 if __name__ == "__main__":
     start_time = time.perf_counter()
     show_air_glass_transition(impedance_matched=False, birefringent=False)
-    # show_air_glass_transition(impedance_matched=True, birefringent=False)
     log.info("Total time: %0.3fs." % (time.perf_counter() - start_time))
     plt.show(block=True)

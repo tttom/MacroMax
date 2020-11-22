@@ -207,11 +207,17 @@ class Solution(object):
 
         epsilon = self.__BE.astype(epsilon)
 
+        # Apply the boundary susceptibility before the iteration
         if isinstance(self.__bound, Electric):
-            epsilon = self.__BE.astype(epsilon + self.__BE.astype(self.__bound.electric_susceptibility))
+            bound_chi_epsilon = self.__BE.astype(self.__bound.electric_susceptibility)
+            if np.any(np.asarray(epsilon.shape[:-self.grid.ndim]) > 1):
+                bound_chi_epsilon = self.__BE.eye * bound_chi_epsilon
+            epsilon = self.__BE.astype(epsilon + bound_chi_epsilon)
         if isinstance(self.__bound, Magnetic):
-            # mu = mu + self.__bound.magnetic_susceptibility.astype(self.dtype)
-            mu = self.__BE.astype(mu + self.__BE.astype(self.__bound.magnetic_susceptibility))
+            bound_chi_mu = self.__BE.astype(self.__bound.magnetic_susceptibility)
+            if np.any(np.asarray(mu.shape[:-self.grid.ndim]) > 1):
+                bound_chi_mu = self.__BE.eye * bound_chi_mu
+            mu = self.__BE.astype(mu + self.__BE.eye * bound_chi_mu)
 
         # Before the first iteration, the pre-conditioner must be determined and applied to the source and medium
         self.__prepare_preconditioner(
