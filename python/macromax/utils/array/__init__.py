@@ -1,3 +1,6 @@
+"""
+This package provides additional functionality to work with nd-arrays.
+"""
 from .. import log
 
 from .grid import Grid, MutableGrid

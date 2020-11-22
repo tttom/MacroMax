@@ -1,3 +1,4 @@
+"""The module providing the pure-python NumPy back-end implementation."""
 import numpy as np
 from typing import Union
 from numbers import Complex

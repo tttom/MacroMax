@@ -18,7 +18,8 @@ Subpackages
 -----------
 
 .. toctree::
-    :maxdepth: 4
+    :maxdepth: 8
+    :caption: Contents of macromax.utils:
 
     macromax.utils.array
     macromax.utils.display

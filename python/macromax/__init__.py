@@ -1,8 +1,23 @@
+"""
+The `solver` module calculates the solution to the wave equations. More specifically, the work is done in the iteration defined
+in the :meth:`Solution.__iter__` method of the :class:`Solution` class. The convenience function :func:`solve` is
+provided to construct a :class:`Solution` object and iterate it to convergence using its :meth:`Solution.solve` method.
+
+Exported attributes:
+
+- `__version__`: The MacroMax version number as a `str`.
+
+- :func:`solve`: The function to solve the wave problem.
+
+- :class:`Solution`: The class that is used by the :func:`solve` function, which can be used for fine-control of the iteration or re-use.
+
+- :class:`Grid`: A class representing uniformly spaced Cartesian grids and their Fourier Transforms.
+"""
 import logging
 
 # create logger
 log = logging.getLogger('MacroMax')
-log.setLevel(logging.INFO)
+log.setLevel(logging.WARNING)
 
 # create formatter and add it to the handlers
 formatter = logging.Formatter('%(asctime)s|%(name)s-%(levelname)s: %(message)s')

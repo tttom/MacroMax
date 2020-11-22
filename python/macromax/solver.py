@@ -1,3 +1,8 @@
+"""
+This module calculates the solution to the wave equations. More specifically, the work is done in the iteration defined
+in the :meth:`Solution.__iter__` method of the :class:`Solution` class. The convenience function :func:`solve` is
+provided to construct a :class:`Solution` object and iterate it to convergence using its :meth:`Solution.solve` method.
+"""
 import numpy as np
 import scipy.constants as const
 import scipy.optimize
@@ -824,10 +829,13 @@ class Solution(object):
         This resets the iteration counter.
 
         Usage:
-        for solution in Solution(...):
-            if solution.iteration > 100:
-                break
-        print(solution.residue)
+
+        .. code:: python
+
+            for solution in Solution(...):
+                if solution.iteration > 100:
+                    break
+            print(solution.residue)
         """
         self.iteration = 0
         while True:

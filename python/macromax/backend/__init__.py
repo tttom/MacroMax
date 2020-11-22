@@ -1,3 +1,16 @@
+"""
+This package defines a general interface to do parallel operations efficiently on different architectures,
+and it provides specific implementations that are used by the :class:`macromax.Solution` class.
+
+The specific implementation that is used can be:
+
+- selected automatically based on availability and in order of deemed efficiency, or
+
+- specified when loading the backend with the :func:`load` function, or
+
+- configured using :func:`config` function.
+
+"""
 import numpy as np
 import scipy.constants as const
 from typing import Callable, Union, Sequence, List, Dict
@@ -794,8 +807,18 @@ class BackEnd(ABC):
 def config(*args: Sequence[Dict]):
     """
     Configure a specific back-end, overriding the automatic detection.
-    E.g. backend.config()
-    :param args: A dictionary or a sequence of dictionaries with at least the 'type' key.
+    E.g.:
+
+    - `backend.config(type='numpy')`
+    - `backend.config(dict(type='numpy'))`
+    - `backend.config(type='torch', device='cpu')`
+    - `backend.config(dict(type='torch', device='cpu'))`
+    - `backend.config(dict(type='torch', device='cuda'))`
+    - `backend.config(dict(type='torch', device='cuda'))`
+    - `backend.config([dict(type='torch', device='cuda'), dict(type='numpy')])`
+
+    :param args: A dictionary or a sequence of dictionaries with at least the 'type' key. Key-word arguments are
+        interpreted as a dictionary.
     """
     global __config_list
     if any(not isinstance(_, Dict) and 'type' in _ for _ in args):

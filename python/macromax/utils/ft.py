@@ -1,18 +1,23 @@
 """
-The `ft` module links through to `numpy.fft`, `scipy.fftpack`, `pyfftw`, or `mkl_fft`, depending on availability.
-It provides the functions:
-* `ft.fft()`: The 1-dimensional fast Fourier transform.
-* `ft.ifft()`: The 1-dimensional fast Fourier transform.
-* `ft.fft2()`: The 2D specific case for `ft.fftn()`.
-* `ft.ifft2()`: The 2D specific case for `ft.ifftn()`.
-* `ft.fftn()`: The n-dimensional fast Fourier transform.
-* `ft.ifftn()`: The n-dimensional inverse fast Fourier transform.
-* `ft.fftshift()`: This fftshifts the input array.
-* `ft.ifftshift()`: This ifftshifts the input array (only different from `ft.fftshift` for odd-shapes).
+The `ft` module provides direct access to `numpy.fft`, `scipy.fftpack`, `pyfftw`, or `mkl_fft`, depending on availability.
+The back-end that is deemed most efficient is automatically imported. Independently of the back-end, the `ft` module provides at least the following functions:
 
+- `ft.fft(a: array_like, axis: int)`: The 1-dimensional fast Fourier transform.
+
+- `ft.ifft(a: array_like, axis: int)`: The 1-dimensional fast Fourier transform.
+
+- `ft.fftn(a: array_like, axes: Sequence)`: The n-dimensional fast Fourier transform.
+
+- `ft.ifftn(a: array_like, axes: Sequence)`: The n-dimensional inverse fast Fourier transform.
+
+- `ft.fftshift(a: array_like, axes: Sequence)`: This fftshifts the input array.
+
+- `ft.ifftshift(a: array_like, axes: Sequence)`: This ifftshifts the input array (only different from `ft.fftshift` for odd-shapes).
+
+All functions return a numpy.ndarray of the same shape as the input array or array_like, `a`.
 With the exception of `ft.fft()` and `ft.ifft()`, all functions take the `axes` argument to limit the action to specific axes of the numpy.ndarray.
 
-**Note that axis indices should be unique and non-negative. Negative or repeated axis indices are not compatible with all back-end implementations!**
+Note that axis indices should be unique and non-negative. **Negative or repeated axis indices are not compatible with all back-end implementations!**
 """
 from macromax import log
 

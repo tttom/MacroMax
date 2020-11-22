@@ -7,9 +7,9 @@ from macromax.utils import ft
 
 class Grid(Sequence):
     """
-    A class representing an immutable uniformly-spaced plaid grid.
+    A class representing an immutable uniformly-spaced plaid Cartesian grid and its Fourier Transform.
 
-    See also: MutableGrid
+    See also: :class:`MutableGrid`.
     """
     def __init__(self, shape, step=None, extent=None, first=None, center=None, last=None, include_last=False,
                  ndim: int=None,
@@ -23,21 +23,21 @@ class Grid(Sequence):
         :param step: A vector array with the spacing of the sampling grid.
         :param extent: The extent of the sampling grid as shape * step
         :param first: A vector array with the first element for each dimension.
-        The first element is the smallest element if step is positive, and the largest when step is negative.
+            The first element is the smallest element if step is positive, and the largest when step is negative.
         :param center: A vector array with the center element for each dimension. The center position in the grid is
-        rounded to the next integer index unless center_at_index is set to False for that partical axis.
+            rounded to the next integer index unless center_at_index is set to False for that partical axis.
         :param last: A vector array with the last element for each dimension. Unless include_last is set to True for
-        the associated dimension, all but the last element is returned when calling self[axis].
+            the associated dimension, all but the last element is returned when calling self[axis].
         :param include_last: A boolean vector array indicating whether the returned vectors, self[axis], should include
-        the last element (True) or all-but-the-last (False)
+            the last element (True) or all-but-the-last (False)
         :param ndim: A scalar integer indicating the number of dimensions of the sampling space.
         :param flat: A boolean vector array indicating whether the returned vectors, self[axis], should be
-        flattened (True) or returned as an open grid (False)
+            flattened (True) or returned as an open grid (False)
         :param origin_at_center: A boolean vector array indicating whether the origin should be fft-shifted (True)
-        or be ifftshifted to the front (False) of the returned vectors for self[axis].
+            or be ifftshifted to the front (False) of the returned vectors for self[axis].
         :param center_at_index: A boolean vector array indicating whether the center of the grid should be rounded to an
-        integer index for each dimension. If False and the shape has an even number of elements, the next index is used
-        as the center, (self.shape / 2).astype(np.int).
+            integer index for each dimension. If False and the shape has an even number of elements, the next index is used
+            as the center, (self.shape / 2).astype(np.int).
         """
         # Figure out what dimension is required
         if ndim is None:
@@ -527,9 +527,9 @@ class Grid(Sequence):
 
 class MutableGrid(Grid):
     """
-    A class representing a mmutable uniformly-spaced plaid grid.
+    A class representing a mutable uniformly-spaced plaid Cartesian grid and its Fourier Transform.
 
-    See also: Grid
+    See also: :class:`Grid`
     """
     def __init__(self, shape, step=None, extent=None, first=None, center=None, last=None, include_last=False,
                  ndim: int=None,
@@ -543,21 +543,21 @@ class MutableGrid(Grid):
         :param step: A vector array with the spacing of the sampling grid.
         :param extent: The extent of the sampling grid as shape * step
         :param first: A vector array with the first element for each dimension.
-        The first element is the smallest element if step is positive, and the largest when step is negative.
+            The first element is the smallest element if step is positive, and the largest when step is negative.
         :param center: A vector array with the center element for each dimension. The center position in the grid is
-        rounded to the next integer index unless center_at_index is set to False for that partical axis.
+            rounded to the next integer index unless center_at_index is set to False for that partical axis.
         :param last: A vector array with the last element for each dimension. Unless include_last is set to True for
-        the associated dimension, all but the last element is returned when calling self[axis].
+            the associated dimension, all but the last element is returned when calling self[axis].
         :param include_last: A boolean vector array indicating whether the returned vectors, self[axis], should include
-        the last element (True) or all-but-the-last (False)
+            the last element (True) or all-but-the-last (False)
         :param ndim: A scalar integer indicating the number of dimensions of the sampling space.
         :param flat: A boolean vector array indicating whether the returned vectors, self[axis], should be
-        flattened (True) or returned as an open grid (False)
+            flattened (True) or returned as an open grid (False)
         :param origin_at_center: A boolean vector array indicating whether the origin should be fft-shifted (True)
-        or be ifftshifted to the front (False) of the returned vectors for self[axis].
+            or be ifftshifted to the front (False) of the returned vectors for self[axis].
         :param center_at_index: A boolean vector array indicating whether the center of the grid should be rounded to an
-        integer index for each dimension. If False and the shape has an even number of elements, the next index is used
-        as the center, (self.shape / 2).astype(np.int).
+            integer index for each dimension. If False and the shape has an even number of elements, the next index is used
+            as the center, (self.shape / 2).astype(np.int).
         """
         super().__init__(shape=shape, step=step, extent=extent, first=first, center=center, last=last,
                          include_last=include_last, ndim=ndim, flat=flat, origin_at_center=origin_at_center,

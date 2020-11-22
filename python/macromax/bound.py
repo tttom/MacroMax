@@ -1,3 +1,9 @@
+"""
+The module provides the abstract :class:`Bound` to represent the boundary of the simulation, e.g. periodic, or
+gradually more absorbing. Specific boundaries are implemented as subclasses and can be used directly as the `bound`
+argument to :func:`macromax.solve` or :class:`macromax.Solution`. The precludes the inclusion of boundaries in the material description.
+It is sufficient to leave some space for the boundaries.
+"""
 import numpy as np
 from typing import Union, Sequence, Callable
 
@@ -26,7 +32,7 @@ class Bound:
         :param grid: The Grid to which to the boundaries will be applied.
         :param thickness: The thickness as a scalar, vector, or 2d-array (axes x side). Broadcasting is used as necessary.
         :param background_permittivity: The background permittivity of the boundary (default: 1.0 for vacuum). This is
-        only used when the absolute permittivity is requested.
+            only used when the absolute permittivity is requested.
         """
         if not isinstance(grid, Grid):
             grid = Grid.from_ranges(grid)
@@ -117,9 +123,9 @@ class AbsorbingBound(Bound, Electric):
 
         :param grid: The Grid to which to the boundaries will be applied.
         :param thickness: The boundary thickness(es) in meters. This can be specified as a 2d-array [axis, side].
-        Singleton dimensions are broadcast.
+            Singleton dimensions are broadcast.
         :param extinction_coefficient_function: A function that returns the extinction coefficient as function of
-        the depth in the boundary relative to the total thickness of the boundary.
+            the depth in the boundary relative to the total thickness of the boundary.
         :param background_permittivity: (default: 1.0 for vacuum)
         """
         super().__init__(grid=grid, thickness=thickness, background_permittivity=background_permittivity)
@@ -177,9 +183,9 @@ class LinearBound(AbsorbingBound):
 
         :param grid: The Grid to which to the boundaries will be applied.
         :param thickness: The boundary thickness(es) in meters. This can be specified as a 2d-array [axis, side].
-        Singleton dimensions are broadcast.
+            Singleton dimensions are broadcast.
         :param max_extinction_coefficient: The maximum extinction coefficient, reached at the deepest point of the
-        boundary at the edge of the calculation volume.
+            boundary at the edge of the calculation volume.
         :param background_permittivity: (default: 1.0 for vacuum)
         """
         # Define a linear function for every axis and every side

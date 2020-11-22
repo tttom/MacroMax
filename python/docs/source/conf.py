@@ -44,6 +44,8 @@ extensions = [
 
 source_suffix = ['.rst', '.md']
 
+intersphinx_mapping = {'python': ('https://docs.python.org/3', None)}
+
 napoleon_google_docstring = False
 napoleon_use_param = False
 napoleon_use_ivar = True
@@ -51,7 +53,8 @@ napoleon_use_ivar = True
 autodoc_default_options = {
     'member-order': 'bysource',
     'undoc-members': True,
-    'exclude-members': '__weakref__'
+    'special-members': True,
+    'exclude-members': '__weakref__, __module__, __dict__, __str__, __eq__, __abstractmethods__, __orig_bases__, __parameters__'
 }
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
