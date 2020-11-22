@@ -14,9 +14,9 @@ Welcome to MacroMax's documentation!
     macromax
     changes
 
+
 Indices and tables
 ==================
 
-* :ref:`genindex`
 * :ref:`modindex`
-* :ref:`search`
+* :ref:`genindex`

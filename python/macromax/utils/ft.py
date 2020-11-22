@@ -1,3 +1,19 @@
+"""
+The `ft` module links through to `numpy.fft`, `scipy.fftpack`, `pyfftw`, or `mkl_fft`, depending on availability.
+It provides the functions:
+* `ft.fft()`: The 1-dimensional fast Fourier transform.
+* `ft.ifft()`: The 1-dimensional fast Fourier transform.
+* `ft.fft2()`: The 2D specific case for `ft.fftn()`.
+* `ft.ifft2()`: The 2D specific case for `ft.ifftn()`.
+* `ft.fftn()`: The n-dimensional fast Fourier transform.
+* `ft.ifftn()`: The n-dimensional inverse fast Fourier transform.
+* `ft.fftshift()`: This fftshifts the input array.
+* `ft.ifftshift()`: This ifftshifts the input array (only different from `ft.fftshift` for odd-shapes).
+
+With the exception of `ft.fft()` and `ft.ifft()`, all functions take the `axes` argument to limit the action to specific axes of the numpy.ndarray.
+
+**Note that axis indices should be unique and non-negative. Negative or repeated axis indices are not compatible with all back-end implementations!**
+"""
 from macromax import log
 
 try:

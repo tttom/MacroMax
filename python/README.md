@@ -65,6 +65,9 @@ The basic calculation procedure consists of the following steps:
 
 The ````macromax```` module must be imported to be able to use the ````solve```` function. The module also contains several utility functions that may help in defining the property and source distributions.
 
+The complete functionality is described in the [Library Reference Documentation](https://macromax.readthedocs.io) at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
+
+
 ### Loading the Python 3 module
 The ````macromax```` module can be imported using:
 
@@ -327,6 +330,7 @@ to consider the memory requirements for the problem you want to solve.
 
 
 ## Development
+The [Library API Documentation](https://macromax.readthedocs.io) can be found at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
 ### Source code organization
 The source code is organized as follows:
 * [/](.) (root): Module description and distribution files.
