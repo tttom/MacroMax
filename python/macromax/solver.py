@@ -229,7 +229,7 @@ class Solution(object):
 
     def __prepare_preconditioner(self, source_distribution, epsilon, xi, zeta, mu, sample_pitch, wavenumber):
         """
-        Sets or updates the private value for self.__source, and the methods __chi_op and __green_function_op
+        Sets or updates the private value for self.__source_normalized, and the methods __chi_op and __green_function_op
         This uses the values for source_distribution, epsilon, xi, zeta, mu, as well as
         the sample_pitch and wavenumber.
 
@@ -240,6 +240,20 @@ class Solution(object):
         :param mu: A 2+N-D array representing the permeability distribution.
         :param sample_pitch: A vector with numbers indicating the sample distance in each dimension.
         :param wavenumber: The wavenumber, k,  of the coherent illumination considered for this problem.
+
+        :returns None.
+        Sets the private attributes:
+        - self.__magnetic
+        - self.__beta
+        - self.__source_normalized
+        - self.__chiEH
+        - self.__chiHE
+        - self.__chiHH
+        - self.__chiEE_base
+        - self.__alpha
+        - self.__chi_op
+        - self.__green_function_op
+        - self.__forward_op_on_field
         """
         log.debug('Preparing pre-conditioner: determining alpha and beta...')
 
@@ -388,41 +402,62 @@ class Solution(object):
 
             del alpha_real
 
-        # Store the modified source distribution
-        self.__source = self.__BE.allocate_array()
-        self.__source[:] = self.__BE.to_matrix_field(source_distribution) / self.__beta  # Adjust for magnetic bias
-        del source_distribution
-
         alpha = self.__increase_bias_to_limit_kernel_width(alpha)
         log.info(f'Preconditioner constants: alpha = {alpha.real:0.4g} + {alpha.imag:0.4g}i, beta = {self.__beta:0.4g}')
 
         log.debug('Preparing pre-conditioned operators...')
-        self.__chiEH = chiEH_beta / self.__beta
+        self.__alpha = alpha
+        self.__chiEH = chiEH_beta * 1.0j / self.__alpha.imag / self.__beta
         del chiEH_beta
-        self.__chiHE = chiHE_beta / self.__beta
+        self.__chiHE = chiHE_beta * 1.0j / self.__alpha.imag / self.__beta
         del chiHE_beta
-        self.__chiHH = calc_chiHH(self.__beta)
-        self.__chiEE_base = epsilon_xi_mu_inv_zeta / self.__beta
+        self.__chiHH = calc_chiHH(self.__beta) * 1.0j / self.__alpha.imag
+        self.__chiEE_base = epsilon_xi_mu_inv_zeta * 1.0j / self.__alpha.imag / self.__beta
+        if self.__chiEE_base.shape[0] == 1:
+            self.__chiEE_base -= self.__alpha * 1.0j / self.__alpha.imag
+        else:
+            self.__chiEE_base -= self.__BE.eye * self.__alpha * 1.0j / self.__alpha.imag
 
-        # Update the operators stored as private attributes
-        self.__alpha = 0.0  # no alpha subtracted from self.__chiEE_base yet
-        self.__update_operators(alpha)  # alpha subtracted from self.__chiEE_base
+        # Update the operators that are stored as private attributes
+        self.__update_operators(alpha)
+
+        # Store the modified source distribution
+        self.__source_normalized = self.__BE.allocate_array()
+        self.__BE.assign(source_distribution * 1.0j / self.__alpha.imag / self.__beta, self.__source_normalized)  # Adjust for bias
+        del source_distribution
 
     def __update_operators(self, alpha):
         """
-        Updates the value of alpha, and the operators for chi as well as the Green function
+        Updates the value of alpha, and the operators for chi as well as the Green function.
+        This is used in __prepare_preconditioner() and __iter__().
 
         :param alpha: The new value for alpha.
 
-        returns Nothing. Side effect is setting of properties __alpha, __chi_dot, and __green_function_op
+        :returns None
+        Changes the private attributes:
+        - self.__chiEH
+        - self.__chiHE
+        - self.__chiHH
+        - self.__chiEE_base
+        - self.__alpha
+        - self.__chi_op
+        - self.__green_function_op
+        - self.__forward_op_on_field
         """
 
+        # Correct the magnetic components for changes in alpha.imag
+        self.__chiEH *= alpha.imag / self.__alpha.imag
+        self.__chiHE *= alpha.imag / self.__alpha.imag
+        self.__chiHH *= alpha.imag / self.__alpha.imag
         # Once the susceptibility_offset is fixed, we can also calculate chiEE
         if self.__chiEE_base.shape[0] == 1:
-            self.__chiEE_base -= alpha - self.__alpha  # remove the previous alpha before applying new one
+            self.__chiEE_base += self.__alpha * 1.0j / self.__alpha.imag  # remove the previous alpha before applying new one
+            self.__alpha = alpha
+            self.__chiEE_base -= self.__alpha * 1.0j / self.__alpha.imag
         else:
-            self.__chiEE_base -= self.__BE.eye * (alpha - self.__alpha)  # remove the previous alpha before applying new one
-        self.__alpha = alpha
+            self.__chiEE_base += self.__BE.eye * self.__alpha * 1.0j / self.__alpha.imag  # remove the previous alpha before applying new one
+            self.__alpha = alpha
+            self.__chiEE_base -= self.__BE.eye * self.__alpha * 1.0j / self.__alpha.imag
 
         # Pick the right Chi operator
         if self.magnetic:
@@ -444,7 +479,7 @@ class Solution(object):
                 result = chiE
                 result += D(chiH)
 
-                return result  # chiE + D(chiH)
+                return result # chiE + D(chiH)
         else:
             def chi_op(E):
                 """
@@ -458,15 +493,15 @@ class Solution(object):
         # Now create the Green function operator
         # Pre-calculate the convolution filter
         scalar_offset_laplacian_ft = self.__BE.k2 - self.__alpha
-        g_scalar_ft = 1 / scalar_offset_laplacian_ft
+        g_scalar_ft = -1.0j * self.__alpha.imag / scalar_offset_laplacian_ft
         if self.__BE.vectorial:
             def g_ft_op(FFt):  # Overwrites input argument! No need to represent the full matrix in memory
                 PiL_FFt = self.__BE.longitudinal_projection_ft(FFt)  # Creates K^2 on-the-fly and still memory intensive
                 FFt -= PiL_FFt
                 FFt *= g_scalar_ft
-                PiL_FFt *= 1 / self.__alpha
-                FFt -= PiL_FFt
-                return FFt  # g_scalar_ft * self.__PO.subtract(FFt, PiL_FFt) - PiL_FFt / self.__alpha
+                PiL_FFt *= 1.0j * self.__alpha.imag / self.__alpha
+                FFt += PiL_FFt
+                return FFt  # g_scalar_ft * self.__PO.subtract(FFt, PiL_FFt) - PiL_FFt * 1.0j * self.__alpha.imag / self.__alpha
         else:
             def g_ft_op(FFt): #  Overwrites input argument!
                 FFt *= g_scalar_ft
@@ -475,7 +510,7 @@ class Solution(object):
         def dyadic_green_function_op(F):  # overwrites input argument!
             return self.__BE.convolve(g_ft_op, F)  # g_ft_op is memory intensive
 
-        # Update the methods for the operators Chi and Gamma:
+        # Update the methods for the operator Chi:
         self.__chi_op = chi_op
         # Set the Green function
         self.__green_function_op = dyadic_green_function_op
@@ -494,7 +529,7 @@ class Solution(object):
 
         def forward_op_on_field():
             result = self.__BE.copy(self.__field_array)
-            result = self.__BE.convolve(offset_laplacian_ft_op, result)  # offset_laplacian_ft_op(FFt) is Memory intensive
+            result = self.__BE.convolve(offset_laplacian_ft_op, result)  # offset_laplacian_ft_op(FFt) is memory intensive
             result -= chi_op(result)
             return result  # Back to spatial coordinates
 
@@ -502,6 +537,8 @@ class Solution(object):
 
     def __increase_bias_to_limit_kernel_width(self, alpha, max_kernel_residue=0.01):
         """
+        Used in __prepare_preconditioner().
+
         Limit the kernel size by increasing alpha so that:
         -log(max_kernel_residue) / (imag(sqrt(central_permittivity + 1i*alpha))) == max_kernel_radius_in_rad
         -log(max_kernel_residue) / max_kernel_radius_in_rad == imag(sqrt(central_permittivity + 1i*alpha)) == B
@@ -587,7 +624,7 @@ class Solution(object):
         The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar
         field, and 3 in case of a vector field.
         """
-        return self.__source[:, 0, ...] * self.__beta
+        return self.__source_normalized[:, 0, ...] * self.__beta / 1.0j * self.__alpha.imag
 
     @source_distribution.setter
     def source_distribution(self, new_source_density: array_like):
@@ -598,11 +635,7 @@ class Solution(object):
             field, and 3 in case of a vector field.
         """
         new_source_density = self.__BE.to_matrix_field(new_source_density)
-        # if new_source_density.ndim < self.__source.ndim:
-        #     new_source_density = new_source_density[:, np.newaxis, ...]
-        # new_source_density = np.broadcast_to(new_source_density, self.__source.shape)
-        # self.__source[:] = self.__PO.astype(new_source_density / self.__beta)
-        self.__BE.assign(new_source_density / self.__beta, self.__source)
+        self.__BE.assign(new_source_density * 1.0j / self.__alpha.imag / self.__beta, self.__source_normalized)
         self.__previous_update_norm = np.inf
 
     @property
@@ -669,7 +702,7 @@ class Solution(object):
         # D = (J - self.__PO.curl(self.H[:, np.newaxis, ...]) * self.wavenumber) / (1.0j * self.angular_frequency)  # curl includes k0 by definition of __PO
         D = self.__BE.curl(self.H[:, np.newaxis, ...])
         D *= self.wavenumber
-        D -= (self.__beta / (1.0j * self.angular_frequency * const.mu_0)) * self.__source
+        D -= (self.__beta / (1.0j * self.angular_frequency * const.mu_0)) * (self.__source_normalized / 1.0j * self.__alpha.imag)
         D *= 1j / self.angular_frequency
 
         return self.__BE.asnumpy(D)[:, 0, ...]
@@ -685,15 +718,15 @@ class Solution(object):
         if self.magnetic:
             # Use stored matrices to safe the space
             # Use stored matrices to safe the space
-            mu_inv = self.__BE.subtract(1.0, self.__chiHH) * self.__beta
+            mu_inv = self.__BE.subtract(1.0, self.__chiHH * (-1.0j * self.__alpha.imag)) * self.__beta
 
             # the curl in the following includes factor k0^-1 by the definition of __PO above
             H = (1.0j / (const.mu_0 * const.c)) * (
                     - self.__BE.mul(mu_inv, self.__BE.curl(self.E[:, np.newaxis, ...]))
-                    + self.__beta * self.__BE.mul(self.__chiHE, self.E[:, np.newaxis, ...])
+                    + self.__beta * self.__BE.mul(self.__chiHE * (-1.0j * self.__alpha.imag), self.E[:, np.newaxis, ...])
             )
         else:
-            mu_inv = (1.0 - self.__BE.first(self.__chiHH)) * self.__beta
+            mu_inv = (1.0 - self.__BE.first(self.__chiHH) * (-1.0j * self.__alpha.imag)) * self.__beta
             mu_H = (-1.0j / (const.mu_0 * const.c)) * self.__BE.curl(self.E[:, np.newaxis, ...])  # includes k0^-1 by the definition of __PO
             H = mu_inv * mu_H
 
@@ -832,7 +865,7 @@ class Solution(object):
     def __iter__(self):
         """
         Returns an iterator that on __next__() yields this Solution after updating it with one cycle of the algorithm.
-        This resets the iteration counter.
+        Obtaining this iterator resets the iteration counter.
 
         Usage:
 
@@ -843,21 +876,19 @@ class Solution(object):
                     break
             print(solution.residue)
         """
-        self.iteration = 0
+        self.iteration = 0  # reset iteration counter
         while True:
             self.iteration += 1
             self.__residue = None  # Invalidate residue
             log.debug(f'Starting iteration {self.iteration}...')
 
             # Calculate update to the field (self.__field_array, d_field, and self.__source are scaled by k0^2)
-            self.__d_field[:] = self.__field_array       #                    E
-            d_field = self.__chi_op(self.__d_field)      #                   XE
-            d_field += self.__source                     #                   XE + s
-            d_field = self.__green_function_op(d_field)  #                 G(XE + s)
-            d_field -= self.__field_array                #                 G(XE + s) - E
-            d_field = self.__chi_op(d_field)             #               X[G(XE + s) - E]
-            d_field *= 1.0j / self.__alpha.imag          # (i/alpha_i) * X[G(XE + s) - E]
-            # (i/alpha_i) * X[G(XE + s) - E] + E
+            self.__d_field[:] = self.__field_array         #                    E
+            d_field = self.__chi_op(self.__d_field)        #                   XE
+            d_field += self.__source_normalized            #                   XE + s
+            d_field = self.__green_function_op(d_field)    #                 G(XE + s)
+            d_field -= self.__field_array                  #                 G(XE + s) - E
+            d_field = self.__chi_op(d_field)               #               X[G(XE + s) - E]
 
             # Check if the iteration is diverging
             current_update_norm = self.__BE.norm(d_field)  # ||d||
@@ -866,7 +897,7 @@ class Solution(object):
             if relative_update_norm < 1.0:
                 log.debug(f'The norm of the field update has changed by a factor {relative_update_norm:0.3f}.')
                 # Update solution
-                self.__field_array += d_field            # (i/alpha_i) * X[G(XE + s) - E] + E
+                self.__field_array += d_field              # X[G(XE + s) - E] + E
                 # Keep update norm for next iteration's convergence check
                 self.__previous_update_norm = current_update_norm
 

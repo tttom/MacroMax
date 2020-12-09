@@ -47,7 +47,7 @@ class BackEndNumpy(BackEnd):
                 log.info('Module multiprocessing not found, assuming default number of threads for Fast Fourier Transform.')
 
             self.__empty_word_aligned = \
-                lambda shape, dtype: pyfftw.empty_aligned(shape=shape, dtype=dtype, n=pyfftw.simd_alignment)
+                lambda shape, dtype: pyfftw.empty_aligned(shape=shape, dtype=dtype, n=pyfftw.simd_alignment, order='C')
 
             log.debug('Initializing FFTW''s forward Fourier transform.')
             fft_vec_object = pyfftw.FFTW(self.array_ft_input, self.array_ft_output, axes=self.ft_axes, flags=ftflags,
@@ -86,7 +86,7 @@ class BackEndNumpy(BackEnd):
                     return E.copy()
         except ModuleNotFoundError:
             log.debug('Module pyfftw not imported, using stock FFT.')
-            self.__empty_word_aligned = lambda shape, dtype: np.empty(shape=shape, dtype=dtype)
+            self.__empty_word_aligned = lambda shape, dtype: np.empty(shape=shape, dtype=dtype, order='C')
             fft_impl = lambda _: ft.fftn(_, axes=self.ft_axes)
             ifft_impl = lambda _: ft.ifftn(_, axes=self.ft_axes)
         self.__ft = fft_impl

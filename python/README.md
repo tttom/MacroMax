@@ -3,11 +3,19 @@
 ## Introduction to the Macroscopic Maxwell Solver
 This Python 3 module enables solving the macroscopic Maxwell equations in complex dielectric materials.
 
-The material properties are defined on a rectangular grid (1D, 2D, or 3D) for which each voxel defines an isotropic or anisotropic permittivity. Optionally, a heterogeneous (anisotropic) permeability as well as bi-anisotropic coupling factors may be specified (e.g. for chiral media). The source, such as an incident laser field, is specified as an oscillating current-density distribution.
+The material properties are defined on a rectangular grid (1D, 2D, or 3D) for which each voxel defines an isotropic or 
+anisotropic permittivity. Optionally, a heterogeneous (anisotropic) permeability as well as bi-anisotropic coupling 
+factors may be specified (e.g. for chiral media). The source, such as an incident laser field, is specified as an 
+oscillating current-density distribution.
 
-The method iteratively corrects an estimated solution for the electric field (default: all zero). Its memory requirements are on the order of the storage requirements for the material properties and the electric field within the calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript ["Calculating coherent light-wave propagation in large heterogeneous media."](https://doi.org/10.1364/OE.27.011946)
+The method iteratively corrects an estimated solution for the electric field (default: all zero). Its memory 
+requirements are on the order of the storage requirements for the material properties and the electric field within the 
+calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript 
+["Calculating coherent light-wave propagation in large heterogeneous media."](https://doi.org/10.1364/OE.27.011946)
 
-The [source code](https://github.com/tttom/MacroMax) is available on [GitHub](https://github.com/tttom/MacroMax) under the
+Examples of usage can be found in [the examples/ sub-folder](examples). The [Complete MacroMax Documentation](https://macromax.readthedocs.io) 
+can be found at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
+All [source code](https://github.com/tttom/MacroMax) is available on [GitHub](https://github.com/tttom/MacroMax) under the
 **[MIT License](https://opensource.org/licenses/MIT): [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)**
 
 ## Installation
@@ -64,6 +72,9 @@ The basic calculation procedure consists of the following steps:
 4. display the solution
 
 The ````macromax```` module must be imported to be able to use the ````solve```` function. The module also contains several utility functions that may help in defining the property and source distributions.
+
+Examples can be found in [the examples package in the examples/ folder](examples). Ensure that the entire `examples/` folder
+is downloaded, including the `__init__.py` file with general definitions. Run the examples from the parent folder using e.g. `python -m examples.air_glass_air_1D`.
 
 The complete functionality is described in the [Library Reference Documentation](https://macromax.readthedocs.io) at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
 

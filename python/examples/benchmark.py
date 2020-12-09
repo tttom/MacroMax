@@ -25,14 +25,12 @@ except ImportError:
     from macromax import log  # Fallback in case this script is not started as part of the examples package.
 
 
-def calculate(dtype=np.complex64, vectorial=False, ndim=2) -> float:
+def calculate(dtype=np.complex64, magnetic=False, birefringent=False, vectorial=False, ndim=2) -> float:
     wavelength = 500e-9
     boundary_thickness = 2e-6
     beam_diameter = 1e-6
     k0 = 2 * np.pi / wavelength
     data_shape = np.ones(ndim, dtype=int) * 128
-    if ndim < 3:
-        data_shape[1] *= 2
     sample_pitch = wavelength / 4
     grid = Grid(data_shape, sample_pitch)
 
@@ -48,15 +46,29 @@ def calculate(dtype=np.complex64, vectorial=False, ndim=2) -> float:
         source = polarization * source
 
     # Define material with scatterer
-    refractive_index = np.ones(data_shape)
-    refractive_index[np.sqrt(sum(_**2 for _ in grid)) < 0.5*np.amin(data_shape * sample_pitch)/2] = 1.5
+    sphere_mask = np.sqrt(sum(_**2 for _ in grid)) < 0.5*np.amin(data_shape * sample_pitch)/2
+    if not birefringent:  # An isotropic material
+        permittivity = np.ones(data_shape)
+        permittivity[sphere_mask] = 1.5**2
+    else:  # An anisotropic material
+        def rot_z(a): return np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
+        epsilon_crystal = rot_z(-np.pi/4) @ np.diag((1.5, 1.3, 1.1))**2 @ rot_z(np.pi/4)
+        permittivity = np.zeros((3, 3, *data_shape))
+        for _ in range(permittivity.shape[0]):
+            permittivity[_, _, ...] = 1.0
+        permittivity[:, :, sphere_mask] = epsilon_crystal[..., np.newaxis]
+
+    if magnetic:
+        permeability = permittivity
+    else:
+        permeability = 1.0
 
     # Add boundary
     bound = LinearBound(grid, thickness=boundary_thickness, max_extinction_coefficient=0.3)
 
     start_time = time.perf_counter()
     solution = macromax.solve(grid, vacuum_wavelength=wavelength, source_distribution=source, bound=bound,
-                              refractive_index=refractive_index, dtype=dtype,
+                              epsilon=permittivity, mu=permeability, dtype=dtype,
                               callback=lambda s: s.iteration < 1000 and s.residue > 1e-5
                               )
     total_time = time.perf_counter() - start_time
@@ -67,34 +79,24 @@ def calculate(dtype=np.complex64, vectorial=False, ndim=2) -> float:
     return total_time / solution.iteration
 
 
-def measure(dtype=np.complex64, vectorial=False, ndim=2, nb_trials: int = 10) -> float:
-    log.info(('Vectorial' if vectorial else 'Scalar') + f' {ndim}D calculation with {dtype.__name__}...')
-    iteration_time = min(calculate(dtype=dtype, vectorial=vectorial, ndim=ndim) for _ in range(nb_trials))
+def measure(dtype=np.complex64, magnetic=False, birefringent=False, vectorial=False, ndim=2, nb_trials: int = 10) -> float:
+    if magnetic or birefringent:
+        vectorial = True
+    log.info(('Vectorial' if vectorial else 'Scalar') + (' and magnetic' if magnetic else '') + (' and birefringent' if birefringent else '') + f' {ndim}D calculation with {dtype.__name__}...')
+    iteration_time = min(calculate(dtype=dtype, magnetic=magnetic, birefringent=birefringent, vectorial=vectorial, ndim=ndim) for _ in range(nb_trials))
     log.info(f'Iteration time: {iteration_time * 1000:0.3f} ms.')
     return iteration_time
 
 
 if __name__ == '__main__':
     nb_trials = 10
-    benchmark_fft = False
-    ndim = 2
+    ndim = 2  # 3
+    dtype = np.complex64  # np.complex128
+
     log.info(f'MacroMax version {macromax.__version__}')
 
-    if benchmark_fft:
-        log.info('Benchmarking FFT...')
-        from macromax.utils import ft
-
-        data_shape = np.array([1024, 1200, 6], dtype=np.int)
-        nb_iterations = 100
-        res = np.random.randn(*data_shape) + 1j * np.random.randn(*data_shape)
-
-        start_time = time.perf_counter()
-        for _ in range(nb_iterations):
-            res = ft.fftn(res)
-        total_time = time.perf_counter() - start_time
-        log.info(f'Total time for FFT: {total_time:0.3f} s for {nb_iterations:d} iterations: ({total_time / nb_iterations:0.3f} ms).')
-
-    measure(dtype=np.complex128, vectorial=True, ndim=ndim, nb_trials=nb_trials)
-    measure(dtype=np.complex64, vectorial=True, ndim=ndim, nb_trials=nb_trials)
-    measure(dtype=np.complex128, vectorial=False, ndim=ndim, nb_trials=nb_trials)
-    measure(dtype=np.complex64, vectorial=False, ndim=ndim, nb_trials=nb_trials)
+    measure(dtype=dtype, magnetic=True, birefringent=True, ndim=ndim, nb_trials=nb_trials)
+    measure(dtype=dtype, magnetic=True, ndim=ndim, nb_trials=nb_trials)
+    measure(dtype=dtype, birefringent=True, ndim=ndim, nb_trials=nb_trials)
+    measure(dtype=dtype, vectorial=True, ndim=ndim, nb_trials=nb_trials)
+    measure(dtype=dtype, vectorial=False, ndim=ndim, nb_trials=nb_trials)

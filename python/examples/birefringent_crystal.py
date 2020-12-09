@@ -9,7 +9,7 @@ import numpy as np
 import time
 
 import macromax
-from macromax.utils.array import vector_to_axis, Grid
+from macromax.utils.array import Grid
 from macromax.utils.display import complex2rgb, grid2extent
 try:
     from examples import log
@@ -30,9 +30,9 @@ def show_birefringence():
     grid = Grid(data_shape, sample_pitch)
     incident_angle = 0 * np.pi / 180
 
-    def rot_Z(a): return np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
-    incident_k = rot_Z(incident_angle) * k0 @ np.array([0, 1, 0])
-    source_polarization = (rot_Z(incident_angle) @ np.array([1, 0, 1]) / np.sqrt(2))[:, np.newaxis, np.newaxis]  # diagonally polarized beam
+    def rot_z(a): return np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
+    incident_k = rot_z(incident_angle) * k0 @ np.array([0, 1, 0])
+    source_polarization = (rot_z(incident_angle) @ np.array([1, 0, 1]) / np.sqrt(2))[:, np.newaxis, np.newaxis]  # diagonally polarized beam
     current_density = np.exp(1j * (incident_k[0]*grid[0] + incident_k[1]*grid[1]))
     # Aperture the incoming beam
     current_density = current_density * np.exp(-0.5*(np.abs(grid[1] - (grid[1].ravel()[0]+boundary_thickness))/wavelength)**2)
@@ -41,7 +41,7 @@ def show_birefringence():
 
     permittivity = np.tile(np.eye(3, dtype=np.complex128)[:, :, np.newaxis, np.newaxis], (1, 1, *data_shape))
     # Add prism
-    epsilon_crystal = rot_Z(-np.pi/4) @ np.diag((1.486, 1.658, 1.658))**2 @ rot_Z(np.pi/4)
+    epsilon_crystal = rot_z(-np.pi/4) @ np.diag((1.486, 1.658, 1.658))**2 @ rot_z(np.pi/4)
     permittivity[:, :, :, int(data_shape[1]*(1-5/8)/2)+np.arange(int(data_shape[1]*5/8))] = \
         np.tile(epsilon_crystal[:, :, np.newaxis, np.newaxis], (1, 1, data_shape[0], int(data_shape[1]*5/8)))
 
@@ -59,10 +59,6 @@ def show_birefringence():
     images = [axs[dim_idx][0].imshow(complex2rgb(np.zeros(data_shape), 1),
                                      extent=np.array([*grid[1].ravel()[[0, -1]], *grid[0].ravel()[[0, -1]]]) * 1e6, origin='lower')
               for dim_idx in range(3)]
-    # axs[0][1].imshow(complex2rgb(permittivity[0, 0], 1),
-    #                  extent=np.array([*grid[1].ravel()[[0, -1]], *grid[0].ravel()[[0, -1]]]) * 1e6, origin='lower')
-    # axs[2][1].imshow(complex2rgb(current_density[0], 1),
-    #                  extent=np.array([*grid[1].ravel()[[0, -1]], *grid[0].ravel()[[0, -1]]]) * 1e6, origin='lower')
     axs[0][1].imshow(complex2rgb(permittivity[0, 0], 1),
                      extent=grid2extent(grid, origin_lower=True) * 1e6, origin='lower')
     axs[2][1].imshow(complex2rgb(current_density[0], 1),
@@ -70,10 +66,7 @@ def show_birefringence():
     axs[0][1].set_title('$\chi$')
     axs[1][1].axis('off')
     axs[2][1].set_title('source and S')
-    mesh_ranges = [0, 1]
-    for dim_idx in range(len(grid)):
-        mesh_ranges[dim_idx] = vector_to_axis(grid[dim_idx].ravel(), 0, len(grid))
-    X, Y = np.meshgrid(mesh_ranges[1], mesh_ranges[0])
+    Y, X = np.broadcast_arrays(*grid)
     arrow_sep = np.array([1, 1], dtype=int) * 30
     quiver = axs[2][1].quiver(X[::arrow_sep[0], ::arrow_sep[1]]*1e6, Y[::arrow_sep[0], ::arrow_sep[1]]*1e6,
                               X[::arrow_sep[0], ::arrow_sep[1]]*0, Y[::arrow_sep[0], ::arrow_sep[1]]*0,
@@ -82,8 +75,6 @@ def show_birefringence():
     for dim_idx in range(3):
         for col_idx in range(2):
             axs[dim_idx][col_idx].autoscale(False, tight=True)
-
-    # plt.show(block=True)
 
     #
     # Display the current solution

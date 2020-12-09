@@ -313,6 +313,7 @@ class BackEnd(ABC):
     def to_matrix_field(self, arr: array_like) -> np.ndarray:
         """
         Converts the input to an array of the full number of dimensions: len(self.matrix_shape) + len(self.grid.shape).
+        The size of each dimensions must match that of that set for the :class:`BackEnd` or be 1 (assumes broadcasting).
         For electric fields in 3-space, self.matrix_shape == (N, N) == (3, 3)
         The first (left-most) dimensions of the output are either
         - 1x1: The identity matrix for a scalar field, as sound waves or isotropic permittivity.
@@ -387,7 +388,7 @@ class BackEnd(ABC):
                 product_shape = (left_factor.shape[0], right_factor.shape[1],
                                  *np.maximum(np.array(left_factor.shape[2:], dtype=int),
                                              np.array(right_factor.shape[2:], dtype=int)))
-                out = np.empty(shape=product_shape, dtype=self.dtype)
+                out = self.allocate_array(shape=product_shape, dtype=self.dtype)
             result = np.einsum('ij...,jk...->ik...', left_factor, right_factor, out=out)
 
         return result
@@ -727,7 +728,7 @@ class BackEnd(ABC):
             return roots[..., 0]
 
         if nb_terms < 2:
-            X = np.empty((0, *C[1:]), dtype=C.dtype)
+            X = np.empty(shape=(0, *C[1:]), dtype=C.dtype)
         elif nb_terms == 2:  # linear
             # C[0] + C[1]*X == 0
             C, nb_roots_added = add_roots(C)
