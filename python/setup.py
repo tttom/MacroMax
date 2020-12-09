@@ -51,7 +51,7 @@ setup(
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
     ],
-    python_requires='>=3',
+    python_requires='>=3.6',
     install_requires=['numpy', 'scipy'],
     zip_safe=False,
     test_suite='nose.collector',

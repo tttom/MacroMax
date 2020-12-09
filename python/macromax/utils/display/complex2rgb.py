@@ -18,7 +18,7 @@ def complex2rgb(complex_image: Union[complex, Sequence, np.array], normalization
     :return: A real 3d-array with values between 0 and 1.
     """
     # Make sure that this is a numpy 2d-array
-    complex_image = np.array(complex_image)
+    complex_image = np.asarray(complex_image)
     while complex_image.ndim < 2:
         complex_image = complex_image[..., np.newaxis]
 
@@ -27,7 +27,7 @@ def complex2rgb(complex_image: Union[complex, Sequence, np.array], normalization
 
     if normalization is not None:
         if normalization > 0:
-            max_value = np.max(abs(amplitude.ravel()))
+            max_value = np.amax(abs(amplitude.ravel()))
             if max_value > 0:
                 amplitude *= (normalization / max_value)
 

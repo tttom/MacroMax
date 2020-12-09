@@ -47,7 +47,7 @@ class BackEndTorch(BackEnd):
                 self.subtract(arr, arr)
                 del arr
             except RuntimeError as re:
-                log.warning(f'PyTorch failed to use CUDA ({re}), possibly due to incompatible CUDA version, falling back to CPU.')
+                log.warning(f'PyTorch failed to use CUDA ({re}), possibly due to incompatible CUDA version, falling back to PyTorch CPU.')
                 self.__device = 'cpu'
 
     @property
@@ -237,9 +237,8 @@ class BackEndTorch(BackEnd):
         if self.is_scalar(denominator):
             return self.astype(numerator) / denominator
         else:
-            denominator = self.asnumpy(denominator)  # TODO: change to torch, when complex number support arrives
-            numerator = self.asnumpy(numerator)
-
+            denominator = self.asnumpy(denominator)  # TODO: Keep this in PyTorch
+            numerator = self.asnumpy(numerator)  # TODO: Keep this in PyTorch
             total_dims = 2 + self.grid.ndim
             new_order = np.roll(np.arange(total_dims), -2)
             denominator = denominator.transpose(new_order)
@@ -255,8 +254,8 @@ class BackEndTorch(BackEnd):
                 else:
                     Y = np.linalg.lstsq(denominator, numerator)[0]
             old_order = np.roll(np.arange(total_dims), 2)
-            return self.astype(Y.transpose(old_order))
+            result = Y.transpose(old_order)
+            return self.astype(result)
 
     def norm(self, arr: array_like) -> float:
-        # return (torch.norm(arr.real, p='fro')**2 + torch.norm(arr.imag, p='fro')**2) ** 0.5
         return float(torch.norm(torch.view_as_real(arr)))

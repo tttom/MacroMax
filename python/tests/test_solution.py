@@ -12,17 +12,23 @@ class TestSolution(unittest.TestCase):
     def setUp(self):
         self.wavelength = 4
         self.grid = Grid(shape=[50, 100, 200], step=self.wavelength/4)
-        current_density = np.zeros([3, *self.grid.shape])
-        bound_thickness = 5 * self.wavelength
-        center_px = np.asarray(current_density.shape) // 2
-        current_density[:, center_px[0], center_px[1], center_px[2]] = np.array([0.0, 1.0, 0.0])
-        dist_in_boundary = np.maximum(0.0,
-                                      np.maximum(self.grid[0].ravel()[0]+bound_thickness - self.grid[0],
-                                                 self.grid[0].ravel()[-1]-bound_thickness - self.grid[0]) / bound_thickness
-                                      )
-        permittivity = 1.0 + 0.2j * dist_in_boundary
-        self.SOL = Solution(self.grid, vacuum_wavelength=self.wavelength, epsilon=permittivity,
-                            current_density=current_density, dtype=np.complex128)
+        self.__SOL = None  # reset
+
+    @property
+    def SOL(self) -> Solution:
+        if self.__SOL is None:
+            current_density = np.zeros([3, *self.grid.shape])
+            bound_thickness = 5 * self.wavelength
+            center_px = np.asarray(current_density.shape) // 2
+            current_density[:, center_px[0], center_px[1], center_px[2]] = np.array([0.0, 1.0, 0.0])
+            dist_in_boundary = np.maximum(0.0,
+                                          np.maximum(self.grid[0].ravel()[0]+bound_thickness - self.grid[0],
+                                                     self.grid[0].ravel()[-1]-bound_thickness - self.grid[0]) / bound_thickness
+                                          )
+            permittivity = 1.0 + 0.2j * dist_in_boundary
+            self.__SOL = Solution(self.grid, vacuum_wavelength=self.wavelength, epsilon=permittivity,
+                                  current_density=current_density, dtype=np.complex128)
+        return self.__SOL
 
     def test_grid(self):
         npt.assert_equal(self.SOL.grid == self.grid, True, err_msg='grid not set correctly')
@@ -39,22 +45,22 @@ class TestSolution(unittest.TestCase):
     def test_iteration(self):
         npt.assert_almost_equal(self.SOL.iteration, 0)
         iterator = self.SOL.__iter__()
-        self.SOL = iterator.__next__()
+        iterator.__next__()
         npt.assert_almost_equal(self.SOL.iteration, 1)
-        self.SOL = self.SOL.solve(lambda sol: sol.iteration < 5)
+        self.SOL.solve(lambda sol: sol.iteration < 5)
         npt.assert_almost_equal(self.SOL.iteration, 5)
         self.SOL.iteration = 1
-        self.SOL = iterator.__next__()
+        iterator.__next__()
         npt.assert_almost_equal(self.SOL.iteration, 2)
-        self.SOL = self.SOL.__iter__().__next__()
+        self.SOL.__iter__().__next__()
         npt.assert_almost_equal(self.SOL.iteration, 1)
 
     def test_last_update_norm(self):
         field_0 = self.SOL.E.copy()
-        self.SOL = self.SOL.__iter__().__next__()
+        self.SOL.__iter__().__next__()
         field_1 = self.SOL.E.copy()
         npt.assert_almost_equal(self.SOL.previous_update_norm, np.sqrt(np.sum(np.abs(field_1 - field_0) ** 2)))
-        self.SOL = self.SOL.__iter__().__next__()
+        self.SOL.__iter__().__next__()
         field_2 = self.SOL.E.copy()
         npt.assert_almost_equal(self.SOL.previous_update_norm, np.sqrt(np.sum(np.abs(field_2 - field_1) ** 2)))
 
@@ -62,10 +68,10 @@ class TestSolution(unittest.TestCase):
         def norm(a):
             return np.sqrt(np.sum(np.abs(a).flatten() ** 2))
         field_0 = self.SOL.E.copy()
-        self.SOL = self.SOL.__iter__().__next__()
+        self.SOL.__iter__().__next__()
         field_1 = self.SOL.E.copy()
         npt.assert_almost_equal(self.SOL.residue, norm(field_1-field_0) / norm(field_1))
-        self.SOL = self.SOL.__iter__().__next__()
+        self.SOL.__iter__().__next__()
         field_2 = self.SOL.E.copy()
         npt.assert_almost_equal(self.SOL.residue, norm(field_2-field_1) / norm(field_2))
 
@@ -284,7 +290,7 @@ class TestSolution(unittest.TestCase):
                          callback=lambda s: s.residue > 1e-6 and s.iteration < 1e4)
         npt.assert_equal(solution.residue < 1e-6, True, err_msg='The iteration did not converge as expected.')
         npt.assert_equal(solution.iteration <= 85, True,
-                         err_msg=f'The iteration did not converge as fast as expected ({solution.iteration}>85).')
+                         err_msg=f'The iteration did not converge as fast as expected ({solution.iteration} > 85).')
 
         #
         # Check the results
