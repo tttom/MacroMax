@@ -805,7 +805,7 @@ class BackEnd(ABC):
         return np.linalg.norm(arr.ravel())
 
 
-def config(*args: Sequence[Dict]):
+def config(*args: Sequence[Dict], **kwargs: str):
     """
     Configure a specific back-end, overriding the automatic detection.
     E.g.:
@@ -822,14 +822,17 @@ def config(*args: Sequence[Dict]):
         interpreted as a dictionary.
     """
     global __config_list
+
+    args = [*args, kwargs]
     if any(not isinstance(_, Dict) and 'type' in _ for _ in args):
         raise TypeError("Configuration must be specified as a dictionary or a series of dictionaries with the key 'type'.")
-    __config_list = [*args]
+    __config_list = args
 
 
 def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) -> BackEnd:
     """
     Load the default or configured backend (using backend.config().
+    The default configuration can be specified in the file `backend_config.json` in the current folder.
 
     :param nb_pol_dims: The number of polarization dimensions: 1 for scalar, 3 for vectorial calculations.
     :param grid: The uniformly-spaced Cartesian calculation grid as a Grid object.

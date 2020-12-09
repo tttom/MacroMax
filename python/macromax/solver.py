@@ -14,7 +14,7 @@ from . import log
 from .utils.array import Grid
 from macromax.bound import Bound, Electric, Magnetic, PeriodicBound
 
-array_like = Union[float, Sequence, np.ndarray]
+array_like = Union[complex, Sequence, np.ndarray]
 
 
 def solve(grid: Union[Grid, Sequence, np.ndarray],
@@ -418,12 +418,13 @@ class Solution(object):
         else:
             self.__chiEE_base -= self.__BE.eye * self.__alpha * 1.0j / self.__alpha.imag
 
-        # Update the operators that are stored as private attributes
-        self.__update_operators(alpha)
-
         # Store the modified source distribution
         self.__source_normalized = self.__BE.allocate_array()
         self.__BE.assign(source_distribution * 1.0j / self.__alpha.imag / self.__beta, self.__source_normalized)  # Adjust for bias
+
+        # Update the operators that are stored as private attributes
+        self.__update_operators(alpha)
+
         del source_distribution
 
     def __update_operators(self, alpha):
@@ -435,6 +436,7 @@ class Solution(object):
 
         :returns None
         Changes the private attributes:
+        - self.__source_normalized
         - self.__chiEH
         - self.__chiHE
         - self.__chiHH
@@ -444,22 +446,22 @@ class Solution(object):
         - self.__green_function_op
         - self.__forward_op_on_field
         """
-
+        # Rescale the source
+        self.__source_normalized *= self.__alpha.imag / alpha.imag
         # Correct the magnetic components for changes in alpha.imag
-        self.__chiEH *= alpha.imag / self.__alpha.imag
-        self.__chiHE *= alpha.imag / self.__alpha.imag
-        self.__chiHH *= alpha.imag / self.__alpha.imag
+        self.__chiEH *= self.__alpha.imag / alpha.imag
+        self.__chiHE *= self.__alpha.imag / alpha.imag
+        self.__chiHH *= self.__alpha.imag / alpha.imag
         # Once the susceptibility_offset is fixed, we can also calculate chiEE
+        self.__chiEE_base /= 1.0j / self.__alpha.imag
         if self.__chiEE_base.shape[0] == 1:
-            self.__chiEE_base += self.__alpha * 1.0j / self.__alpha.imag  # remove the previous alpha before applying new one
-            self.__alpha = alpha
-            self.__chiEE_base -= self.__alpha * 1.0j / self.__alpha.imag
+            self.__chiEE_base += self.__alpha - alpha  # remove the previous alpha before applying new one
         else:
-            self.__chiEE_base += self.__BE.eye * self.__alpha * 1.0j / self.__alpha.imag  # remove the previous alpha before applying new one
-            self.__alpha = alpha
-            self.__chiEE_base -= self.__BE.eye * self.__alpha * 1.0j / self.__alpha.imag
+            self.__chiEE_base += self.__BE.eye * (self.__alpha - alpha)  # remove the previous alpha before applying new one
+        self.__chiEE_base *= 1.0j / alpha.imag
+        self.__alpha = alpha
 
-        # Pick the right Chi operator
+        # Define the Chi operator for magnetic or non-magnetic (potentially anisotropic)
         if self.magnetic:
             def chi_op(E):
                 """
@@ -903,17 +905,13 @@ class Solution(object):
 
                 log.debug(f'Updated field in iteration {self.iteration}.')
             else:
-                log.warning(f'The field update is scaled by {relative_update_norm:0.3f} >= 1 in iteration {self.iteration}, ' +
-                            'so the maximum singular value of the update matrix is larger than one. ' +
-                            'Convergence is not guaranteed.')
+                log.warning(f'The field update is scaled by {relative_update_norm:0.3f} >= 1 in iteration {self.iteration}, rescaling problem...')
                 alpha_imag_current = self.__alpha.imag
-                alpha_new = self.__alpha.real + 1.10j * self.__alpha.imag
+                alpha_new = self.__alpha.real + 1.50j * self.__alpha.imag
                 log.info(f'Increasing the imaginary part of alpha from {alpha_imag_current:0.3g} to {alpha_new.imag:0.3g}.')
                 self.__update_operators(alpha_new)
 
                 log.debug(f'Aborting field update in iteration {self.iteration}.')
-
-            # log.info(f'Forward residue: {self.forward_residue}')
 
             yield self
 
