@@ -420,7 +420,7 @@ class Solution(object):
 
         # Store the modified source distribution
         self.__source_normalized = self.__BE.allocate_array()
-        self.__BE.assign(source_distribution * 1.0j / self.__alpha.imag / self.__beta, self.__source_normalized)  # Adjust for bias
+        self.__BE.assign(self.__BE.astype(source_distribution) * 1.0j / self.__alpha.imag / self.__beta, self.__source_normalized)  # Adjust for bias
 
         # Update the operators that are stored as private attributes
         self.__update_operators(alpha)
