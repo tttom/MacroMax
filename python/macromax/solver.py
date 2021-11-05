@@ -128,13 +128,11 @@ class Solution(object):
         if wavenumber is not None:
             self.__wavenumber = wavenumber
             if angular_frequency is not None or vacuum_wavelength is not None:
-                log.warning('Using specified wavenumber = %d, ignoring angular_frequency and vacuum_wavelength.' %
-                            self.__wavenumber)
+                log.debug(f'Using specified wavenumber = {self.__wavenumber}, ignoring angular_frequency and vacuum_wavelength.')
         elif angular_frequency is not None:
             self.__wavenumber = angular_frequency / const.c
             if vacuum_wavelength is not None:
-                log.warning('Using specified angular_frequency = %d, ignoring vacuum_wavelength.' %
-                            angular_frequency)
+                log.debug(f'Using specified angular_frequency = {angular_frequency}, ignoring vacuum_wavelength.')
         elif vacuum_wavelength is not None:
             self.__wavenumber = 2 * const.pi / vacuum_wavelength
         else:
@@ -156,6 +154,8 @@ class Solution(object):
 
         # Determine the source distribution, either directly, or from current_density (assuming this is a an EM problem)
         if source_distribution is None:
+            if current_density is None:
+                current_density = 0.0
             current_density = func2arr(current_density)
             source_distribution = -1j * const.c * self.wavenumber * const.mu_0 * current_density  # [ V m^-3 ]
         else:

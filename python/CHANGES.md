@@ -35,3 +35,16 @@ instead of the `source_density`.
 This normalization factor was introduced to avoid underflow in the
 iteration. Now it is removed as intended, after the iteration, or when an
 intermediate solution is queried.
+
+## Version 0.0.9
+* Made the dependency on the multiprocessing module optional.
+
+
+## Version 0.0.8
+* Extended unit tests, including the ```utils''' sub-module.
+* Improved logging.
+* Removed unused ```conductive''' indicator property from solver.
+* Brought naming in line with Python conventions.
+
+## Version 0.0.6
+* Initial version on production PyPI repository.
