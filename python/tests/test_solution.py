@@ -125,6 +125,8 @@ class TestSolution(unittest.TestCase):
         # (the actual work is done in this line)
         solution = solve(x_range, vacuum_wavelength=wavelength, current_density=current_density, epsilon=permittivity,
                          callback=lambda s: s.residue > 1e-6 and s.iteration < 1e4)
+        npt.assert_equal(solution.residue < 1e-6, True,
+                         err_msg=f'The iteration did not converge as expected {solution.residue} >= 1e-6.')
         npt.assert_equal(solution.iteration <= 70, True,
                          err_msg=f'The iteration did not converge as fast as expected {solution.iteration} > 70.')
 
@@ -235,7 +237,7 @@ class TestSolution(unittest.TestCase):
         npt.assert_array_almost_equal(B * const.c,  E,
                                       err_msg='The product c.|B| is not almost equal to |E|.', decimal=4)
         npt.assert_array_almost_equal(B / const.mu_0,  H, err_msg='The fraction B/mu_0 is not equal to H.', decimal=14)
-        npt.assert_array_equal(solution.S[[1, 2], :],  0, err_msg='The vector field S is not aligned with the x-axis.')
+        npt.assert_array_equal(solution.S[[1, 2], :], 0, err_msg='The vector field S is not aligned with the x-axis.')
         npt.assert_array_almost_equal(E * H / 2,  S, err_msg='The Poynting vector S is not equal to ExH/2.', decimal=13)
 
         npt.assert_equal(solution.E.dtype == np.complex64, True, err_msg='solution.E.dtype not correct')
@@ -322,7 +324,7 @@ class TestSolution(unittest.TestCase):
         npt.assert_array_almost_equal(B * const.c,  E,
                                       err_msg='The product c.|B| is not almost equal to |E|.', decimal=4)
         npt.assert_array_almost_equal(B / const.mu_0,  H, err_msg='The fraction B/mu_0 is not equal to H.', decimal=14)
-        npt.assert_array_equal(solution.S[[1, 2], :],  0, err_msg='The vector field S is not aligned with the x-axis.')
+        npt.assert_array_equal(solution.S[[1, 2], :], 0, err_msg='The vector field S is not aligned with the x-axis.')
         npt.assert_array_almost_equal(E * H / 2,  S, err_msg='The Poynting vector S is not equal to ExH/2.', decimal=13)
 
         npt.assert_equal(solution.E.dtype == np.complex64, True, err_msg='solution.E.dtype not correct')

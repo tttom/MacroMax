@@ -1,16 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
-try:
-    import multiprocessing
-    nb_threads = multiprocessing.cpu_count()
-    import os
-    for _ in ['OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS']:
-        os.environ[_] = str(nb_threads)
-    import mkl
-    mkl.set_num_threads(nb_threads)
-except ImportError:
-    pass
 import numpy as np
 import time
 
@@ -23,6 +13,18 @@ try:
     from examples import log
 except ImportError:
     from macromax import log  # Fallback in case this script is not started as part of the examples package.
+
+try:
+    import multiprocessing
+    nb_threads = multiprocessing.cpu_count()
+    import os
+    log.info(f'Setting number of threads to use to {nb_threads}.')
+    for _ in ['OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS']:
+        os.environ[_] = str(nb_threads)
+    import mkl
+    mkl.set_num_threads(nb_threads)
+except (ImportError, TypeError):
+    pass
 
 
 def calculate(dtype=np.complex64, magnetic=False, birefringent=False, vectorial=False, ndim=2) -> float:

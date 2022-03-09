@@ -11,6 +11,9 @@
 
 # GPU, install PyTorch >= 1.7.0: https://pytorch.org/get-started/locally/
 # torch  # pip install torch==1.7.0+cpu torchvision==0.8.1+cpu torchaudio===0.7.0 -f https://download.pytorch.org/whl/torch_stable.html
+# tensorflow  # pip install tensorflow
+
+coloredlogs >= 15.0  # To color-format the log output on the console.
 
 #
 # Software Development

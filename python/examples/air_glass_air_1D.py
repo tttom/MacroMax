@@ -17,7 +17,7 @@ except ImportError:
 
 
 def show_air_glass_transition(impedance_matched=False, birefringent=False):
-    wavelength = 488e-9
+    wavelength = 500e-9
     source_polarization = np.array([0.0, 1.0, 1.0j])[:, np.newaxis]  # y-polarized
 
     # Set the sampling grid
@@ -26,7 +26,7 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     x_range = sample_pitch * np.arange(nb_samples) - 5e-6
 
     # define the source
-    current_density = (np.abs(x_range) < sample_pitch / 2)  # point source at 0
+    current_density = (np.abs(x_range) < sample_pitch / 2)  # point source at x=0
     current_density = source_polarization * current_density
 
     # define the medium
@@ -48,7 +48,7 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
         permeability = permittivity
     else:
         # Non-impedance matched glass
-        permeability = 1.0  # The display function below would't expect a scalar
+        permeability = 1.0  # The display function below wouldn't expect a scalar
 
     # Prepare the display
     fig, ax = plt.subplots(2, 1, frameon=False, figsize=(12, 9), sharex='all')
@@ -80,7 +80,7 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
 
     def display(s):
         E = s.E[1, :]
-        H = s.H[2, :]
+        # H = s.H[2, :]
         S = s.S[0, :]
         u = s.energy_density
 
@@ -115,7 +115,7 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     # The actual work is done here:
     start_time = time.perf_counter()
     solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, mu=permeability, bound=bound, callback=update_function
+                              epsilon=permittivity, mu=permeability, bound=bound, callback=update_function, dtype=np.complex64
                               )
     log.info("Calculation time: %0.3fs." % (time.perf_counter() - start_time))
 

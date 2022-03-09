@@ -15,7 +15,7 @@
 an alternative to the permittivity and permeability.
 * The `macromax.bound` module provides the `Bound` class and subclasses to more conveniently specify arbitrary
 absorbing or periodic boundaries. Custom implementations can be specified as a subclass of `Bound`.
-* Convenience class `macromax.Grid` provides an easy method to construct uniformly plaid sample grids and their Fourier-space counterparts.   
+* Convenience class `macromax.Grid` provides an easy method to construct uniformly plaid sample grids and their Fourier-space counterparts. 
 
 ## Version 0.1.2
 * The solve function and Solution constructor now take `dtype` as an 
@@ -48,3 +48,4 @@ intermediate solution is queried.
 
 ## Version 0.0.6
 * Initial version on production PyPI repository.
+

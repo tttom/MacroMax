@@ -58,6 +58,7 @@ def rgb2hsv(red: Union[float, Sequence, np.ndarray],
     :param blue: (optional) a 2D numpy.array with the blue channel.
     :param axis: (default: -1) The channel axis of the output array, and also the input array if neither saturation, nor
         value are provided.
+
     :return: hsv_image: a 3D numpy.array with the HSV image
     """
     if green is None and blue is None:
@@ -98,6 +99,6 @@ def rgb2hsv(red: Union[float, Sequence, np.ndarray],
 
     s = s_x_v / (v + np.isclose(v, 0))
 
-    hsv_image = np.concatenate((h, s, v), axis=-1)
+    hsv_image = np.concatenate((h, s, v), axis=-1)  # TODO: Use the input axis choice?
 
     return hsv_image

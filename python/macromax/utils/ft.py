@@ -20,10 +20,10 @@ With the exception of `ft.fft()` and `ft.ifft()`, all functions take the `axes` 
 Note that axis indices should be unique and non-negative. **Negative or repeated axis indices are not compatible with all back-end implementations!**
 """
 from macromax import log
+from numpy.fft import fftshift, ifftshift
 
 try:
     from mkl_fft import *
-    from numpy.fft import fftshift, ifftshift
     log.debug("Using mkl_fft for Fast Fourier transforms.")
 except (ModuleNotFoundError, TypeError):
     try:

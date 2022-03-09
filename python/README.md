@@ -1,7 +1,7 @@
 # Introduction
 
 ## Introduction to the Macroscopic Maxwell Solver
-This Python 3 module enables solving the macroscopic Maxwell equations in complex dielectric materials.
+This Python 3 package enables solving the macroscopic Maxwell equations in complex dielectric materials.
 
 The material properties are defined on a rectangular grid (1D, 2D, or 3D) for which each voxel defines an isotropic or 
 anisotropic permittivity. Optionally, a heterogeneous (anisotropic) permeability as well as bi-anisotropic coupling 
@@ -21,43 +21,65 @@ All [source code](https://github.com/tttom/MacroMax) is available on [GitHub](ht
 ## Installation
 ### Prerequisites
 
-This library requires Python 3 with the modules ````numpy```` and ````scipy```` for the main calculations. These modules will be automatically installed.
+This library requires Python 3 with the ````numpy```` and ````scipy```` packages for the main calculations. These modules will be automatically installed.
 The ````torch````, ````multiprocessing```` and ````pyfftw```` or alternatively ````mkl-fft```` (Intel(R) CPU specific) modules are recommended to speed up the calculations.
 
 The examples require ````matplotlib```` for displaying the results.
-In the creation of this package, the ````pypandoc```` module is used for translating this document to other formats. This is only necessary for software development.
+In the creation of this package, the ````pypandoc```` package is used for translating this document to other formats. This is only necessary for software development.
 
 The code has been tested on Python 3.7 and 3.8, though it is expected to work on versions 3.6 and above.
 
 ### Installing
-Installing the ````macromax```` module and its mandatory dependencies is as straightforward as running the following command in a terminal: 
+Installing the ````macromax```` package and its mandatory dependencies is as straightforward as running the following command in a terminal: 
 ````sh
 pip install macromax
 ````
 While this is sufficient to get started, optional packages are useful to display the results and to speed-up the calculations.
 
 #### Optimizing execution speed
-The calculation time can be reduced to a fraction by using multi-core CPUs and the FFTW library. Simply install the optional packages with: 
+The calculation time can be reduced to a fraction by ensuring you have the fastest libraries installed for your system.
+Python packages for multi-core CPUs and the FFTW library can be installed with: 
 ````sh
 pip install macromax multiprocessing pyFFTW
 ````
-Alternatively, the [mkl-fft](https://github.com/IntelPython/mkl_fft) package is available for Intel(R) CPUs, though it may require compilation or relying on the [Anaconda](https://www.anaconda.com/) or [Intel Python](https://software.intel.com/content/www/us/en/develop/tools/distribution-for-python.html) distributions.
+Do note that the [pyFFTW](https://pypi.org/project/pyFFTW/) package requires the [FFTW library](http://www.fftw.org/download.html),
+and does not always install automatically. However, it is easy to install it using Anaconda with the commands:
+```conda install fftw```, or on Debian-based systems with ```sudo apt-get install fftw```.
+
+Alternatively, the [mkl-fft](https://github.com/IntelPython/mkl_fft) package is available for Intel(R) CPUs, though it may require compilation or relying on the [Anaconda](https://www.anaconda.com/) or [Intel Python](https://software.intel.com/content/www/us/en/develop/tools/distribution-for-python.html) distributions:
+````sh
+conda install -c intel intelpython
+````
 
 NVidia CUDA-enabled GPU can be leveraged to offer an even more significant boost in efficiency. This can be as simple as installing the appropriate [CUDA drivers](https://www.nvidia.co.uk/Download/index.aspx?lang=en-uk) and the PyTorch module following the [PyTorch Guide](https://pytorch.org/).
 Note that for PyTorch to work correctly, Nvidia drivers need to be up to date and match the installed CUDA version, e.g. for CUDA 11.0 you could install PyTorch as follows: 
-```sh
+````sh
 pip install torch===1.7.0+cu110 -f https://download.pytorch.org/whl/torch_stable.html
-```
+````
 Specifics for your CUDA version and operating system are listed on [PyTorch Guide](https://pytorch.org/).
 
 When PyTorch and a GPU are detected, these will be used by default. If not, FFTW and mkl-fft will be used if available. NumPy and SciPy will be used otherwise.
+The default backend can be set in your code or by creating a text file named ```backend_config.json``` in the current working directory with contents:
+````json
+[
+  {"type": "torch", "device": "cuda"},
+  {"type": "numpy"}
+]
+````
+to choose PyTorch with a CUDA GPU if available, and NumPy as a back-up option. The latter is usually faster when no GPU is available.  
 
 #### Additional packages
-The module comes with a submodule containing example code that should run as-is on most desktop installations of Python.
-Some systems may require the installation of the ubiquous ````matplotlib```` graphics library: 
+The package comes with a submodule containing example code that should run as-is on most desktop installations of Python.
+Some systems may require the installation of the ubiquitous ````matplotlib```` graphics library: 
 ````sh
 pip install matplotlib
 ````
+
+The output logs can be colored by installing the coloredlogs packaged:
+````sh
+pip install coloredlogs
+````
+
 Building and distributing the library may require further packages as indicated below.
 
 ## Usage
@@ -71,7 +93,7 @@ The basic calculation procedure consists of the following steps:
 
 4. display the solution
 
-The ````macromax```` module must be imported to be able to use the ````solve```` function. The module also contains several utility functions that may help in defining the property and source distributions.
+The ````macromax```` package must be imported to be able to use the ````solve```` function. The package also contains several utility functions that may help in defining the property and source distributions.
 
 Examples can be found in [the examples package in the examples/ folder](examples). Ensure that the entire `examples/` folder
 is downloaded, including the `__init__.py` file with general definitions. Run the examples from the parent folder using e.g. `python -m examples.air_glass_air_1D`.
@@ -79,15 +101,15 @@ is downloaded, including the `__init__.py` file with general definitions. Run th
 The complete functionality is described in the [Library Reference Documentation](https://macromax.readthedocs.io) at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
 
 
-### Loading the Python 3 module
-The ````macromax```` module can be imported using:
+### Loading the Python 3 package
+The ````macromax```` package can be imported using:
 
 ```python
 import macromax
 ```
 
 **Optional:**
-If the module is installed without a package manager, it may not be on Python's search path.
+If the package is installed without a package manager, it may not be on Python's search path.
 If necessary, add the library to Python's search path, e.g. using:
 
 ```python
@@ -96,7 +118,7 @@ import os
 sys.path.append(os.path.dirname(os.getcwd()))
 ```
 
-Reminder: this library module requires Python 3, ````numpy````, and ````scipy````. Optionally, ````pyfftw```` can be used to speed up the calculations. The examples also require ````matplotlib````.
+Reminder: this library requires Python 3, ````numpy````, and ````scipy````. Optionally, ````pyfftw```` can be used to speed up the calculations. The examples also require ````matplotlib````.
 
 ### Specifying the material
 #### Defining the sampling grid
@@ -124,7 +146,7 @@ unless specified otherwise.
 The material properties are defined by ndarrays of 2+N dimensions, where N can be up to 3 for three-dimensional samples. In each sample point, or voxel, a complex 3x3 matrix defines the anisotropy at that point in the sample volume. The first two dimensions of the ndarray are used to store the 3x3 matrix, the following dimensions are the spatial indices x, y, and z. Four complex ndarrays can be specified: ````epsilon````, ````mu````, ````xi````, and ````zeta````. These ndarrays represent the permittivity, permeability, and the two coupling factors, respectively.
 
 When the first two dimensions of a property are found to be both a singleton, i.e. 1x1, that property is assumed to be isotropic. Similarly, singleton spatial dimensions are interpreted as homogeneity in that property. 
-The default permeability `mu` is 1, and the coupling contants are zero by default.
+The default permeability `mu` is 1, and the coupling constants are zero by default.
 
 ##### Boundary conditions
 The underlying algorithm assumes [periodic boundary conditions](https://en.wikipedia.org/wiki/Periodic_boundary_conditions).
@@ -164,12 +186,13 @@ The function arguments to ````macromax.solve(...)```` can be the following:
 * ````current_density```` or ````source_distribution````: An ndarray of complex values indicating the source value and direction at each sample point. The source values define the free current density in the sample. The first dimension contains the vector index, the following dimensions contain the spatial dimensions.
 If the source distribution is not specified, it is calculated as 
 :math:`-i c k0 mu_0 J`, where `i` is the imaginary constant, `c`, `k0`, and `mu_0`, the light-speed, wavenumber, and permeability in 
-vacuum. Finally, `J` is the free current density (excluding the movement of bound charges in a dielectric)
+vacuum. Finally, `J` is the free current density (excluding the movement of bound charges in a dielectric), specified as the input argument current_density.
+These input arguments should be ```numpy.ndarray```s with a shape as specified by the `grid` input argument, or have one extra dimension on the left to indicate the polarization. If polarization is not specified the solution to the _scalar_ wave equation is calculated. However, when polarization is specified the _vectorial_ problem is solved. 
+  The returned ```macromax.Solution``` object has the property ```vectorial``` to indicate whether polarization is accounted for or not.    
 
-* ````epsilon````: A complex ndarray that defines the 3x3 relative permittivity matrix at all sample points. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
-This input argument is unit-less, it is relative to the vacuum permittivity.
+* ````refractive_index````: A complex ```numpy.ndarray``` of a shape as indicated by the `grid` argument. Each value indicates the refractive at the corresponding spatial grid point. Real values indicate a loss-less material. A positive imaginary part indicates the absorption coefficient, :math:`\kappa`. This input argument is not required if the permittivity, `epsilon` is specified. 
 
-Anisotropic material properties such as permittivity can be defined as a square 3x3 matrix at each sample point. Isotropic materials may be represented by 1x1 scalars instead (the first two dimensions are singletons). Homogeneous materials may be specified with spatial singleton dimensions.
+* ````epsilon````: (optional, default: :math:`n^2`) A complex ```numpy.ndarray``` of a shape as indicated by the `grid` argument for _isotropic_ media, or a shape with two extra dimensions on the left to indicate _anisotropy/birefringence_. The array values indicate the relative permittivity at all sample points in space. The optional two first (left-most) dimensions may contain a 3x3 matrix at each spatial location to indicate the anisotropy/birefringence. By default the 3x3 identity matrix is assumed, scaled by the scalar value of the array without the first two dimensions. Real values indicate loss-less permittivity. This input argument is unit-less, it is relative to the vacuum permittivity.
 
 Optionally one can also specify magnetic and coupling factors:
 
@@ -182,7 +205,7 @@ It is often useful to also specify a callback function that tracks progress. Thi
 ```python
 callback=lambda s: s.residue > 0.01 and s.iteration < 1000
 ```
-will iterate until the residue is at most 1% or until the number of iterations exceeds 1,000.
+will iterate until the residue is at most 1% or until the number of iterations reaches 1,000.
 
 The solution object (of the Solution class) fully defines the state of the iteration and the current solution as described below.
 
@@ -260,7 +283,7 @@ fig, ax = plt.subplots(2, 1, frameon=False, figsize=(8, 6))
 x_range = solution.grid[0]  # coordinates
 E = solution.E[1, :]  # Electric field in y
 H = solution.H[2, :]  # Magnetizing field in z
-S = solution.S[0, :]  # Poynting vector in x
+S = solution.S_forw[0, :]  # Poynting vector in x
 f = solution.f[0, :]  # Optical force in x
 # Display the field for the polarization dimension
 field_to_display = E
@@ -352,7 +375,7 @@ The source code is organized as follows:
 
 The library functions are contained in ````macromax/````:
 * [solver](macromax/solver.py): Defines the ````solve(...)```` function and the ````Solution```` class.
-* [parallel_ops_column](macromax/backend/numpy.py): Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
+* [backend](macromax/backend/numpy.py): Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
 * [utils/](macromax/utils/): Defines utility functions that can be used to prepare and interpret function arguments.
 
 The included examples in the [examples/](examples/) folder are:
@@ -365,9 +388,8 @@ The included examples in the [examples/](examples/) folder are:
 * [benchmark.py](examples/benchmark.py): Timing of a simple two-dimensional calculation for comparison between versions.
 
 ### Testing
-Unit tests are contained in ````macromax/tests````. The ````ParallelOperations```` class in
-````parallel_ops_column.pi```` is pretty well covered and some specific tests have been written for
-the ````Solution```` class in ````solver.py````.
+Unit tests are contained in ````macromax/tests````. The ````BackEnd```` class in ````backend.py```` is well covered and
+specific tests have been written for the ````Solution```` class in ````solver.py````.
 
 To run the tests, make sure that the `nose` package is installed, and
 run the following commands from the `Macromax/python/` directory:
@@ -378,7 +400,7 @@ nosetests -v tests
 
 ### Building and Distributing
 The [source code](https://github.com/tttom/MacroMax) consists of pure Python 3, hence only packaging is required for distribution.
-A package is generated by ````setup.py````, which relies on the ````pypandoc```` module:
+A package is generated by ````setup.py````, which relies on the ````pypandoc```` package:
 ````sh
 pip install pypandoc
 ````

@@ -6,25 +6,25 @@ provided to construct a :class:`Solution` object and iterate it to convergence u
 import numpy as np
 import scipy.constants as const
 import scipy.optimize
-from typing import Union, Sequence, Callable
-
-from macromax import backend
+from typing import Union, Sequence, Callable, Optional
+from numbers import Real, Complex
 
 from . import log
+from . import backend
 from .utils.array import Grid
 from macromax.bound import Bound, Electric, Magnetic, PeriodicBound
 
-array_like = Union[complex, Sequence, np.ndarray]
+array_like = Union[Complex, Sequence, np.ndarray]
 
 
-def solve(grid: Union[Grid, Sequence, np.ndarray],
-          wavenumber: float = None, angular_frequency: float = None, vacuum_wavelength: float = None,
+def solve(grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = None,
+          wavenumber: Optional[Real] = None, angular_frequency: Optional[Real] = None, vacuum_wavelength: Optional[Real] = None,
           current_density: array_like = None, source_distribution: array_like = None,
-          epsilon: array_like=None, xi: array_like = 0.0, zeta: array_like = 0.0, mu: array_like = 1.0,
+          epsilon: array_like = None, xi: array_like = 0.0, zeta: array_like = 0.0, mu: array_like = 1.0,
           refractive_index: array_like = None,
-          bound: Bound=None,
-          initial_field: array_like = 0.0, dtype=None,
-          callback: Callable=lambda s: s.iteration < 1e4 and s.residue > 1e-4):
+          bound: Bound = None,
+          initial_field: array_like = 0.0, dtype = None,
+          callback: Callable = lambda s: s.iteration < 1e4 and s.residue > 1e-4):
     """
     Function to find a solution for Maxwell's equations in a media specified by the epsilon, xi,
     zeta, and mu distributions in the presence of a current source.
@@ -34,6 +34,7 @@ def solve(grid: Union[Grid, Sequence, np.ndarray],
         Sequence of uniformly-spaced numbers may be provided as an alternative. The length of the ranges determines the
         data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
         specified as ndarrays.
+    :param vectorial: a boolean indicating if the source and solution are 3-vectors-fields (True) or scalar fields (False).
     :param wavenumber: the wavenumber in vacuum = 2 pi / vacuum_wavelength.
         The wavelength in the same units as used for the other inputs/outputs.
     :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
@@ -63,9 +64,10 @@ def solve(grid: Union[Grid, Sequence, np.ndarray],
     :param callback: optional function that will be called with as argument this solver.
         This function can be used to check and display progress. It must return a boolean value of True to
         indicate that further iterations are required.
+        
     :return: The Solution object that has the E and H fields, as well as iteration information.
     """
-    return Solution(grid=grid,
+    return Solution(grid=grid, vectorial=vectorial,
                     wavenumber=wavenumber, angular_frequency=angular_frequency, vacuum_wavelength=vacuum_wavelength,
                     current_density=current_density, source_distribution=source_distribution,
                     epsilon=epsilon, xi=xi, zeta=zeta, mu=mu, refractive_index=refractive_index, bound=bound,
@@ -73,12 +75,12 @@ def solve(grid: Union[Grid, Sequence, np.ndarray],
 
 
 class Solution(object):
-    def __init__(self, grid: Union[Grid, Sequence, np.ndarray],
-                 wavenumber: float=None, angular_frequency: float=None, vacuum_wavelength: float=None,
+    def __init__(self, grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = None,
+                 wavenumber: Optional[Real] = None, angular_frequency: Optional[Real] = None, vacuum_wavelength: Optional[Real] = None,
                  current_density: array_like = None, source_distribution: array_like = None,
                  epsilon: array_like = None, xi: array_like = 0.0, zeta: array_like = 0.0, mu: array_like = 1.0,
                  refractive_index: array_like = None,
-                 bound: Bound=None,
+                 bound: Bound = None,
                  initial_field: array_like = 0.0, dtype=None):
         """
         Class a solution that can be further iterated towards a solution for Maxwell's equations in a media specified by
@@ -89,6 +91,9 @@ class Solution(object):
             Sequence of uniformly-spaced numbers may be provided as an alternative. The length of the ranges determines the
             data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
             specified as ndarrays.
+        :param vectorial: a boolean indicating if the source and solution are 3-vectors-fields (True) or scalar fields (False).
+        Default: True, when vectorial nor the source is specified.
+        Default: vectorial (True), unless the source field is scalar (False if first dimension is a singleton dimension).
         :param wavenumber: the wavenumber in vacuum = 2pi / vacuum_wavelength.
             The wavelength in the same units as used for the other inputs/outputs.
         :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
@@ -166,14 +171,24 @@ class Solution(object):
             nb_pol_dims = 3
             log.debug('Doing a vectorial calculation...')
         else:
-            nb_pol_dims = 1
-            log.debug('Doing a scalar calculation...')
+            source_distribution = np.asarray(func2arr(source_distribution))
+
+        # Decide whether this is a vectorial or a scalar calculation
+        if vectorial is None:
+            if source_distribution is not None:
+                vectorial = source_distribution.ndim > self.grid.ndim and source_distribution.shape[0] == 3
+            elif current_density is not None:
+                vectorial = current_density.ndim > self.grid.ndim and current_density.shape[0] == 3
+            else:
+                vectorial = True
+        self.__vectorial = vectorial
 
         # Set boundary conditions
         if bound is None:
             bound = PeriodicBound(self.grid)  # Default boundaries are periodic
         self.__bound = bound
 
+        # Prepare a backend object to handle our parallel operations
         if dtype is None:
             dtype = np.asarray(source_distribution).dtype
         if not np.issubdtype(dtype, np.complexfloating):
@@ -183,7 +198,7 @@ class Solution(object):
                 dtype = np.complex128
 
         # Normalize the dimensions in the parallel operations to k0
-        self.__BE = backend.load(nb_pol_dims, self.grid * self.wavenumber, dtype=dtype)
+        self.__BE = backend.load(1 + 2 * self.vectorial, self.grid * self.wavenumber, dtype=dtype)
 
         # Allocate the working memory
         self.__field_array = self.__BE.allocate_array()
@@ -193,21 +208,23 @@ class Solution(object):
         self.E = initial_field
 
         # Adapt the material properties of the boundaries as defined by the `bound` argument.
-        mu = func2arr(mu).astype(dtype)
+        mu = func2arr(mu).astype(dtype)  # TODO: Is .astype(dtype) always redundant?
         mu = self.__BE.astype(mu)
 
-        if epsilon is None:
-            refractive_index = func2arr(refractive_index).astype(dtype)
-            epsilon = refractive_index**2
-            if np.any(refractive_index.real.ravel() < 0):  # negative refractive index material
-                mu = mu * self.__BE.astype(1 - 2 * (refractive_index.real < 0))
-                epsilon *= (1 - 2 * (refractive_index.real < 0))
+        if epsilon is None:  # Calculate it as the square of the refractive index
+            refractive_index = func2arr(refractive_index).astype(dtype) if refractive_index is not None else 1.0
+            refractive_index = self.__BE.to_matrix_field(refractive_index)
+            epsilon = self.__BE.mul(refractive_index, refractive_index)  # Square the refractive index to get permittivity
+            # If negative refractive index material => invert both epsilon and mu
+            if self.__BE.is_scalar(refractive_index) and self.__BE.any(self.__BE.real(self.__BE.ravel(refractive_index)) < 0):  # TODO: Can this be made to work for matrices by checking the eigenvalues? Problem: need to implement non-Hermitian eigenvalue decomposition for all backends, not just numpy and pytorch.
+                mu = mu * self.__BE.astype(1 - 2 * (self.__BE.real(refractive_index) < 0))
+                epsilon *= (1 - 2 * (self.__BE.real(refractive_index) < 0))
         else:
             epsilon = func2arr(epsilon).astype(dtype)
 
         epsilon = self.__BE.astype(epsilon)
 
-        # Apply the boundary susceptibility before the iteration
+        # Apply the boundary properties before the iteration
         if isinstance(self.__bound, Electric):
             bound_chi_epsilon = self.__BE.astype(self.__bound.electric_susceptibility)
             if np.any(np.asarray(epsilon.shape[:-self.grid.ndim]) > 1):
@@ -219,9 +236,13 @@ class Solution(object):
                 bound_chi_mu = self.__BE.eye * bound_chi_mu
             mu = self.__BE.astype(mu + self.__BE.eye * bound_chi_mu)
 
+        xi = func2arr(xi)
+        zeta = func2arr(zeta)
+
         # Before the first iteration, the pre-conditioner must be determined and applied to the source and medium
+        self.__source_normalized = self.__BE.allocate_array()
         self.__prepare_preconditioner(
-            source_distribution, epsilon, func2arr(xi), func2arr(zeta), mu, self.grid.step, self.wavenumber
+            source_distribution, epsilon, xi, zeta, mu, self.grid.step, self.wavenumber
         )
         # Now we can forget epsilon, xi, zeta, mu, and source_distribution. Their information is encapsulated
         # in the newly created operator method __chi_op
@@ -242,22 +263,22 @@ class Solution(object):
         :param wavenumber: The wavenumber, k,  of the coherent illumination considered for this problem.
 
         :returns None.
-        Sets the private attributes:
-        - self.__magnetic
-        - self.__beta
-        - self.__source_normalized
-        - self.__chiEH
-        - self.__chiHE
-        - self.__chiHH
-        - self.__chiEE_base
-        - self.__alpha
-        - self.__chi_op
-        - self.__green_function_op
-        - self.__forward_op_on_field
+            Sets the private attributes:
+            - self.__magnetic
+            - self.__beta
+            - self.__source_normalized
+            - self.__chiEH
+            - self.__chiHE
+            - self.__chiHH
+            - self.__chiEE_base
+            - self.__alpha
+            - self.__chi_op
+            - self.__green_function_op
+            - self.__forward_op_on_field
         """
         log.debug('Preparing pre-conditioner: determining alpha and beta...')
 
-        # Convert all inputs to a canonical form
+        # Convert all inputs to the canonical form
         epsilon = self.__BE.to_matrix_field(epsilon)
         xi = self.__BE.to_matrix_field(xi)
         zeta = self.__BE.to_matrix_field(zeta)
@@ -271,8 +292,8 @@ class Solution(object):
         else:
             log.debug('Medium has no magnetic properties. Using faster permittivity-only solver.')
 
-        def largest_eigenvalue(a):
-            return self.__BE.amax(self.__BE.abs(self.__BE.mat3_eig(a)))
+        def largest_eigenvalue(a):  # todo: relatively slow operation during initialization
+            return self.__BE.amax(self.__BE.abs(self.__BE.mat3_eigh(a)))
 
         def largest_singularvalue(a):
             return (largest_eigenvalue(self.__BE.mul(self.__BE.adjoint(a), a))) ** 0.5
@@ -280,12 +301,12 @@ class Solution(object):
         # Do a quick check to see if the the media has no gain
         def has_gain(a):
             return self.__BE.any(
-                self.__BE.mat3_eig(-0.5j * (a - self.__BE.adjoint(a))).real < - 2 * self.__BE.eps
+                self.__BE.real(self.__BE.mat3_eigh(-0.5j * (a - self.__BE.adjoint(a)))) < - 2 * self.__BE.eps
             )
 
         if has_gain(epsilon) or has_gain(xi) or has_gain(zeta) or has_gain(mu):
             def max_gain(a):
-                return self.__BE.amax(-self.__BE.mat3_eig(-0.5j * (a - self.__BE.adjoint(a))).real)
+                return self.__BE.amax(-self.__BE.real(self.__BE.mat3_eigh(-0.5j * (a - self.__BE.adjoint(a)))))
             log.warning("Convergence not guaranteed!\n"
                         "Permittivity has a gain as large as %0.3g, xi up to %0.3g, zeta up to %0.3g,"
                         " and the permeability up to %0.3g." %
@@ -318,7 +339,7 @@ class Solution(object):
                 log.debug('Permeability and bi-(an)isotropy have no gain, safe to proceed.')
         else:
             # non-magnetic, mu is scalar and both xi and zeta are zero
-            def calc_chiHH(beta_): return 1.0 - mu_inv / beta_  # always zero when beta == mu_inv
+            def calc_chiHH(beta_): return 1.0 - mu_inv * (1 / beta_)  # always zero when beta == mu_inv
 
             def calc_sigmaHH(beta_): return abs(calc_chiHH(beta_))  # always zero when beta == mu_inv
 
@@ -326,7 +347,7 @@ class Solution(object):
         chiEH_beta = -1.0j * self.__BE.mul(xi, mu_inv)
         chiHE_beta = 1.0j * self.__BE.mul(mu_inv, zeta)
 
-        # del zeta # Needed for conversion from E to H
+        # zeta is needed for conversion from E to H
         xi_mu_inv_zeta = self.__BE.mul(xi, -1.0j * chiHE_beta)
         del xi
         epsilon_xi_mu_inv_zeta = self.__BE.subtract(epsilon, xi_mu_inv_zeta)
@@ -336,15 +357,15 @@ class Solution(object):
         epsilon_xi_mu_inv_zeta2 = self.__BE.mul(epsilon_xi_mu_inv_zeta_transpose, epsilon_xi_mu_inv_zeta)
         # The above must be positive definite
 
-        def calc_DeltaEE_beta2(alpha_, beta_):
-            alpha_ = self.__BE.astype(alpha_)
-            result = epsilon_xi_mu_inv_zeta_transpose * (alpha_.real * beta_)
-            result += epsilon_xi_mu_inv_zeta * self.__BE.conj(alpha_.real * beta_)
-            result = self.__BE.subtract(self.__BE.abs(alpha_.real * beta_) ** 2, result)
+        def calc_DeltaEE_beta2(alpha_, beta_):  # todo: relatively slow during startup
+            alpha_beta = self.__BE.astype(self.__BE.real(alpha_) * beta_)
+            result = epsilon_xi_mu_inv_zeta_transpose * alpha_beta
+            result += epsilon_xi_mu_inv_zeta * self.__BE.conj(alpha_beta)
+            result = self.__BE.subtract(self.__BE.abs(alpha_beta) ** 2, result)
             result += epsilon_xi_mu_inv_zeta2
             return result
 
-        def calc_sigmaEE(alpha_, beta_):
+        def calc_sigmaEE(alpha_, beta_):  # todo: relatively slow during startup
             return float(largest_eigenvalue(calc_DeltaEE_beta2(alpha_, beta_)))**0.5 / abs(float(beta_))
 
         # Determine alpha, beta and chiHH
@@ -376,12 +397,12 @@ class Solution(object):
                                                      ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100, maxfun=200)
             self.__beta = beta_from_vec(alpha_beta_vec)
 
-            alpha = alpha_beta_vec[0] + 1.0j * max_singular_value_sum(alpha_beta_vec[0], self.__beta)
+            alpha = alpha_beta_vec[0] + 1.0j * self.__BE.asnumpy(max_singular_value_sum(alpha_beta_vec[0], self.__beta))
 
             del beta_from_vec, alpha_beta_vec
         else:
             # non-magnetic
-            self.__beta = self.__BE.first(mu_inv).real  # Must be scalar and real
+            self.__beta = self.__BE.asnumpy(self.__BE.first(mu_inv)).real  # Must be scalar and real
 
             def target_function_vec(alpha_):
                 return calc_sigmaEE(alpha_, self.__beta)  # beta is fixed to mu_inv so that chi_HH==0
@@ -407,20 +428,19 @@ class Solution(object):
 
         log.debug('Preparing pre-conditioned operators...')
         self.__alpha = alpha
-        self.__chiEH = chiEH_beta * 1.0j / self.__alpha.imag / self.__beta
+        self.__chiEH = chiEH_beta * (1.0j / self.__alpha.imag / self.__beta)
         del chiEH_beta
-        self.__chiHE = chiHE_beta * 1.0j / self.__alpha.imag / self.__beta
+        self.__chiHE = chiHE_beta * (1.0j / self.__alpha.imag / self.__beta)
         del chiHE_beta
-        self.__chiHH = calc_chiHH(self.__beta) * 1.0j / self.__alpha.imag
-        self.__chiEE_base = epsilon_xi_mu_inv_zeta * 1.0j / self.__alpha.imag / self.__beta
+        self.__chiHH = calc_chiHH(self.__beta) * (1.0j / self.__alpha.imag)
+        self.__chiEE_base = epsilon_xi_mu_inv_zeta * (1.0j / self.__alpha.imag / self.__beta)
         if self.__chiEE_base.shape[0] == 1:
             self.__chiEE_base -= self.__alpha * 1.0j / self.__alpha.imag
         else:
-            self.__chiEE_base -= self.__BE.eye * self.__alpha * 1.0j / self.__alpha.imag
+            self.__chiEE_base -= self.__BE.eye * (self.__alpha * 1.0j / self.__alpha.imag)
 
         # Store the modified source distribution
-        self.__source_normalized = self.__BE.allocate_array()
-        self.__BE.assign(self.__BE.astype(source_distribution) * 1.0j / self.__alpha.imag / self.__beta, self.__source_normalized)  # Adjust for bias
+        self.source_distribution = source_distribution
 
         # Update the operators that are stored as private attributes
         self.__update_operators(alpha)
@@ -435,16 +455,16 @@ class Solution(object):
         :param alpha: The new value for alpha.
 
         :returns None
-        Changes the private attributes:
-        - self.__source_normalized
-        - self.__chiEH
-        - self.__chiHE
-        - self.__chiHH
-        - self.__chiEE_base
-        - self.__alpha
-        - self.__chi_op
-        - self.__green_function_op
-        - self.__forward_op_on_field
+            Changes the private attributes:
+            - self.__source_normalized
+            - self.__chiEH
+            - self.__chiHE
+            - self.__chiHH
+            - self.__chiEE_base
+            - self.__alpha
+            - self.__chi_op
+            - self.__green_function_op
+            - self.__forward_op_on_field
         """
         # Rescale the source
         self.__source_normalized *= self.__alpha.imag / alpha.imag
@@ -468,6 +488,7 @@ class Solution(object):
                 Applies the magnetic :math:`\Chi` operator to the input E-field.
 
                 :param E: an array representing the E to apply the Chi operator to.
+
                 :return: an array with the result E of the same size as E or of the size of its singleton expansion.
                 """
                 def D(field_E): return self.__BE.curl(field_E)  # includes k0^-1 by the definition of __PO
@@ -475,19 +496,20 @@ class Solution(object):
                 chiE = self.__BE.mul(self.__chiEE_base, E)  # todo: this creates an array
                 chiH = self.__BE.mul(self.__chiEH, E)  # todo: this creates an array
                 ED = D(E)
-                chiE += self.__BE.mul(self.__chiHE, ED) # todo: this creates an array
+                chiE += self.__BE.mul(self.__chiHE, ED)  # todo: this creates an array
                 chiH += self.__BE.mul(self.__chiHH, ED, out=ED)
 
                 result = chiE
                 result += D(chiH)
 
-                return result # chiE + D(chiH)
+                return result  # chiE + D(chiH)
         else:
             def chi_op(E):
                 """
                 Applies the non-magnetic Chi operator to the input E-field.
 
                 :param E: an array representing the E to apply the Chi operator to.
+
                 :return: an array with the result E of the same size as E or of the size of its singleton expansion.
                 """
                 return self.__BE.mul(self.__chiEE_base, E, out=E)
@@ -505,7 +527,7 @@ class Solution(object):
                 FFt += PiL_FFt
                 return FFt  # g_scalar_ft * self.__PO.subtract(FFt, PiL_FFt) - PiL_FFt * 1.0j * self.__alpha.imag / self.__alpha
         else:
-            def g_ft_op(FFt): #  Overwrites input argument!
+            def g_ft_op(FFt):  #  Overwrites input argument!
                 FFt *= g_scalar_ft
                 return FFt  # g_scalar_ft * FFt
 
@@ -537,37 +559,39 @@ class Solution(object):
 
         self.__forward_op_on_field = forward_op_on_field
 
-    def __increase_bias_to_limit_kernel_width(self, alpha, max_kernel_residue=0.01):
+    def __increase_bias_to_limit_kernel_width(self, alpha, max_kernel_field_residue=0.001):
         """
         Used in __prepare_preconditioner().
 
-        Limit the kernel size by increasing alpha so that:
-        -log(max_kernel_residue) / (imag(sqrt(central_permittivity + 1i*alpha))) == max_kernel_radius_in_rad
-        -log(max_kernel_residue) / max_kernel_radius_in_rad == imag(sqrt(central_permittivity + 1i*alpha)) == B
-        B^4 + central_permittivity*B^2 - alpha^2/4 == 0
-        -central_permittivity +- sqrt(central_permittivity^2 + alpha^2) == 2 * B^2
-        -central_permittivity +- sqrt(central_permittivity^2 + alpha^2) == 2*(-log(max_kernel_residue) /
-            max_kernel_radius_in_rad)^2
-        Increase offset if needed to restrict kernel size.
+        Limit the kernel size by increasing alpha so that the 1D kernel field decreases to `max_kernel_field_residue`
+        at the other side of the boundary.
 
         :param alpha: the complex constant in the pre-conditioner to ensure convergence
-        :param max_kernel_residue: the estimated squared error outside the target kernel box
-        :return: the adapted alpha value
+        :param max_kernel_field_residue: The maximum amplitude that a 1D kernel should have after traversing the boundary.
+            Note that if waves pass both ways through the boundary, the amplitude of the interference may be twice this.
+
+        :return: the adapted alpha value (real and imaginary parts)
         """
         susceptibility_offset = alpha.imag + 0.05  # todo: How much margin should we add to avoid numerical issues?
-        bound_thickness = self.__bound.thickness
+
         # Ignore boundary thicknesses that are set to 0, these are meant to be periodic boundaries
-        bound_thickness[bound_thickness == 0] = np.inf
-        kappa = np.log(max_kernel_residue) / (-2 * self.wavenumber * np.amin(bound_thickness))
-        min_susceptibility_offset = 2 * (np.maximum(0, float(alpha.real) + kappa**2) ** 0.5) * kappa
+        thicknesses = self.__bound.thickness[self.__bound.thickness != 0]
+        if thicknesses.size > 0:
+            bound_thickness = np.amin(thicknesses)
 
-        if susceptibility_offset < min_susceptibility_offset:
-            log.info(f'Increasing susceptibility offset to {min_susceptibility_offset} in order to avoid wrapping through the boundary of thickness {bound_thickness}.')
-            susceptibility_offset = min_susceptibility_offset
-        else:
-            log.debug(f'Minimum susceptibility offset {min_susceptibility_offset} is lower than that required for the permittivity variation: {susceptibility_offset}.')
+            min_kappa = np.log(max_kernel_field_residue) / (- self.wavenumber * bound_thickness)  # extinction coefficient
+            corresponding_n_real = (np.maximum(0, float(alpha.real) + min_kappa**2) ** 0.5)  # Calculate the real part of the refractive index from alpha.real and min_kappa
+            min_susceptibility_offset = 2 * corresponding_n_real * min_kappa   # because alpha = (n + i*kappa)^2, so alpha.imag = 2 * n * kappa
 
-        return alpha.real + 1j * susceptibility_offset
+            if susceptibility_offset < min_susceptibility_offset:
+                log.info(f'Increasing susceptibility offset to {min_susceptibility_offset} in order to avoid passing through the boundary of thickness {bound_thickness}.')
+                susceptibility_offset = min_susceptibility_offset
+            else:
+                log.debug(f'Minimum susceptibility offset {min_susceptibility_offset} is lower than that required for the permittivity variation: {susceptibility_offset}.')
+
+        alpha = alpha.real + 1j * susceptibility_offset
+
+        return alpha
 
     @property
     def grid(self) -> Grid:
@@ -580,12 +604,17 @@ class Solution(object):
         return self.__grid
 
     @property
-    def dtype(self):
-        """The scalar data type used in the calculation. This is either np.complex64 or np.complex128."""
-        return self.__BE.dtype
+    def vectorial(self) -> bool:
+        """Boolean to indicates whether calculations happen on vectorial (True) or scalar (False) fields."""
+        return self.__vectorial
 
     @property
-    def wavenumber(self) -> float:
+    def dtype(self):
+        """The numpy equivalent data type used in the calculation. This is either np.complex64 or np.complex128."""
+        return self.__BE.numpy_dtype
+
+    @property
+    def wavenumber(self) -> Real:
         """
         The vacuum wavenumber, :math:`k_0`, used in the calculation.
 
@@ -594,8 +623,8 @@ class Solution(object):
         return self.__wavenumber
 
     @property
-    def angular_frequency(self) -> float:
-        """
+    def angular_frequency(self) -> Real:
+        r"""
         The angular frequency, :math:`\omega`, used in the calculation.
 
         :return: A scalar indicating the angular frequency used in the calculation.
@@ -603,9 +632,10 @@ class Solution(object):
         return self.__wavenumber * const.c
 
     @property
-    def wavelength(self) -> float:
-        """
+    def wavelength(self) -> Real:
+        r"""
         The vacuum wavelength, :math:`\lambda_0`, used in the calculation.
+
         :return: A scalar indicating the vacuum wavelength used in the calculation.
         """
         return 2.0 * const.pi / self.__wavenumber
@@ -614,56 +644,69 @@ class Solution(object):
     def magnetic(self) -> bool:
         """
         Indicates if this media is considered magnetic.
+
         :return: A boolean, True when magnetic, False otherwise.
         """
         return self.__magnetic
 
     @property
+    def bound(self) -> Bound:
+        """The Bound object that defines the calculation boundaries."""
+        return self.__bound
+
+    @property
     def source_distribution(self) -> np.ndarray:
         """
         The source distribution, i k0 mu_0 times the current density j.
-        :return: A complex array indicating the amplitude and phase of the source vector field.
-        The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar
-        field, and 3 in case of a vector field.
-        """
-        return self.__source_normalized[:, 0, ...] * self.__beta / 1.0j * self.__alpha.imag
 
-    @source_distribution.setter
-    def source_distribution(self, new_source_density: array_like):
-        """
-        Set the source distribution, i k0 mu_0 times the current density j.
-        :param new_source_density: A complex array indicating the amplitude and phase of the source vector field.
+        :return: A complex array indicating the amplitude and phase of the source vector field.
             The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar
             field, and 3 in case of a vector field.
         """
-        new_source_density = self.__BE.to_matrix_field(new_source_density)
-        self.__BE.assign(new_source_density * 1.0j / self.__alpha.imag / self.__beta, self.__source_normalized)
+        return self.__source_normalized[:, 0, ...] * (self.__beta / 1.0j * self.__alpha.imag)
+
+    @source_distribution.setter
+    def source_distribution(self, new_source_dist: array_like):
+        """
+        Set the source distribution, i k0 mu_0 times the current density j.
+
+        :param new_source_dist: A complex array indicating the amplitude and phase of the source vector field.
+            The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar
+            field, and 3 in case of a vector field.
+        """
+        new_source_dist = self.__BE.to_matrix_field(new_source_dist)
+        self.__source_normalized = self.__BE.assign(
+            new_source_dist * (1.0j / self.__alpha.imag / self.__beta), self.__source_normalized)  # Adjust for bias
+
         self.__previous_update_norm = np.inf
 
     @property
     def j(self) -> np.ndarray:
         """
         The free current density, j, of the source vector field.
+
         :return: A complex array indicating the amplitude and phase of the current density vector field [A m^-2].
-        The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
-        and 3 in case of a vector field.
+            The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
+            and 3 in case of a vector field.
         """
-        return self.__BE.asnumpy(self.source_distribution / (1.0j * self.angular_frequency * const.mu_0))
+        return self.__BE.asnumpy(self.source_distribution / (-1.0j * self.angular_frequency * const.mu_0))
 
     @j.setter
     def j(self, new_j: array_like):
         """
         Set the free current density, j, of the source vector field.
+
         :param new_j: A complex array indicating the amplitude and phase of the current density vector field [A m^-2].
             The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar field,
             and 3 in case of a vector field.
         """
-        self.source_distribution = new_j * (1.0j * self.angular_frequency * const.mu_0)
+        self.source_distribution = self.__BE.astype(new_j) * (-1.0j * self.angular_frequency * const.mu_0)
 
     @property
     def E(self) -> np.ndarray:
         """
         The electric field for every point in the sample space (SI units).
+
         :return: A vector array with the first dimension containing Ex, Ey, and Ez,
         while the following dimensions are the spatial dimensions.
         """
@@ -675,10 +718,11 @@ class Solution(object):
     def E(self, E):
         """
         The electric field for every point in the sample space (SI units).
+
         :param E: The new field. A vector array with the first dimension containing :math:`E_x, E_y, and E_z`,
             while the following dimensions are the spatial dimensions.
         """
-        self.__BE.assign(E * (self.wavenumber ** 2), self.__field_array)
+        self.__field_array = self.__BE.assign(E * (self.wavenumber ** 2), self.__field_array)
         self.__previous_update_norm = np.inf
 
     @property
@@ -686,8 +730,9 @@ class Solution(object):
         """
         The magnetic field for every point in the sample space (SI units).
         This is calculated from H and E.
+
         :return: A vector array with the first dimension containing :math:`B_x, B_y, and B_z`,
-        while the following dimensions are the spatial dimensions.
+            while the following dimensions are the spatial dimensions.
         """
         B = self.__BE.curl(self.E[:, np.newaxis, ...]) / (1.0j * const.c)  # curl includes k0 by definition of __PO
 
@@ -698,13 +743,14 @@ class Solution(object):
         """
         The displacement field for every point in the sample space (SI units).
         This is calculated from E and H.
+
         :return: A vector array with the first dimension containing :math:`D_x, D_y, and D_z`,
-        while the following dimensions are the spatial dimensions.
+            while the following dimensions are the spatial dimensions.
         """
         # D = (J - self.__PO.curl(self.H[:, np.newaxis, ...]) * self.wavenumber) / (1.0j * self.angular_frequency)  # curl includes k0 by definition of __PO
         D = self.__BE.curl(self.H[:, np.newaxis, ...])
         D *= self.wavenumber
-        D -= (self.__beta / (1.0j * self.angular_frequency * const.mu_0)) * (self.__source_normalized / 1.0j * self.__alpha.imag)
+        D -= (self.__beta / (1.0j * self.angular_frequency * const.mu_0)) * (self.__source_normalized * (self.__alpha.imag / 1.0j))
         D *= 1j / self.angular_frequency
 
         return self.__BE.asnumpy(D)[:, 0, ...]
@@ -714,8 +760,9 @@ class Solution(object):
         """
         The magnetizing field for every point in the sample space (SI units).
         This is calculated from E.
+
         :return: A vector array with the first dimension containing :math:`H_x, H_y, and H_z`,
-        while the following dimensions are the spatial dimensions.
+            while the following dimensions are the spatial dimensions.
         """
         if self.magnetic:
             # Use stored matrices to safe the space
@@ -728,7 +775,7 @@ class Solution(object):
                     + self.__beta * self.__BE.mul(self.__chiHE * (-1.0j * self.__alpha.imag), self.E[:, np.newaxis, ...])
             )
         else:
-            mu_inv = (1.0 - self.__BE.first(self.__chiHH) * (-1.0j * self.__alpha.imag)) * self.__beta
+            mu_inv = (1.0 - self.__BE.first(self.__chiHH) * (-1.0j * self.__alpha.imag)) * self.__BE.astype(self.__beta)
             mu_H = (-1.0j / (const.mu_0 * const.c)) * self.__BE.curl(self.E[:, np.newaxis, ...])  # includes k0^-1 by the definition of __PO
             H = mu_inv * mu_H
 
@@ -750,7 +797,8 @@ class Solution(object):
     @property
     def energy_density(self) -> np.ndarray:
         """
-        R the energy density u
+        Returns the energy density, u.
+
         :return: A real array indicating the energy density in space.
         """
         E = self.E
@@ -768,8 +816,9 @@ class Solution(object):
     def stress_tensor(self) -> np.ndarray:
         """
         Maxwell's stress tensor for every point in space.
+
         :return: A real and symmetric matrix-array with the stress tensor for every point in space.
-        The units are :math:`N / m^2`.
+            The units are :math:`N / m^2`.
         """
         E = self.E[:, np.newaxis, ...]
         E2 = np.sum(np.abs(E) ** 2, axis=0)
@@ -789,13 +838,14 @@ class Solution(object):
     def f(self) -> np.ndarray:
         """
         The electromagnetic force density (force per SI unit volume, not per voxel).
+
         :return: A vector array representing the electro-magnetic force exerted per unit volume.
-        The first dimension contains :math:`f_x, f_y, and f_z`, while the following dimensions are the spatial dimensions.
-        The units are :math:`N / m^3`.
+            The first dimension contains :math:`f_x, f_y, and f_z`, while the following dimensions are the spatial dimensions.
+            The units are :math:`N / m^3`.
         """
         # Could be written more efficiently by either caching H or explicitly calculating the stress tensor
         # in this method. Leaving this for now, so to avoid code replication.
-        force = self.__BE.asnumpy(self.__BE.div(self.stress_tensor).real * self.wavenumber)  # The parallel operations is pre-scaled by k0
+        force = self.__BE.asnumpy(self.__BE.real(self.__BE.div(self.stress_tensor)) * self.wavenumber)  # The parallel operations is pre-scaled by k0
         # The time derivative of the Poynting vector averages to zero.
         # Make sure to remove imaginary part which must be due to rounding errors
 
@@ -805,9 +855,10 @@ class Solution(object):
     def torque(self) -> np.ndarray:
         """
         The electromagnetic force density (force per SI unit volume, not per voxel).
+
         :return: A vector array representing the electro-magnetic torque exerted per unit volume.
-        The first dimension contains torque_x, torque_y, and torque_z, while the following dimensions are the spatial
-        dimensions. The units are :math:`N m / m^3 = N m^{-2}`.
+            The first dimension contains torque_x, torque_y, and torque_z, while the following dimensions are the spatial
+            dimensions. The units are :math:`N m / m^3 = N m^{-2}`.
         """
         # Could be written more efficiently by either caching H or explicitly calculating the stress tensor
         # in this method. Leaving this for now, so to avoid code replication.
@@ -841,7 +892,7 @@ class Solution(object):
         self.__iteration = it
 
     @property
-    def previous_update_norm(self) -> float:
+    def previous_update_norm(self) -> Real:
         """
         The L2-norm of the last update, the difference between current and previous E-field.
 
@@ -850,17 +901,19 @@ class Solution(object):
         return float(self.__previous_update_norm / (self.wavenumber ** 2))
 
     @property
-    def residue(self) -> float:
+    def residue(self) -> Real:
         """
         Returns the current relative residue of the inverse problem :math:`E = H^{-1}S`.
         The relative residue is return as the l2-norm fraction :math:`||E - H^{-1}S|| / ||E||`, where H represents the
         vectorial Helmholtz equation following Maxwell's equations and S the current density source. The solver
         searches for the electric field, E, that minimizes the preconditioned inverse problem.
+
         :return: A non-negative real scalar that indicates the change in E with the previous iteration
-        normalized to the norm of the current E.
+        	normalized to the norm of the current E.
         """
         if self.__residue is None:
-            self.__residue = self.__previous_update_norm / self.__BE.norm(self.__field_array)
+            self.__residue = self.__previous_update_norm / self.__BE.norm(self.__field_array) \
+                if self.__previous_update_norm > 0 else 0
 
         return float(self.__residue)
     
@@ -885,25 +938,25 @@ class Solution(object):
             log.debug(f'Starting iteration {self.iteration}...')
 
             # Calculate update to the field (self.__field_array, d_field, and self.__source are scaled by k0^2)
-            self.__d_field[:] = self.__field_array         #                    E
-            d_field = self.__chi_op(self.__d_field)        #                   XE
-            d_field += self.__source_normalized            #                   XE + s
-            d_field = self.__green_function_op(d_field)    #                 G(XE + s)
-            d_field -= self.__field_array                  #                 G(XE + s) - E
-            d_field = self.__chi_op(d_field)               #               X[G(XE + s) - E]
+            self.__d_field = self.__BE.assign_exact(self.__field_array, self.__d_field)   #      E
+            d_field = self.__chi_op(self.__d_field)                                       #     XE
+            d_field += self.__source_normalized                                           #     XE + s
+            d_field = self.__green_function_op(d_field)                                   #   G(XE + s)
+            d_field -= self.__field_array                                                 #   G(XE + s) - E
+            d_field = self.__chi_op(d_field)                                              # X[G(XE + s) - E]
 
-            # Check if the iteration is diverging
+            # Determine convergence rate
             current_update_norm = self.__BE.norm(d_field)  # ||d||
             relative_update_norm = current_update_norm / self.__previous_update_norm
+            # log.debug(f'The norm of the field update has changed by a factor {relative_update_norm:0.3f}.')
 
+            # Check if the iteration is diverging
             if relative_update_norm < 1.0:
-                log.debug(f'The norm of the field update has changed by a factor {relative_update_norm:0.3f}.')
                 # Update solution
                 self.__field_array += d_field              # X[G(XE + s) - E] + E
                 # Keep update norm for next iteration's convergence check
                 self.__previous_update_norm = current_update_norm
-
-                log.debug(f'Updated field in iteration {self.iteration}.')
+                # log.debug(f'Updated field in iteration {self.iteration}.')
             else:
                 log.warning(f'The field update is scaled by {relative_update_norm:0.3f} >= 1 in iteration {self.iteration}, rescaling problem...')
                 alpha_imag_current = self.__alpha.imag
@@ -921,6 +974,7 @@ class Solution(object):
 
         :param callback: optional callback function that overrides the one set for the solver.
             E.g. callback=lambda s: s.iteration < 100
+
         :return: This Solution object, which can be used to query e.g. the final field E using Solution.E.
         """
         for sol in self:

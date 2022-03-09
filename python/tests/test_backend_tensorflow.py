@@ -1,27 +1,27 @@
 import unittest
 
 from macromax.backend import BackEnd
-from macromax.backend.torch import BackEndTorch
+from macromax.backend.tensorflow import BackEndTensorFlow
 
 from tests.test_backend import BaseTestBackEnd
 
 import numpy as np
-import torch
+import tensorflow as tf
 
 
-class TestBackEndTorch(BaseTestBackEnd):
+class TestBackEndTensorFlow(BaseTestBackEnd):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, dtype=np.complex64, hardware_dtype=torch.complex64, **kwargs)
+        super().__init__(*args, dtype=np.complex128, hardware_dtype=tf.complex128, **kwargs)
         self.__backend = None
 
     @property
     def BE(self) -> BackEnd:
         if self.__backend is None:
-            self.__backend = BackEndTorch(self.nb_pol_dims, self.grid * self.wavenumber, hardware_dtype=self.hardware_dtype)
+            self.__backend = BackEndTensorFlow(self.nb_pol_dims, self.grid * self.wavenumber, hardware_dtype=self.hardware_dtype)
         return self.__backend
 
     def test_mat_inv(self):
-        pass  # TODO: inverse not implemented with ComplexDouble on pytorch *not critical*
+        pass  # TODO: inverse not implemented with ComplexDouble on tensorflow *not critical*
     #     A = np.arange(9).reshape((3, 3, 1, 1, 1))**2
     #     A_inv = self.BE.ldivide(A, 1.0)
     #     npt.assert_almost_equal(self.BE.mul(A_inv, A), self.BE.eye)

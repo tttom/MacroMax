@@ -20,7 +20,7 @@ import json
 
 from .. import log
 
-from macromax.utils.array import vector_to_axis, Grid
+from macromax.utils.array import Grid, vector_to_axis
 
 
 __all__ = ['config', 'load', 'BackEnd', 'array_like', 'tensor_type']
@@ -38,22 +38,22 @@ class BackEnd(ABC):
     where the first two dimensions are those of the matrix, and the final dimensions are the coordinates over
     which the operations are parallelized and the Fourier transforms are applied.
     """
-    def __init__(self, nb_dims: int, grid: Grid, dtype=np.complex128):
+    def __init__(self, nb_dims: int, grid: Grid, hardware_dtype=np.complex128):
         """
         Construct object to handle parallel operations on square matrices of nb_rows x nb_rows elements.
         The matrices refer to points in space on a uniform plaid grid.
 
         :param nb_dims: The number of rows and columns in each matrix. 1 for scalar operations, 3 for polarization
         :param grid: The grid that defines the position of the matrices.
-        :param dtype: (optional) The datatype to use for operations.
+        :param hardware_dtype: (optional) The datatype to use for operations.
         """
         self.__nb_rows = nb_dims
         self.__grid = grid
-        self.__dtype = dtype
+        self.__hardware_dtype = hardware_dtype
 
         self.__cutoff = 2
         self.__total_dims = 2 + self.grid.ndim
-        # Define lazily-instantiated working arrays for ft, ift, and convolvution
+        # Define lazily-instantiated working arrays for ft, ift, and convolution
         self.__array_ft_input = None  # vector array for Fourier Transform input and Inverse Fourier Transform output
         self.__array_ft_output = None  # vector array for Inverse Fourier Transform input and Fourier Transform output
 
@@ -92,24 +92,31 @@ class BackEnd(ABC):
         return self.vector_length > 1
 
     @property
-    def dtype(self):
+    def hardware_dtype(self):
         """The scalar data type that is processed by this back-end."""
-        return self.__dtype
+        return self.__hardware_dtype
+
+    @property
+    def numpy_dtype(self):
+        """The equivalent hardware data type in numpy"""
+        return self.hardware_dtype
 
     def astype(self, arr: array_like, dtype=None) -> tensor_type:
         """
         :param arr: An object that is, or can be converted to, an ndarray.
         :param dtype: (optional) scalar data type of the returned array elements
+
         :return: torch.Tensor type
         """
         if dtype is None:
-            dtype = self.dtype
+            dtype = self.hardware_dtype
         return np.asarray(arr, dtype)
 
     def asnumpy(self, arr: array_like) -> np.ndarray:
         """
         Convert the internal array (or tensor) presentation to a numpy.ndarray.
         :param arr: The to-be-converted array.
+
         :return: The corresponding numpy ndarray.
         """
         if not isinstance(arr, np.ndarray):
@@ -119,7 +126,7 @@ class BackEnd(ABC):
     @property
     def eps(self) -> float:
         """The precision of the data type (self.dtype) of this back-end."""
-        return np.finfo(self.dtype).eps
+        return np.finfo(self.hardware_dtype).eps
 
     @abstractmethod
     def allocate_array(self, shape: array_like = None, dtype = None, fill_value: Complex = None) -> tensor_type:
@@ -131,6 +138,7 @@ class BackEnd(ABC):
             back-end, specific data type.
         :param fill_value: (optional) A scalar value to pre-populate the array. The default (None) does not pre-populate
             the array, leaving it in a random state.
+
         :return: A reference to the array.
         """
         pass
@@ -138,15 +146,30 @@ class BackEnd(ABC):
     def assign(self, arr: array_like, out: tensor_type) -> tensor_type:
         """
         Assign the values of one array to those of another.
+        The dtype and shape is broadcasted to match that of the output array.
+
+        :param arr: The values that need to be assigned to another array.
+        :param out: (optional) The target array, which must be of the same shape.
+
+        :return: The target array or a newly allocated array with the same values as those in arr.
+        """
+        arr = self.to_matrix_field(arr)
+        if np.any(arr.shape[-self.grid.ndim:] != self.grid.shape) \
+                or arr.shape[-self.grid.ndim-2] != 1 + 2 * self.vectorial:
+            arr = np.tile(arr, np.asarray([1 + 2 * self.vectorial, 1, *self.grid.shape]) // arr.shape)
+        out = self.assign_exact(arr, out)
+        return out
+        
+    def assign_exact(self, arr: array_like, out: tensor_type) -> tensor_type:
+        """
+        Assign the values of one array to those of another.
+        The dtype and shape must match that of the output array.
 
         :param arr: The values that need to be assigned to another array.
         :param out: (optional) The target array, which must be of the same shape.
         :return: The target array or a newly allocated array with the same values as those in arr.
         """
-        arr = self.to_matrix_field(arr)
-        if np.any(arr.shape[-self.grid.ndim:] != self.grid.shape):
-            arr = np.tile(arr, self.grid.shape // arr.shape[-self.grid.ndim:])
-        out[:] = self.astype(arr)
+        out[:] = arr
         return out
 
     def copy(self, arr: array_like) -> tensor_type:
@@ -161,6 +184,7 @@ class BackEnd(ABC):
         """
         Returns an array with values of -1 where arr is negative, 0 where arr is 0, and 1 where arr is positive.
         :param arr: The array to check.
+
         :return: np.sign(arr) or equivalent.
         """
         return np.sign(arr)
@@ -208,9 +232,10 @@ class BackEnd(ABC):
     def ft(self, arr: array_like) -> tensor_type:
         """
         Calculates the discrete Fourier transform over the spatial dimensions of E.
-        The computational complexity is that of a Fast Fourier Transform: ``O(N\log(N))``.
+        The computational complexity is that of a Fast Fourier Transform: ``O(N.log(N))``.
 
         :param arr: An ndarray representing a vector field.
+
         :return: An ndarray holding the Fourier transform of the vector field E.
         """
         pass
@@ -219,10 +244,11 @@ class BackEnd(ABC):
     def ift(self, arr: array_like) -> tensor_type:
         """
         Calculates the inverse Fourier transform over the spatial dimensions of E.
-        The computational complexity is that of a Fast Fourier Transform: ``O(N\log(N))``.
+        The computational complexity is that of a Fast Fourier Transform: ``O(N.log(N))``.
         The scaling is so that ``E == self.ift(self.ft(E))``
 
         :param arr: An ndarray representing a Fourier-transformed vector field.
+
         :return: An ndarray holding the inverse Fourier transform of the vector field E.
         """
         pass
@@ -255,6 +281,7 @@ class BackEnd(ABC):
         """
         Returns the conjugate of the elements in the input.
         :param arr: The input array.
+
         :return: arr.conj or equivalent
         """
         return np.conj(arr)
@@ -263,15 +290,22 @@ class BackEnd(ABC):
         """
         Returns the absolute value (magnitude) of the elements in the input.
         :param arr: The input array.
+
         :return: np.abs(arr) or equivalent
         """
         return np.abs(arr)
 
+    def real(self, arr: array_like) -> tensor_type:
+        return arr.real
+
     def convolve(self, operation_ft: Callable[[array_like], array_like], arr: array_like) -> tensor_type:
         """
-        Cyclic FFT convolution which overwrites its input argument.
+        Apply an operator in Fourier space. This is used to perform a cyclic FFT convolution which overwrites its input
+        argument `arr`.
+
         :param operation_ft: The function that acts on the Fourier-transformed input.
         :param arr: The to-be-convolved argument array.
+
         :returns the convolved input array.
         """
         arr_ft = self.ft(arr)
@@ -284,6 +318,7 @@ class BackEnd(ABC):
         Tests if A represents a scalar field (as opposed to a vector field).
 
         :param arr: The ndarray to be tested.
+        
         :return: A boolean indicating whether A represents a scalar field (True) or not (False).
         """
         return np.isscalar(arr) or arr.ndim == 0 or (arr.shape[0] == 1 and (arr.ndim == 1 or arr.shape[1] == 1))
@@ -293,6 +328,7 @@ class BackEnd(ABC):
         Tests if A represents a vector field.
 
         :param arr: The ndarray to be tested.
+        
         :return: A boolean indicating whether A represents a vector field (True) or not (False).
         """
         return arr.ndim == self.__total_dims - 1
@@ -302,6 +338,7 @@ class BackEnd(ABC):
         Checks if an ndarray is a matrix as defined by this parallel_ops_column object.
 
         :param arr: The matrix to be tested.
+        
         :return: boolean value, indicating if A is a matrix.
         """
         return arr.ndim == self.__total_dims
@@ -312,20 +349,24 @@ class BackEnd(ABC):
 
     def to_matrix_field(self, arr: array_like) -> np.ndarray:
         """
-        Converts the input to an array of the full number of dimensions: len(self.matrix_shape) + len(self.grid.shape).
+        Converts the input to an array of the full number of dimensions: len(self.matrix_shape) + len(self.grid.shape), and dtype.
         The size of each dimensions must match that of that set for the :class:`BackEnd` or be 1 (assumes broadcasting).
         For electric fields in 3-space, self.matrix_shape == (N, N) == (3, 3)
         The first (left-most) dimensions of the output are either
+
         - 1x1: The identity matrix for a scalar field, as sound waves or isotropic permittivity.
         - Nx1: A vector for a vector field, as the electric field.
         - NxN: A matrix for a matrix field, as anisotropic permittivity
+
         None is interpreted as 0.
         Singleton dimensions are added on the left so that all dimensions are present.
         Inputs with 1xN are transposed (not conjugate) to Nx1 vectors.
+
         :param arr: The input can be scalar, which assumes that its value is assumed to be repeated for all space.
-        The value can be a one-dimensional vector, in which case the vector is assumed to be repeated for all space.
+            The value can be a one-dimensional vector, in which case the vector is assumed to be repeated for all space.
+
         :return: An array with `ndim == len(self.matrix_shape) + len(self.grid.shape)` and with each non-singleton
-        dimension matching those of the nb_rows and data_shape.
+            dimension matching those of the nb_rows and data_shape.
         """
         if arr is None:
             arr = 0
@@ -341,6 +382,7 @@ class BackEnd(ABC):
         Transposes the elements of individual matrices with complex conjugation.
 
         :param mat: The ndarray with the matrices in the first two dimensions.
+
         :return: An ndarray with the complex conjugate transposed matrices.
         """
         return np.conj(mat.swapaxes(0, 1))
@@ -353,6 +395,7 @@ class BackEnd(ABC):
         :param left_term: The left matrix array, must start with dimensions n x m
         :param right_term: The right matrix array, must have matching or singleton dimensions to those
             of A. In case of missing dimensions, singletons are assumed.
+
         :return: The point-wise difference of both sets of matrices. Singleton dimensions are expanded.
         """
         if not self.is_scalar(left_term) or not self.is_scalar(right_term):
@@ -388,14 +431,14 @@ class BackEnd(ABC):
                 product_shape = (left_factor.shape[0], right_factor.shape[1],
                                  *np.maximum(np.array(left_factor.shape[2:], dtype=int),
                                              np.array(right_factor.shape[2:], dtype=int)))
-                out = self.allocate_array(shape=product_shape, dtype=self.dtype)
+                out = self.allocate_array(shape=product_shape, dtype=self.hardware_dtype)
             result = np.einsum('ij...,jk...->ik...', left_factor, right_factor, out=out)
 
         return result
 
     @abstractmethod
     def ldivide(self, denominator: array_like, numerator: array_like = 1.0) -> tensor_type:
-        """
+        r"""
         Parallel matrix left division, A^{-1}B, on the final two dimensions of A and B
         result_lm = A_kl \ B_km
 
@@ -404,6 +447,7 @@ class BackEnd(ABC):
 
         :param denominator: The set of denominator matrices.
         :param numerator: The set of numerator matrices.
+
         :return: The set of divided matrices.
         """
         pass
@@ -413,6 +457,7 @@ class BackEnd(ABC):
         Inverts the set of input matrices M.
 
         :param mat: The set of input matrices.
+
         :return: The set of inverted matrices.
         """
         return self.ldivide(mat, 1.0)
@@ -423,25 +468,27 @@ class BackEnd(ABC):
         The input argument may be overwritten!
 
         :param field_array: The set of input matrices.
+
         :return: The curl of E.
         """
         return self.convolve(self.curl_ft, field_array)
 
     def curl_ft(self, field_array_ft: array_like) -> tensor_type:
         """
-            Calculates the Fourier transform of the curl of a Fourier transformed E with the final dimension the
-            vector dimension.
-            The final dimension of the output will always be of length 3; however, the input length may be shorter,
-            in which case the missing values are assumed to be zero.
-            The first dimension of the input array corresponds to the first element in the final dimension,
-            if it exists, the second dimension corresponds to the second element etc.
+        Calculates the Fourier transform of the curl of a Fourier transformed E with the final dimension the
+        vector dimension.
+        The final dimension of the output will always be of length 3; however, the input length may be shorter,
+        in which case the missing values are assumed to be zero.
+        The first dimension of the input array corresponds to the first element in the final dimension,
+        if it exists, the second dimension corresponds to the second element etc.
 
-            :param field_array_ft: The input vector array of dimensions ``[vector_length, 1, *data_shape]``.
-            :return: The Fourier transform of the curl of F.
+        :param field_array_ft: The input vector array of dimensions ``[vector_length, 1, *data_shape]``.
+
+        :return: The Fourier transform of the curl of F.
         """
         field_array_ft = self.astype(field_array_ft)
         # Calculate the curl
-        curl_field_array_ft = self.allocate_array(shape=[self.vector_length, *field_array_ft.shape[1:]], dtype=self.dtype)
+        curl_field_array_ft = self.allocate_array(shape=[self.vector_length, *field_array_ft.shape[1:]], dtype=self.hardware_dtype)
         # as the cross product without representing the first factor in full
         for dim_idx in range(self.vector_length):
             other_dims = (dim_idx + np.array([-1, 1])) % self.vector_length
@@ -461,6 +508,7 @@ class BackEnd(ABC):
 
         :param A: A vector array of dimensions ``[vector_length, 1, *data_shape]``
         :param B:  A vector array of dimensions ``[vector_length, 1, *data_shape]``
+
         :return: A vector array of dimensions ``[vector_length, 1, *data_shape]`` containing the cross product A x B
             in the first dimension and the other dimensions remain on the same axes.
         """
@@ -476,11 +524,12 @@ class BackEnd(ABC):
 
     @staticmethod
     def outer(A: array_like, B: array_like) -> tensor_type:
-        """
+        r"""
         Calculates the Dyadic product of vector arrays A and B.
 
         :param A: A vector array of dimensions ``[vector_length, 1, *data_shape]``
         :param B:  A vector array of dimensions ``[vector_length, 1, *data_shape]``
+
         :return: A matrix array of dimensions ``[vector_length, vector_length, *data_shape]``
             containing the dyadic product :math:`A \otimes B` in the first two dimensions and
             the other dimensions remain on the same axes.
@@ -493,21 +542,23 @@ class BackEnd(ABC):
         The input argument may be overwritten!
 
         :param field_array: The input array representing vector or tensor field. The input is of the shape ``[m, n, x, y, z, ...]``
+
         :return: The divergence of the vector or tensor field in the shape ``[n, 1, x, y, z]``.
         """
         return self.convolve(self.div_ft, field_array)
 
     def div_ft(self, field_array_ft: array_like) -> tensor_type:
         """
-        Calculated the Fourier transform of the divergence of the pre-Fourier transformed input E_F.
+        Calculate the Fourier transform of the divergence of the pre-Fourier transformed input electric field.
 
         :param field_array_ft: The input array representing the field pre-Fourier-transformed in all spatial dimensions.
             The input is of the shape ``[m, n, x, y, z, ...]``
+
         :return: The Fourier transform of the divergence of the field in the shape ``[n, 1, x, y, z]``.
         """
         field_array_ft = self.astype(field_array_ft)
-        div_field_array_ft = self.allocate_array(shape=field_array_ft.shape[1:], dtype=self.dtype, fill_value=0)
-        for dim_idx in range(np.minimum(len(self.k), field_array_ft.ndim-2)):
+        div_field_array_ft = self.allocate_array(shape=field_array_ft.shape[1:], dtype=self.hardware_dtype, fill_value=0)
+        for dim_idx in range(np.minimum(self.grid.ndim, len(field_array_ft.shape))):
             div_field_array_ft += 1j * self.k[dim_idx] * field_array_ft[dim_idx, :, ...]
 
         return self.expand_dims(div_field_array_ft, 1)
@@ -518,6 +569,7 @@ class BackEnd(ABC):
         The input argument may be overwritten!
 
         :param field_array: The input vector E array.
+
         :return: The transversal projection.
         """
         return self.convolve(self.transversal_projection_ft, field_array)
@@ -528,6 +580,7 @@ class BackEnd(ABC):
         The input argument may be overwritten!
 
         :param field_array: The input vector E array.
+
         :return: The longitudinal projection.
         """
         return self.convolve(self.longitudinal_projection_ft, field_array)
@@ -537,6 +590,7 @@ class BackEnd(ABC):
         Projects the Fourier transform of a vector E array onto its transversal component.
 
         :param field_array_ft: The Fourier transform of the input vector E array.
+
         :return: The Fourier transform of the transversal projection.
         """
         transversal_ft = self.array_ift_input
@@ -550,6 +604,7 @@ class BackEnd(ABC):
         Overwrites self.array_ft_input!
 
         :param field_array_ft: The Fourier transform of the input vector E array.
+
         :return: The Fourier transform of the longitudinal projection.
         """
         data_shape = field_array_ft.shape
@@ -564,10 +619,6 @@ class BackEnd(ABC):
         # Store the DC components for later use
         field_dc = [field_array_ft[out_dim_idx, 0][zero_k2] for out_dim_idx in range(nb_data_dims)]
 
-        # field_dc = field_array_ft[:, 0, 0]
-        # while field_dc.ndim > 1:
-        #     field_dc = field_dc[:, 0]
-
         # Pre-alocate a working array
         if self.__longitudinal_projection is None:
             self.__longitudinal_projection = self.allocate_array(shape=data_shape)
@@ -575,19 +626,19 @@ class BackEnd(ABC):
         # (K x K) . xFt == K x (K . xFt)
         self.__longitudinal_projection[:] = self.k[0] * field_array_ft[0, 0]  # overwrite with new data
         # Project on k vectors
-        for in_dim_idx in range(1, nb_data_dims):
-            self.__longitudinal_projection += self.k[in_dim_idx] * field_array_ft[in_dim_idx, 0]
+        for in_axis in range(1, nb_data_dims):
+            self.__longitudinal_projection += self.k[in_axis] * field_array_ft[in_axis, 0]
 
-        # Divide by K**2 but handle division by zero separately
+        # Divide by k**2 but handle division by zero separately
         self.ravel(self.__longitudinal_projection)[1:] /= self.ravel(self.k2)[1:]  # skip the / 0 at the origin
 
         result = self.array_ft_input  # reuse input array for result  #self.__longitudinal_projection
-        for out_dim_idx in range(nb_data_dims):  # Save work by not storing the complete tensor
+        for out_axis in range(nb_data_dims):  # Save time by not storing the complete tensor
             # stretch each k vector to be as long as the projection
-            result[out_dim_idx, 0] = self.k[out_dim_idx] * self.__longitudinal_projection
-            result[out_dim_idx, 0][zero_k2] = field_dc[out_dim_idx]  # undefined origin => project the DC as longitudinal
-        for out_dim_idx in range(nb_data_dims, nb_output_dims):  # Make sure to add zeros to fit the number of dimensions
-            result[out_dim_idx, 0] = 0
+            result[out_axis, 0] = self.k[out_axis] * self.__longitudinal_projection
+            result[out_axis, 0][zero_k2] = field_dc[out_axis]  # undefined origin => project the DC as longitudinal
+        for out_axis in range(nb_data_dims, nb_output_dims):  # Make sure to add zeros to fit the number of dimensions
+            result[out_axis, 0] = 0
 
         return result  # const.piLF <- (K x K)/K**2
 
@@ -608,31 +659,34 @@ class BackEnd(ABC):
         :return: :math:`|k|^2` for the specified sample grid and output shape
         """
         if self.__k2 is None:
-            k2 = sum(_**2 for _ in self.k)
-            self.__k2 = self.copy(k2)
+            self.__k2 = sum(_**2 for _ in self.k)
         return self.__k2
 
-    def mat3_eig(self, A: array_like) -> tensor_type:
+    def mat3_eigh(self, arr: array_like) -> tensor_type:
         """
-        Calculates the eigenvalues of the 3x3 matrices represented by A and returns a new array of 3-vectors,
+        Calculates the eigenvalues of the 3x3 Hermitian matrices represented by A and returns a new array of 3-vectors,
         one for each matrix in A and of the same dimensions, baring the second dimension. When the first two
         dimensions are 3x1 or 1x3, a diagonal matrix is assumed. When the first two dimensions are singletons (1x1),
         a constant diagonal matrix is assumed and only one eigenvalue is returned.
         Returns an array of one dimension less: 3 x data_shape.
         With the exception of the first dimension, the shape is maintained.
 
-        :param A: The set of 3x3 input matrices for which the eigenvalues are requested.
+        Before substituting this for ```numpy.linalg.eigvalsh```, note that this implementation is about twice as fast
+        as the current numpy implementation for 3x3 Hermitian matrix fields. The difference is even greater for the
+        PyTorch implementation.
+        The implementation below can be made more efficient by limiting it to Hermitian matrices and thus real
+        eigenvalues. In the end, only the maximal eigenvalue is required, so an iterative power iteration may be even
+        faster, perhaps after applying a Given's rotation or Householder reflection to make Hermitian tridiagonal.
+
+        :param arr: The set of 3x3 input matrices for which the eigenvalues are requested.
                   This must be an ndarray with the first two dimensions of size 3.
+
         :return: The set of eigenvalue-triples contained in an ndarray with its first dimension of size 3,
                  and the remaining dimensions equal to all but the first two input dimensions.
         """
-        #
-        # TODO: Check if this could be implemented faster / more accurately with an iterative algorithm,
-        # e.g. Use a single Given's rotation or Householder reflection to make Hermitian tridiagonal + power iteration.
-        #
-        A = self.astype(A)
-        matrix_shape = np.array(A.shape[:-self.grid.ndim])
-        data_shape = np.array(A.shape[-self.grid.ndim:])
+        arr = self.astype(arr)
+        matrix_shape = np.array(arr.shape[:-self.grid.ndim])
+        data_shape = np.array(arr.shape[-self.grid.ndim:])
 
         if matrix_shape.size > 2:
             raise ValueError(f'The matrix dimensions should be at most 2, not {matrix_shape.size}.')
@@ -642,21 +696,21 @@ class BackEnd(ABC):
             # C = np.zeros([4, *data_shape], dtype=A.dtype)
             C = self.allocate_array([4, *data_shape])
             # A 3x3 matrix in the first two dimensions
-            C[0] = A[0, 0] * (A[1, 1] * A[2, 2] - A[1, 2] * A[2, 1]) \
-                   - A[0, 1] * (A[1, 0] * A[2, 2] - A[1, 2] * A[2, 0]) \
-                   + A[0, 2] * (A[1, 0] * A[2, 1] - A[1, 1] * A[2, 0])
-            C[1] = - A[0, 0] * (A[1, 1] + A[2, 2]) + A[0, 1] * A[1, 0] \
-                   + A[0, 2] * A[2, 0] - A[1, 1] * A[2, 2] + A[1, 2] * A[2, 1]
-            C[2] = A[0, 0] + A[1, 1] + A[2, 2]
+            C[0] = arr[0, 0] * (arr[1, 1] * arr[2, 2] - arr[1, 2] * arr[2, 1]) \
+                   - arr[0, 1] * (arr[1, 0] * arr[2, 2] - arr[1, 2] * arr[2, 0]) \
+                   + arr[0, 2] * (arr[1, 0] * arr[2, 1] - arr[1, 1] * arr[2, 0])
+            C[1] = - arr[0, 0] * (arr[1, 1] + arr[2, 2]) + arr[0, 1] * arr[1, 0] \
+                   + arr[0, 2] * arr[2, 0] - arr[1, 1] * arr[2, 2] + arr[1, 2] * arr[2, 1]
+            C[2] = arr[0, 0] + arr[1, 1] + arr[2, 2]
             C[3] = -1
 
             result = self.calc_roots_of_low_order_polynomial(C)
         else:
             if matrix_shape[0] == 1:  # Maybe a scalar or diagonal-as-column
-                result = self.copy(A)
+                result = self.copy(arr)
                 result = result[0, ...]
             elif matrix_shape[1] == 1:  # Maybe a scalar or diagonal-as-column
-                result = self.copy(A)
+                result = self.copy(arr)
                 result = result[:, 0, ...]
             else:
                 raise ValueError(f'The vector dimensions of the input array should be of length 1 or 3, not {matrix_shape}.')
@@ -671,7 +725,10 @@ class BackEnd(ABC):
         input for low to high order in each column. In other words, the polynomial is:
         ``np.sum(C * (x**range(C.size))) == 0``
 
+        This method is used by mat3_eigh, but only for polynomials with real roots.
+
         :param C: The coefficients of the polynomial, per polynomial.
+
         :return: The zeros in the complex plane, per polynomial.
         """
         nb_terms = C.shape[0]
@@ -690,18 +747,20 @@ class BackEnd(ABC):
             Checks if this is a lower-order polynomial in disguise and adds zero roots to match the order of the array
 
             :param coeffs: The polynomial coefficient array
+
             :return: A, nb_roots_added The non-degenerate polynomial coefficient array, A, and the number of roots added
             """
             # Although the coefficients are integers, the calculations may be real and complex.
             coeffs = self.astype(coeffs)
             coeffs = coeffs[..., np.newaxis]  # add a singleton dimension to avoid problems with vectors
             roots_added = self.allocate_array(coeffs[0].shape, dtype=int, fill_value=0)
-            for outer_dim_idx in range(coeffs.shape[0]):
-                lower_order = self.allclose(coeffs[-1])
-                for dim_idx in np.arange(coeffs.shape[0]-1, 0, -1):
-                    coeffs[dim_idx][lower_order] = coeffs[dim_idx-1][lower_order]
-                coeffs[0][lower_order] = 0
-                roots_added[lower_order] += 1
+            for _ in range(coeffs.shape[0]):
+                lower_order = self.abs(coeffs[-1]) < 2 * self.eps
+                if self.any(lower_order):
+                    for dim_idx in np.arange(coeffs.shape[0]-1, 0, -1):
+                        coeffs[dim_idx][lower_order] = coeffs[dim_idx-1][lower_order]
+                    coeffs[0][lower_order] = 0
+                    roots_added[lower_order] += 1
             coeffs[-1][lower_order] = 1  # all zeros
 
             return coeffs[..., 0], roots_added[..., 0]
@@ -713,16 +772,17 @@ class BackEnd(ABC):
 
             :param roots: The array of all calculated roots.
             :param roots_added: The number of dummy roots added to the problem.
+
             :return: The array with the dummy roots placed at the end and replaced by nan.
             """
             roots = roots[..., np.newaxis]  # add a singleton dimension to avoid problems with vectors
             roots = self.astype(roots)
             roots_added = roots_added[..., np.newaxis]  # add a singleton dimension to avoid problems with vectors
             roots_added = self.astype(roots_added, dtype=int)
-            for dim_idx in np.arange(roots.shape[0]-1, -1, -1):
-                is_zero = ~is_significant(roots[dim_idx])  # not
+            for _ in np.arange(roots.shape[0]-1, -1, -1):
+                is_zero = ~is_significant(roots[_])  # not
                 remove_zero = self.astype(is_zero & (roots_added > 0), dtype=bool)
-                roots[dim_idx][remove_zero] = np.nan
+                roots[_][remove_zero] = np.nan
                 roots_added[remove_zero] -= 1
             roots = self.sort(roots)
             return roots[..., 0]
@@ -740,7 +800,7 @@ class BackEnd(ABC):
             d = C[1] ** 2 - 4.0 * C[2] * C[0]
             sqrt_d = d ** 0.5
             q = -0.5 * (C[1] + sign((self.conj(C[1]) * sqrt_d).real) * sqrt_d)
-            X = self.astype([q / C[2], C[0] / (q + ~is_significant(C[0]) * ~is_significant(q))], dtype=self.dtype)
+            X = self.astype([q / C[2], C[0] / (q + ~is_significant(C[0]) * ~is_significant(q))], dtype=self.hardware_dtype)
             X = remove_roots(X, nb_roots_added)
         elif nb_terms == 4:  # cubic
             C, nb_roots_added = add_roots(C)
@@ -792,11 +852,12 @@ class BackEnd(ABC):
 
         :param C: The coefficients of the polynomial, for each polynomial.
         :param X: The argument of the polynomial, per polynomial.
+
         :return: The values of the polynomials for the arguments X.
         """
         results = 0
-        for idx in np.arange(C.shape[0])[-1::-1]:
-            results = results * X + C[idx]
+        for _ in np.arange(C.shape[0])[-1::-1]:
+            results = results * X + C[_]
 
         return results
 
@@ -818,6 +879,17 @@ def config(*args: Sequence[Dict], **kwargs: str):
     - `backend.config(dict(type='torch', device='cuda'))`
     - `backend.config([dict(type='torch', device='cuda'), dict(type='numpy')])`
 
+    Default back-ends can be specified in the file `backend_config.json` in the current folder.
+    This configuration file should contain a list of potential back-ends in [JSON format](https://en.wikipedia.org/wiki/JSON), e.g.
+    ```json
+    [
+        {"type": "torch", "device": "cuda"},
+        {"type": "numpy"},
+        {"type": "torch", "device": "cpu"}
+    ]
+    ```
+    The first back-end that loads correctly will be used.
+
     :param args: A dictionary or a sequence of dictionaries with at least the 'type' key. Key-word arguments are
         interpreted as a dictionary.
     """
@@ -831,13 +903,22 @@ def config(*args: Sequence[Dict], **kwargs: str):
 
 def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) -> BackEnd:
     """
-    Load the default or configured backend (using backend.config().
-    The default configuration can be specified in the file `backend_config.json` in the current folder.
+    Load the default or the backend specified using backend.config().
+    This configuration file should contain a list of potential back-ends in [JSON format](https://en.wikipedia.org/wiki/JSON), e.g.
+    ```json
+    [
+        {"type": "torch", "device": "cuda"},
+        {"type": "numpy"},
+        {"type": "torch", "device": "cpu"}
+    ]
+    ```
+    The first back-end that loads correctly will be used.
 
     :param nb_pol_dims: The number of polarization dimensions: 1 for scalar, 3 for vectorial calculations.
     :param grid: The uniformly-spaced Cartesian calculation grid as a Grid object.
     :param dtype: The scalar data type. E.g. np.complex64 or np.complex128.
     :param config_list: List of alternative backend configurations.
+
     :return: A BackEnd object to start the calculation with.
     """
     global __config_list
@@ -856,8 +937,10 @@ def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) ->
         else:
             config_list = __config_list
 
-    config_list += [{'type': 'torch', 'device': 'cuda'}]
-    config_list += [{'type': 'numpy'}]  # always use numpy as a backup plan
+    config_list += [{'type': 'torch', 'device': 'cuda'},
+                    {'type': 'tensorflow', 'device': 'tpu'},
+                    {'type': 'tensorflow', 'device': 'gpu'},
+                    {'type': 'numpy'}]  # always use numpy as a backup plan
 
     for c in config_list:
         config_type = c.get('type', 'unknown').lower()
@@ -879,18 +962,32 @@ def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) ->
                     raise ImportError('Function torch.fft.fftn not available in this version of PyTorch, please upgrade to version 1.7.0.')
 
                 from .torch import BackEndTorch
-                log.info('Detected PyTorch, using BackEndTorch...')
+                log.info('Detected PyTorch, initializing BackEndTorch...')
                 try:
-                    return BackEndTorch(nb_pol_dims, grid, dtype, device=device)
+                    backend = BackEndTorch(nb_pol_dims, grid, dtype, device=device)
+                    log.info(f'Using back-end "torch" using device "{device}".')
                 except Exception as re:
                     log.warning(f'Could not initialize PyTorch with device {device}.')
-                    # raise ImportError(str(re))
-                    print(type(re))
+                    raise ImportError(str(re))
+            elif config_type == 'tensorflow':
+                try:
+                    device = c.get('device', None)
+                    import tensorflow
+                    from .tensorflow import BackEndTensorFlow
+                    address = c.get('address', None)
+                    backend = BackEndTensorFlow(nb_pol_dims, grid, dtype, device=device, address=address)
+                    log.info(f'Using back-end "tensorflow" with device {device} on address {address}.')
+                except Exception as re:
+                    log.warning(f'Could not initialize TensorFlow with {device}.')
+                    raise ImportError(str(re))
             elif config_type == 'numpy':
                 from .numpy import BackEndNumpy
-                return BackEndNumpy(nb_pol_dims, grid, dtype)
+                backend = BackEndNumpy(nb_pol_dims, grid, dtype)
+                log.info('Using back-end "numpy".')
             else:
-                log.warning(f'Backend config type {config_type} not recognized.')
+                backend = None
+                raise ImportError(f'Backend config type {config_type} not recognized.')
+            return backend
         except ImportError as ie:
-            log.info(f'Backend type "{config_type}" not detected.')
+            log.info(f'Backend type "{config_type}" did not load as expected.')
     raise TypeError('No viable backend detected!')

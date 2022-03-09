@@ -19,16 +19,21 @@ class BackEndTorch(BackEnd):
     where the first two dimensions are those of the matrix, and the final dimensions are the coordinates over
     which the operations are parallelized and the Fourier transforms are applied.
     """
-    def __init__(self, nb_dims: int, grid: Grid, dtype=torch.complex128, device: str = None):
+    def __init__(self, nb_dims: int, grid: Grid, hardware_dtype=torch.complex128, device: str = None):
         """
         Construct object to handle parallel operations on square matrices of nb_rows x nb_rows elements.
         The matrices refer to points in space on a uniform plaid grid.
 
         :param nb_dims: The number of rows and columns in each matrix. 1 for scalar operations, 3 for polarization
         :param grid: The grid that defines the position of the matrices.
-        :param dtype: (optional) The data type to use for operations.
+        :param hardware_dtype: (optional) The data type to use for operations.
+        :param device: (optional) 'cuda' or 'cpu', to indicate where the calculation will happen.
         """
-        super().__init__(nb_dims, grid, dtype)
+        if hardware_dtype == np.complex64:
+            hardware_dtype = torch.complex64
+        elif hardware_dtype == np.complex128:
+            hardware_dtype = torch.complex128
+        super().__init__(nb_dims, grid, hardware_dtype)
 
         if device is None or device == 'cuda':
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -47,28 +52,31 @@ class BackEndTorch(BackEnd):
                 self.subtract(arr, arr)
                 del arr
             except RuntimeError as re:
-                log.warning(f'PyTorch failed to use CUDA ({re}), possibly due to incompatible CUDA version, falling back to PyTorch CPU.')
-                self.__device = 'cpu'
+                log.warning(f'PyTorch failed to use CUDA ({re}), possibly due to incompatible CUDA version.')
+                raise re
 
     @property
-    def dtype(self):
-        dtype = super().dtype
-        if dtype == np.complex64:
-            dtype = torch.complex64
-        elif dtype == np.complex128:
-            dtype = torch.complex128
-        return dtype
+    def numpy_dtype(self):
+        """The equivalent hardware data type in numpy"""
+        dtype = self.hardware_dtype
+        if dtype == torch.complex64:
+            numpy_dtype = np.complex64
+        elif dtype == torch.complex128:
+            numpy_dtype = np.complex128
+        else:
+            numpy_dtype = np.complex128
+        return numpy_dtype
 
     @property
     def eps(self) -> float:
-        return torch.finfo(self.dtype).eps
+        return torch.finfo(self.hardware_dtype).eps
 
     def astype(self, arr: array_like, dtype=None) -> tensor_type:
         """
         As necessary, convert the ndarray arr to the type dtype.
         """
         if dtype is None:
-            dtype = self.dtype
+            dtype = self.hardware_dtype
         elif dtype == np.complex64:
             dtype = torch.complex64
         elif dtype in [np.complex128, np.complex, complex]:
@@ -93,7 +101,11 @@ class BackEndTorch(BackEnd):
         arr = self.to_matrix_field(arr)
         if np.any(arr.shape[-self.grid.ndim:] != self.grid.shape):
             arr = arr.repeat(*(np.array(out.shape) // np.array(arr.shape)))
-        out[:] = self.astype(arr)
+        out = self.assign_exact(arr, out)
+        return out
+
+    def assign_exact(self, arr, out) -> tensor_type:
+        out[:] = arr
         return out
 
     def allocate_array(self, shape: array_like = None, dtype=None, fill_value: Complex = None) -> tensor_type:
@@ -101,7 +113,7 @@ class BackEndTorch(BackEnd):
         if shape is None:
             shape = [self.vector_length, 1, *self.grid.shape]
         if dtype is None:
-            dtype = self.dtype
+            dtype = self.hardware_dtype
         arr = torch.empty(shape, dtype=dtype).to(self.__device)
         if fill_value is not None:
             arr[:] = fill_value
@@ -162,6 +174,7 @@ class BackEndTorch(BackEnd):
         The computational complexity is that of a Fast Fourier Transform: ``O(N\\log(N))``.
 
         :param arr: An ndarray representing a vector field.
+
         :return: An ndarray holding the Fourier transform of the vector field E.
         """
         return ft.fftn(self.astype(arr), dim=self.ft_axes)
@@ -173,6 +186,7 @@ class BackEndTorch(BackEnd):
         The scaling is so that ``E == self.ift(self.ft(E))``
 
         :param arr: An ndarray representing a Fourier-transformed vector field.
+
         :return: An ndarray holding the inverse Fourier transform of the vector field E.
         """
         arr = self.astype(arr)
@@ -183,9 +197,13 @@ class BackEndTorch(BackEnd):
         Transposes the elements of individual matrices with complex conjugation.
 
         :param mat: The ndarray with the matrices in the first two dimensions.
+
         :return: An ndarray with the complex conjugate transposed matrices.
         """
         return torch.conj(self.astype(mat).transpose(0, 1))
+
+    def real(self, arr: array_like) -> tensor_type:
+        return arr.real
 
     def mul(self, left_factor: array_like, right_factor: array_like, out: torch.Tensor = None) -> tensor_type:
         """
@@ -207,7 +225,7 @@ class BackEndTorch(BackEnd):
             else:
                 result = self.astype(left_factor) * self.astype(right_factor)
         else:
-            # Multiply real and imaginary parts seperately because PyTorch
+            # Multiply real and imaginary parts separately because PyTorch
             #(a+bi) * (c+di) = ac - bd + i(ad) + i(bc)
             left_factor = self.astype(left_factor).movedim(0, -1).movedim(0, -1)
             right_factor = self.astype(right_factor).movedim(0, -1).movedim(0, -1)
@@ -228,6 +246,7 @@ class BackEndTorch(BackEnd):
 
         :param denominator: The set of denominator matrices.
         :param numerator: The set of numerator matrices.
+
         :return: The set of divided matrices.
         """
         denominator = self.to_matrix_field(denominator)  # convert scalar to array if needed

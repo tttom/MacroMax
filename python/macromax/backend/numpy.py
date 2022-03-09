@@ -8,6 +8,7 @@ from .. import log
 from macromax.utils import ft
 from macromax.utils.array import Grid
 from macromax.backend.__init__ import BackEnd, array_like
+
 array_like = Union[array_like, np.ndarray]
 
 
@@ -17,16 +18,16 @@ class BackEndNumpy(BackEnd):
     where the first two dimensions are those of the matrix, and the final dimensions are the coordinates over
     which the operations are parallelized and the Fourier transforms are applied.
     """
-    def __init__(self, nb_dims: int, grid: Grid, dtype = np.complex128):
+    def __init__(self, nb_dims: int, grid: Grid, hardware_dtype = np.complex128):
         """
         Construct object to handle parallel operations on square matrices of nb_rows x nb_rows elements.
         The matrices refer to points in space on a uniform plaid grid.
 
         :param nb_dims: The number of rows and columns in each matrix. 1 for scalar operations, 3 for polarization
         :param grid: The grid that defines the position of the matrices.
-        :param dtype: (optional) The data type to use for operations.
+        :param hardware_dtype: (optional) The data type to use for operations.
         """
-        super().__init__(nb_dims, grid, dtype)
+        super().__init__(nb_dims, grid, hardware_dtype)
 
         try:
             import pyfftw
@@ -43,7 +44,7 @@ class BackEndNumpy(BackEnd):
                 nb_threads = multiprocessing.cpu_count()
                 log.debug(f'Detected {nb_threads} CPUs, using up to {nb_threads} threads.')
             except ModuleNotFoundError:
-                nb_threads = 0
+                nb_threads = 1
                 log.info('Module multiprocessing not found, assuming default number of threads for Fast Fourier Transform.')
 
             self.__empty_word_aligned = \
@@ -97,10 +98,11 @@ class BackEndNumpy(BackEnd):
         if shape is None:
             shape = [self.vector_length, 1, *self.grid.shape]
         if dtype is None:
-            dtype = self.dtype
+            dtype = self.hardware_dtype
         arr = self.__empty_word_aligned(shape, dtype=dtype)
         if fill_value is not None:
             arr[:] = fill_value
+        #log.debug(f'Allocating array of shape {shape} and dtype {dtype} with fill value {fill_value}.')
         return arr
 
     def ft(self, arr: array_like) -> np.ndarray:
@@ -109,6 +111,7 @@ class BackEndNumpy(BackEnd):
         The computational complexity is that of a Fast Fourier Transform: ``O(N\log(N))``.
 
         :param arr: An ndarray representing a vector field.
+
         :return: An ndarray holding the Fourier transform of the vector field E.
         """
         return self.__ft(arr)  # Defined in __init__ depending on imports
@@ -120,6 +123,7 @@ class BackEndNumpy(BackEnd):
         The scaling is so that ``E == self.ift(self.ft(E))``
 
         :param arr: An ndarray representing a Fourier-transformed vector field.
+
         :return: An ndarray holding the inverse Fourier transform of the vector field E.
         """
         return self.__ift(arr)  # Defined in __init__ depending on imports
@@ -134,6 +138,7 @@ class BackEndNumpy(BackEnd):
 
         :param denominator: The set of denominator matrices.
         :param numerator: The set of numerator matrices.
+
         :return: The set of divided matrices.
         """
         denominator = self.to_matrix_field(denominator)  # convert scalar to array if needed
@@ -141,7 +146,7 @@ class BackEndNumpy(BackEnd):
 
         shape_A = denominator.shape[:2]
         if self.is_scalar(denominator):
-            return np.asarray(numerator, dtype=self.dtype) / denominator
+            return np.asarray(numerator, dtype=self.hardware_dtype) / denominator
         else:
             total_dims = 2 + self.grid.ndim
             new_order = np.roll(np.arange(total_dims), -2)

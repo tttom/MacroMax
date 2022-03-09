@@ -1,12 +1,14 @@
 import numpy as np
 
 
-def word_align(input_array, word_length=32):
+def word_align(input_array, word_length: int = 32):
     """
     Returns a new array that is byte-aligned to words of length word_length bytes.
-    This may be required for libraries such as pyfftw
+    This may be required for libraries such as pyfftw.
+
     :param input_array: The input array to align.
     :param word_length: The word length to align to. This must be an integer multiple of the dtype size.
+
     :return: A word-aligned array with the same contents and shape as input_array.
     """
     if (input_array.ctypes.data % word_length) == 0:
@@ -21,4 +23,3 @@ def word_align(input_array, word_length=32):
     assert (aligned_array.ctypes.data % word_length) == 0
 
     return aligned_array
-

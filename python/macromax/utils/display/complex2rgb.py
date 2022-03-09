@@ -4,17 +4,19 @@ from typing import Union, Sequence
 from .hsv import hsv2rgb
 
 
-def complex2rgb(complex_image: Union[complex, Sequence, np.array], normalization: Union[bool, float, int]=None,
+def complex2rgb(complex_image: Union[complex, Sequence, np.array], normalization: Union[bool, float, int] = None,
                 inverted=False, dtype=np.float):
     """
     Converts a complex image to a RGB image.
+    
     :param complex_image: A 2D array
     :param normalization: An optional multidimensional to indicate the target magnitude of the maximum value
-    (1.0 is saturation).
+        (1.0 is saturation).
     :param inverted: By default 0 is shown as black and amplitudes of 1 as the brightest hues. Setting this input
-    argument to True could be useful for printing on white background.
+        argument to True could be useful for printing on white background.
     :param dtype: The output data type. The value is scaled to the maximum positive numeric range for integers
-    (np.iinfo(dtype).max). Floating point numbers are within [0, 1]. (Default: float)
+        (np.iinfo(dtype).max). Floating point numbers are within [0, 1]. (Default: float)
+        
     :return: A real 3d-array with values between 0 and 1.
     """
     # Make sure that this is a numpy 2d-array
@@ -48,4 +50,3 @@ def complex2rgb(complex_image: Union[complex, Sequence, np.array], normalization
         rgb_image = rgb_image * np.iinfo(dtype).max + 0.5
 
     return rgb_image.astype(dtype)
-

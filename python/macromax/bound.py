@@ -4,20 +4,48 @@ gradually more absorbing. Specific boundaries are implemented as subclasses and 
 argument to :func:`macromax.solve` or :class:`macromax.Solution`. The precludes the inclusion of boundaries in the material description.
 It is sufficient to leave some space for the boundaries.
 """
+from __future__ import annotations
+
 import numpy as np
 from typing import Union, Sequence, Callable
+from numbers import Complex, Real
 
-from macromax.utils.array import Grid
+from .utils.array import Grid
 
 
 class Electric:
     """ Mixin for Bound to indicate that the electric susceptibility is non-zero."""
-    pass
+    @property
+    def background_permittivity(self) -> Complex:
+        """A complex scalar indicating the permittivity of the background."""
+        return 0.0
+
+    @property
+    def electric_susceptibility(self) -> np.ndarray:
+        return NotImplemented
+
+    @property
+    def permittivity(self) -> np.ndarray:
+        """
+        The electric permittivity, epsilon, at every sample point.
+        Note that the returned array may have singleton dimensions that must be broadcast!
+        """
+        return self.background_permittivity + self.electric_susceptibility
 
 
 class Magnetic:
     """ Mixin for Bound to indicate that the magnetic susceptibility is non-zero."""
-    pass
+    @property
+    def magnetic_susceptibility(self) -> np.ndarray:
+        return NotImplemented
+
+    @property
+    def permeability(self) -> np.ndarray:
+        """
+        The magnetic permeability, mu, at every sample point.
+        Note that the returned array may have singleton dimensions that must be broadcast!
+        """
+        return 1.0 + self.magnetic_susceptibility
 
 
 class Bound:
@@ -25,9 +53,9 @@ class Bound:
     A base class to represent calculation-volume-boundaries.
     Use the sub-classes for practical implementations.
     """
-    def __init__(self, grid: Union[Grid, Sequence, np.ndarray] = None,
-                 thickness: Union[float, Sequence, np.ndarray] = 0.0,
-                 background_permittivity: complex = 1.0):
+    def __init__(self, grid: Union[Grid, Sequence, np.ndarray, None] = None,
+                 thickness: Union[Real, Sequence, np.ndarray] = 0.0,
+                 background_permittivity: Complex = 1.0):
         """
         :param grid: The Grid to which to the boundaries will be applied.
         :param thickness: The thickness as a scalar, vector, or 2d-array (axes x side). Broadcasting is used as necessary.
@@ -41,8 +69,7 @@ class Bound:
         self.__background_permittivity = background_permittivity
 
     @property
-    def grid(self):
-        """The Grid object indicating the uniform Cartesian grid of the entire calculation volume."""
+    def grid(self) -> Grid:
         return self.__grid
 
     @property
@@ -53,7 +80,7 @@ class Bound:
         return self.__thickness.copy()
 
     @property
-    def background_permittivity(self) -> float:
+    def background_permittivity(self) -> Complex:
         """A complex scalar indicating the permittivity of the background."""
         return self.__background_permittivity
 
@@ -66,14 +93,6 @@ class Bound:
         return np.zeros(self.grid.shape)
 
     @property
-    def permittivity(self) -> np.ndarray:
-        """
-        The electric permittivity, epsilon, at every sample point.
-        Note that the returned array may have singleton dimensions that must be broadcast!
-        """
-        return self.background_permittivity + self.electric_susceptibility
-
-    @property
     def magnetic_susceptibility(self) -> np.ndarray:
         """
         The magnetic susceptibility, chi_H, at every sample point.
@@ -82,26 +101,23 @@ class Bound:
         return np.zeros(self.grid.shape)
 
     @property
-    def permeability(self) -> np.ndarray:
+    def between(self) -> np.ndarray:
         """
-        The magnetic permeability, mu, at every sample point.
-        Note that the returned array may have singleton dimensions that must be broadcast!
+        Returns a boolean array indicating True for the voxels between the boundaries where the calculation happens.
+        The inner edge is considered in between the boundaries.
         """
-        return 1.0 + self.magnetic_susceptibility
-
-    @property
-    def inside(self) -> np.ndarray:
-        """Returns a boolean array indicating True for the voxels between the boundaries."""
-        result = np.asarray(False)
+        result = np.asarray(True)
         for axis in range(self.grid.ndim):
             rng = self.grid[axis]
-            result = result & (rng[0] + self.thickness[axis, 0] <= rng & rng < rng[-1] - self.thickness[axis, 1])
+            result = np.logical_and(result, np.logical_and(rng.ravel()[0] + self.thickness[axis, 0] <= rng, rng <= rng.ravel()[-1] - self.thickness[axis, 1]))
         return result
 
     @property
-    def outside(self) -> np.ndarray:
-        """Returns a boolean array indicating True for the voxels in the boundaries, i.e. outside the area of the calculation."""
-        return np.logical_not(self.inside)
+    def beyond(self) -> np.ndarray:
+        """
+        Returns a boolean array indicating True for the voxels beyond the boundary edge, i.e. inside the boundaries, where the calculation should be ignored.
+        """
+        return np.logical_not(self.between)
 
 
 class PeriodicBound(Bound):
@@ -115,9 +131,9 @@ class PeriodicBound(Bound):
 
 
 class AbsorbingBound(Bound, Electric):
-    def __init__(self, grid: Union[Grid, Sequence, np.ndarray], thickness: Union[float, Sequence, np.ndarray] = 0.0,
+    def __init__(self, grid: Union[Grid, Sequence, np.ndarray], thickness: Union[Real, Sequence, np.ndarray] = 0.0,
                  extinction_coefficient_function: Union[Callable, Sequence, np.ndarray] = lambda rel_depth: rel_depth,
-                 background_permittivity: complex = 1.0):
+                 background_permittivity: Complex = 1.0):
         """
         Constructs a boundary with depth-dependent extinction coefficient, kappa(rel_depth).
 
@@ -175,9 +191,9 @@ class AbsorbingBound(Bound, Electric):
 
 
 class LinearBound(AbsorbingBound):
-    def __init__(self, grid: Union[Grid, Sequence, np.ndarray], thickness: Union[float, Sequence, np.ndarray] = 0.0,
-                 max_extinction_coefficient: Union[float, Sequence, np.ndarray] = 0.1,
-                 background_permittivity: complex = 1.0):
+    def __init__(self, grid: Union[Grid, Sequence, np.ndarray], thickness: Union[Real, Sequence, np.ndarray] = 0.0,
+                 max_extinction_coefficient: Union[Real, Sequence, np.ndarray] = 0.25,
+                 background_permittivity: Complex = 1.0):
         """
         Constructs a boundary with linearly increasing extinction coefficient, kappa.
 
@@ -189,9 +205,8 @@ class LinearBound(AbsorbingBound):
         :param background_permittivity: (default: 1.0 for vacuum)
         """
         # Define a linear function for every axis and every side
-        kappa_function = np.vectorize(lambda kappa_max: lambda rel_depth: kappa_max * rel_depth)\
-            (max_extinction_coefficient)
+        self._max_extinction_coefficient = max_extinction_coefficient
+        kappa_function = np.vectorize(lambda kappa_max: lambda rel_depth: kappa_max * rel_depth)(max_extinction_coefficient)
         super().__init__(grid=grid, thickness=thickness,
                          extinction_coefficient_function=kappa_function,
                          background_permittivity=background_permittivity)
-
