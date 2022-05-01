@@ -1,5 +1,10 @@
 # Version History
 
+## Version 0.1.6
+* Implemented the ScatteringMatrix class, which allows calculation of scattering, reflection,and transmission
+  matrices for any material for which the MacroMax solver can calculate the electro-magnetic field. 
+* Added TensorFlow back-end, allowing access to, for instance, Google Colab's Tensor Processing Units.
+
 ## Version 0.1.5
 * Added PyTorch back-end, thus enabling the use of a GPU (NVidia CUDA).
 * Ensured backwards compatibility with Python 3.6.

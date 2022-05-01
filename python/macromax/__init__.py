@@ -56,9 +56,10 @@ except IOError:
 
 # Import in main name space
 from .solver import solve, Solution
+from .matrix import ScatteringMatrix
 from .utils.array import Grid
 import macromax.backend
 
-__version__ = '0.1.5'
+__version__ = '0.1.6'
 
-__all__ = ['__version__', 'solve', 'Solution', 'Grid', 'log', 'backend']
+__all__ = ['__version__', 'solve', 'Solution', 'ScatteringMatrix', 'Grid', 'log', 'backend']
