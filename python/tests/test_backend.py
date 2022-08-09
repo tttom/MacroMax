@@ -58,17 +58,17 @@ class BaseTestBackEnd(unittest.TestCase):
         x = self.BE.allocate_array()
         x_np = self.BE.astype(np.arange(np.prod(x.shape)).reshape(x.shape))
         x = self.BE.assign_exact(x_np, x)
-        npt.assert_array_equal(x, x_np)
+        npt.assert_array_equal(self.BE.asnumpy(x), self.BE.asnumpy(x_np))
 
     def test_assign(self):
         x = self.BE.allocate_array()
         x_np = np.arange(np.prod(x.shape)).reshape(x.shape).astype(self.BE.numpy_dtype)
         x = self.BE.assign(x_np, x)
-        npt.assert_array_equal(x, x_np)
+        npt.assert_array_equal(self.BE.asnumpy(x), x_np)
         x = self.BE.assign(0, x)
-        npt.assert_array_equal(x, 0)
+        npt.assert_array_equal(self.BE.asnumpy(x), 0)
         x = self.BE.assign(1, x)
-        npt.assert_array_equal(x, 1)
+        npt.assert_array_equal(self.BE.asnumpy(x), 1)
 
     def test_allclose(self):
         arr = self.BE.allocate_array()
@@ -181,7 +181,7 @@ class BaseTestBackEnd(unittest.TestCase):
         npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.ift(A)), np.ones([3, 3, *self.grid.shape]) / np.prod(self.grid.shape))
         B = np.arange(9 * np.prod(self.grid.shape)).reshape((3, 3, *self.grid.shape)).astype(self.dtype)
         B = self.BE.astype(B)
-        npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.ft(self.BE.ift(B))), B, decimal=3,
+        npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.ft(self.BE.ift(B))), self.BE.asnumpy(B), decimal=3,
                                       err_msg='Inverse Fourier Transform did not work as expected.')
 
     def test_conjugate_transpose(self):
@@ -197,26 +197,27 @@ class BaseTestBackEnd(unittest.TestCase):
         C = 2 * np.arange(9).reshape((3, 3, 1, 1, 1)) - 8
         A = self.BE.astype(A)
         B = self.BE.astype(B)
-        npt.assert_array_equal(self.BE.subtract(A, B), C)
+        npt.assert_array_equal(self.BE.asnumpy(self.BE.subtract(A, B)), C)
 
     def test_mat_mul(self):
         V = np.arange(3).reshape((3, 1, 1, 1, 1))
         A = np.arange(9).reshape((3, 3, 1, 1, 1))
         A = self.BE.astype(A)
-        AF = np.tile(A, [1, 1, *self.BE.grid.shape])
+        AF = np.tile(self.BE.asnumpy(A), [1, 1, *self.BE.grid.shape])
+        AF = self.BE.astype(AF)
         B = np.arange(8, -1, -1).reshape((3, 3, 1, 1, 1))
         B = self.BE.astype(B)
-        npt.assert_equal(self.BE.asnumpy(self.BE.mul(A, V)), A[:, 1:2, ...] + 2 * A[:, 2:3, ...])
-        npt.assert_equal(self.BE.asnumpy(self.BE.mul(AF, V)), A[:, 1:2, ...] + 2 * AF[:, 2:3, ...])
-        npt.assert_equal(self.BE.asnumpy(self.BE.mul(V[np.newaxis, :, 0, ...], A)), A[1:2] + 2 * A[2:3])
-        npt.assert_equal(self.BE.asnumpy(self.BE.mul(A, 2)), 2 * A)
-        npt.assert_equal(self.BE.asnumpy(self.BE.mul(3, A)), 3 * A)
-        npt.assert_equal(self.BE.asnumpy(self.BE.mul(A, B)), (A[:, :, 0, 0, 0] @ B[:, :, 0, 0, 0])[:, :, np.newaxis, np.newaxis, np.newaxis])
+        npt.assert_equal(self.BE.asnumpy(self.BE.mul(A, V)), self.BE.asnumpy(A[:, 1:2, ...] + 2 * A[:, 2:3, ...]))
+        npt.assert_equal(self.BE.asnumpy(self.BE.mul(AF, V)), self.BE.asnumpy(A[:, 1:2, ...] + 2 * AF[:, 2:3, ...]))
+        npt.assert_equal(self.BE.asnumpy(self.BE.mul(V[np.newaxis, :, 0, ...], A)), self.BE.asnumpy(A[1:2] + 2 * A[2:3]))
+        npt.assert_equal(self.BE.asnumpy(self.BE.mul(A, 2)), self.BE.asnumpy(2 * A))
+        npt.assert_equal(self.BE.asnumpy(self.BE.mul(3, A)), self.BE.asnumpy(3 * A))
+        npt.assert_equal(self.BE.asnumpy(self.BE.mul(A, B)), self.BE.asnumpy((A[:, :, 0, 0, 0] @ B[:, :, 0, 0, 0])[:, :, np.newaxis, np.newaxis, np.newaxis]))
 
     def test_mat_ldivide(self):
         A = np.arange(9).reshape((3, 3, 1, 1, 1))**2
         A = self.BE.astype(A)
-        npt.assert_equal(self.BE.asnumpy(self.BE.ldivide(2, A)), 0.5 * A)
+        npt.assert_equal(self.BE.asnumpy(self.BE.ldivide(2, A)), self.BE.asnumpy(0.5 * A))
         B = np.array([[1.0, 2j, 3], [-4j, 5, 6], [7, 8, 9]])[:, :, np.newaxis, np.newaxis, np.newaxis]
         X = self.BE.ldivide(A, B)
         npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.mul(A, X)), B, decimal=5)  # TODO: Can this be more accurate?
@@ -351,26 +352,26 @@ class BaseTestBackEnd(unittest.TestCase):
         B = np.array([3, 4, 5])
         A = self.BE.astype(A)
         B = self.BE.astype(B)
-        npt.assert_array_almost_equal(self.BE.cross(A, B), np.array([-2, 4, -2]))
+        npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.cross(A, B)), np.array([-2, 4, -2]))
 
         A = A.reshape([3, 1, 1])
         B = B.reshape([3, 1, 1])
         A = self.BE.astype(A)
         B = self.BE.astype(B)
-        npt.assert_array_almost_equal(self.BE.cross(A, B), np.array([-2, 4, -2]).reshape(3, 1, 1))
+        npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.cross(A, B)), np.array([-2, 4, -2]).reshape(3, 1, 1))
 
     def test_outer(self):
         A = np.array([1, 2]).reshape([2, 1])
         B = np.array([3, 4, 5]).reshape([3, 1])
         A = self.BE.astype(A)
         B = self.BE.astype(B)
-        npt.assert_array_almost_equal(self.BE.outer(A, B), np.array([[3, 4, 5], [6, 8, 10]]))
+        npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.outer(A, B)), np.array([[3, 4, 5], [6, 8, 10]]))
 
         A = A.reshape([2, 1, 1])
         B = B.reshape([3, 1, 1])
         A = self.BE.astype(A)
         B = self.BE.astype(B)
-        npt.assert_array_almost_equal(self.BE.outer(A, B), np.array([[3, 4, 5], [6, 8, 10]]).reshape([2, 3, 1]))
+        npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.outer(A, B)), np.array([[3, 4, 5], [6, 8, 10]]).reshape([2, 3, 1]))
 
     def test_div_ft(self):
         # TODO: Add more in depth tests

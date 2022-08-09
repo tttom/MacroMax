@@ -93,9 +93,11 @@ class BackEndTorch(BackEnd):
         return arr
 
     def asnumpy(self, arr: array_like) -> np.ndarray:
-        if not isinstance(arr, np.ndarray):
-            arr = arr.to(device='cpu')
+        if isinstance(arr, torch.Tensor):
+            arr = arr.cpu()
             arr = arr.resolve_conj().numpy()
+        else:
+            arr = np.asarray(arr)
         return arr
 
     def assign(self, arr, out) -> tensor_type:
@@ -112,9 +114,20 @@ class BackEndTorch(BackEnd):
     def allocate_array(self, shape: array_like = None, dtype=None, fill_value: Complex = None) -> tensor_type:
         """Allocates a new vector array of shape grid.shape and word-aligned for efficient calculations."""
         if shape is None:
-            shape = [self.vector_length, 1, *self.grid.shape]
+            shape = (self.vector_length, 1, *self.grid.shape)
+        elif not isinstance(shape, tuple):
+            shape = tuple(shape)
+
         if dtype is None:
             dtype = self.hardware_dtype
+        elif dtype == np.complex64:
+            dtype = torch.complex64
+        elif dtype in (np.complex128, complex):
+            dtype = torch.complex128
+        elif dtype == np.float32:
+            dtype = torch.float32
+        elif dtype in (np.float64, float):
+            dtype = torch.float64
         arr = torch.empty(shape, dtype=dtype).to(self.__device)
         if fill_value is not None:
             arr[:] = fill_value

@@ -762,7 +762,7 @@ class Solution(object):
         """
         E = self.E[:, np.newaxis, ...]
         H = self.H[:, np.newaxis, ...]
-        poynting_vector = 0.5 * self.__BE.asnumpy(self.__BE.cross(E, np.conj(H))).real
+        poynting_vector = 0.5 * self.__BE.asnumpy(self.__BE.cross(self.__BE.astype(E), self.__BE.conj(H))).real
 
         return poynting_vector[:, 0, ...]
 
@@ -778,8 +778,8 @@ class Solution(object):
         H = self.H  # Can be calculated more efficiently from B and E, though avoiding code-replication for now.
         D = self.D  # Can be calculated more efficiently from H, though avoiding code-replication for now.
 
-        u = np.sum(self.__BE.asnumpy((E * np.conj(D)).real), axis=0)
-        u += np.sum(self.__BE.asnumpy((B * np.conj(H)).real), axis=0)
+        u = np.sum(self.__BE.asnumpy((E * self.__BE.conj(D)).real), axis=0)
+        u += np.sum(self.__BE.asnumpy((B * self.__BE.conj(H)).real), axis=0)
         u *= 0.5 * 0.5  # 0.5 * (E.D' + B.H'), the other 0.5 is because we time-average the products of real functions
 
         return u
@@ -800,9 +800,9 @@ class Solution(object):
         H2 = np.sum(np.abs(H) ** 2, axis=0)
         result += self.__BE.outer(H, H) * const.mu_0
 
-        result -= (0.5 * self.__BE.asnumpy(self.__BE.eye)) * (const.epsilon_0 * E2 + H2 * const.mu_0)
-        result = 0.5 * result  # TODO: Do we want the Abraham or Minkowski form?
         result = self.__BE.asnumpy(result)
+        result -= (0.5 * self.__BE.asnumpy(self.__BE.eye)) * (const.epsilon_0 * E2 + H2 * const.mu_0)
+        result *= 0.5  # TODO: Do we want the Abraham or Minkowski form?
 
         return result.real
 

@@ -44,7 +44,7 @@ import torch
 from torch import nn
 import numpy as np
 import scipy.constants as const
-from typing import Union, Optional, Callable
+from typing import Union
 import matplotlib.pyplot as plt
 import pathlib
 
@@ -61,7 +61,7 @@ array_like = Union[np.ndarray, torch.Tensor]
 
 display_progress = True  # Enable / disable output figures
 
-device = 'cuda' if torch.has_cuda else 'cpu'
+device = 'cuda' if torch.has_cuda and torch.cuda.is_available() else 'cpu'
 dtype = torch.complex128  # complex64  often sufficient
 
 torch.manual_seed(0)  # Fix for reproducibility
@@ -136,7 +136,7 @@ class WaveModuleBase(nn.Module):
         self.__grid = grid
         self.__rel_forward_factor = -k0 / (1j * const.c * const.mu_0)  # The factor converting from the unitless normalized wave equation to Maxwell's equations that translate electric fields to current density.
         self.__k2_rel = None
-        self.weight = torch.nn.Parameter(torch.ones(size=tuple(grid.shape), dtype=dtype))  # To be trained
+        self.weight = torch.nn.Parameter(torch.ones(size=tuple(grid.shape), dtype=dtype).to(device))  # To be trained
 
     @property
     def grid(self) -> Grid:
@@ -197,7 +197,7 @@ class ModifiedWaveModuleBase(WaveModuleBase):
 
         self.__modified_greens_function = DeconvFFTLayer(l_ft_diag + 1)  # G' = (L + 1)^{-1} = (M / scaling_factor - V')^{-1}
         self.__modified_potential = DirectLayer(v_diag - 1)  # V' = V - 1 = (epsilon - epsilon_0) j_from_e / scaling_factor - 1
-        self.__problem_scale = problem_scale.detach().numpy()
+        self.__problem_scale = problem_scale.detach().cpu().item()
 
     @property
     def modified_greens_function_layer(self) -> torch.nn.Module:
@@ -256,7 +256,7 @@ class InverseHelmholtzNet(ModifiedWaveModuleBase):
     """
     def __init__(self, permittivity: array_like, grid: Grid = None, k0: float = 1.0):
         super().__init__(permittivity, grid, k0)
-        self.output = torch.zeros(size=permittivity.shape, dtype=dtype)  # E (from the last step)
+        self.output = torch.zeros(size=permittivity.shape, dtype=dtype).to(device)  # E (from the last step)
         self.update = None  # dE (the last update)
 
     def forward(self, _):  # Input is expected to be 1
@@ -316,7 +316,7 @@ if __name__ == '__main__':
             if isinstance(computed_field, torch.nn.Parameter):
                 computed_field = computed_field.data
             forward.weight.data = computed_field
-            return torch.linalg.norm(forward(1) - source_j) / source_norm
+            return (torch.linalg.norm(forward(1) - source_j) / source_norm).cpu().item()
 
     #
     # Solve by training a neural network
@@ -324,7 +324,7 @@ if __name__ == '__main__':
     log.info('Calculating the electric field by training the preconditioned Helmholtz neural network...')
     preconditioner_inv = PreconditioningNet(permittivity, grid, k0)
     preconditioned_source = preconditioner_inv(source_j)
-    preconditioned_source_ms = torch.mean(torch.abs(preconditioned_source) ** 2)
+    preconditioned_source_ms = torch.mean(torch.abs(preconditioned_source) ** 2).cpu().item()
     preconditioned_forward = PreconditionedHelmholtzNet(permittivity, grid, k0)
 
     # training_model = HelmholtzNet(permittivity, grid, k0)
@@ -352,7 +352,7 @@ if __name__ == '__main__':
         error2 = loss_function(output.real, training_target_output.real) + loss_function(output.imag, training_target_output.imag)
         error2.backward()  # Work backwards through the graph to determine the error gradient directly as a function of the model's parameters
         # Keep intermediate results for reporting
-        prec_training_errors.append((error2.detach().numpy() / preconditioned_source_ms) ** 0.5)
+        prec_training_errors.append((error2.detach().cpu().item() / preconditioned_source_ms) ** 0.5)
         return error2
 
     log.info('Calculating the solution once to maximum precision, so we can track progress...')
@@ -383,24 +383,24 @@ if __name__ == '__main__':
 
             if display_progress or _ % 1000 == 0:
                 # calculate and store the relative errors for display
-                prec_inference_error = torch.linalg.norm(inverse.update) / torch.linalg.norm(inferred_field)
+                prec_inference_error = (torch.linalg.norm(inverse.update) / torch.linalg.norm(inferred_field)).cpu().item()
                 true_output_training_error, true_output_inference_error = (verify_result(_) for _ in (training_model.weight.data, inferred_field))
                 prec_inference_errors.append(prec_inference_error)
                 true_training_errors.append(true_output_training_error)
                 true_inference_errors.append(true_output_inference_error)
                 true_input_training_error = torch.linalg.norm(training_model.weight - reference_solution) / torch.linalg.norm(reference_solution)
                 true_input_inference_error = torch.linalg.norm(inverse.output - reference_solution) / torch.linalg.norm(reference_solution)
-                true_input_training_errors.append(true_input_training_error)
-                true_input_inference_errors.append(true_input_inference_error)
+                true_input_training_errors.append(true_input_training_error.cpu().item())
+                true_input_inference_errors.append(true_input_inference_error.cpu().item())
 
             # Display
             if _ % 1000 == 0:
                 log.info(f'Iteration {_} errors: training {prec_training_errors[-1]:0.12f} (true: {true_input_training_error:0.12f}), inference {prec_inference_error:0.12f} (true: {true_input_inference_error:0.12f}).')
                 if display_progress:
-                    axs[0].imshow(complex2rgb(training_model.weight, normalization=1),
+                    axs[0].imshow(complex2rgb(training_model.weight.cpu().numpy(), normalization=1),
                                   extent=grid2extent(grid) * 1e6)
                     axs[0].set(title=f'{_}: training prec-$\\epsilon_j = {prec_training_errors[-1]:0.6f}$, true-$\\epsilon_E = {true_input_training_error:0.6f}$')
-                    axs[1].imshow(complex2rgb(inferred_field, normalization=1), extent=grid2extent(grid) * 1e6)
+                    axs[1].imshow(complex2rgb(inferred_field.detach().cpu().numpy(), normalization=1), extent=grid2extent(grid) * 1e6)
                     axs[1].set(title=f'{_}: inference prec-$\\epsilon_E = {prec_inference_error:0.6f}$, true-$\\epsilon_E = {true_input_inference_error:0.6f}$')
                     plt.show(block=False)
                     plt.pause(0.001)

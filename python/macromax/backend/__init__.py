@@ -525,8 +525,7 @@ class BackEnd(ABC):
                 result[dim_idx] -= A[other_dims[0]] * B[other_dims[1]]
         return result
 
-    @staticmethod
-    def outer(A: array_like, B: array_like) -> tensor_type:
+    def outer(self, A: array_like, B: array_like) -> tensor_type:
         r"""
         Calculates the Dyadic product of vector arrays A and B.
 
@@ -537,7 +536,7 @@ class BackEnd(ABC):
             containing the dyadic product :math:`A \otimes B` in the first two dimensions and
             the other dimensions remain on the same axes.
         """
-        return A * np.conj(B)[np.newaxis, :, 0]  # transpose the first two axes of B
+        return self.astype(A) * self.conj(B)[np.newaxis, :, 0]  # transpose the first two axes of B
 
     def div(self, field_array: array_like) -> tensor_type:
         """

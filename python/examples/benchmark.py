@@ -33,6 +33,7 @@ def calculate(dtype=np.complex64, magnetic=False, birefringent=False, vectorial=
     data_shape = np.ones(ndim, dtype=int) * 128
     sample_pitch = wavelength / 4
     grid = Grid(data_shape, sample_pitch)
+    log.info(f'Testing a calculation volume of {"x".join(f"{_:0.0f}" for _ in grid.extent / wavelength)} wavelengths...')
 
     # Define source
     source = np.exp(1j * k0 * grid[1])  # propagate along axis 1
@@ -82,7 +83,7 @@ def calculate(dtype=np.complex64, magnetic=False, birefringent=False, vectorial=
 def measure(dtype=np.complex64, magnetic=False, birefringent=False, vectorial=False, ndim=2, nb_trials: int = 10) -> float:
     if magnetic or birefringent:
         vectorial = True
-    log.info(('Vectorial' if vectorial else 'Scalar') + (' and magnetic' if magnetic else '') + (' and birefringent' if birefringent else '') + f' {ndim}D calculation with {dtype.__name__}...')
+    log.info(f'{nb_trials} ' + ('vectorial' if vectorial else 'scalar') + (' and magnetic' if magnetic else '') + (' and birefringent' if birefringent else '') + f' {ndim}D calculations with {dtype.__name__}...')
     iteration_time = min(calculate(dtype=dtype, magnetic=magnetic, birefringent=birefringent, vectorial=vectorial, ndim=ndim) for _ in range(nb_trials))
     log.info(f'Minimum iteration time: {iteration_time * 1000:0.3f} ms.')
     return iteration_time
@@ -95,8 +96,8 @@ if __name__ == '__main__':
 
     log.info(f'MacroMax version {macromax.__version__}')
     #
-    measure(dtype=dtype, magnetic=True, birefringent=True, ndim=ndim, nb_trials=nb_trials)
-    measure(dtype=dtype, magnetic=True, ndim=ndim, nb_trials=nb_trials)
-    measure(dtype=dtype, birefringent=True, ndim=ndim, nb_trials=nb_trials)
-    measure(dtype=dtype, vectorial=True, ndim=ndim, nb_trials=nb_trials)
     measure(dtype=dtype, vectorial=False, ndim=ndim, nb_trials=nb_trials)
+    # measure(dtype=dtype, vectorial=True, ndim=ndim, nb_trials=nb_trials)
+    # measure(dtype=dtype, birefringent=True, ndim=ndim, nb_trials=nb_trials)
+    # measure(dtype=dtype, magnetic=True, ndim=ndim, nb_trials=nb_trials)
+    # measure(dtype=dtype, magnetic=True, birefringent=True, ndim=ndim, nb_trials=nb_trials)
