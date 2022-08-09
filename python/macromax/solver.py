@@ -12,7 +12,7 @@ import logging
 
 from . import backend
 from .utils.ft import Grid
-from macromax.bound import Bound, Electric, Magnetic, PeriodicBound, InfiniBound
+from macromax.bound import Bound, Electric, Magnetic, PeriodicBound
 
 log = logging.getLogger(__name__)
 
@@ -919,7 +919,7 @@ class Solution(object):
 
             # Determine convergence rate
             current_update_norm = self.__BE.norm(d_field)  # ||d||
-                relative_update_norm = current_update_norm / self.__previous_update_norm
+            relative_update_norm = current_update_norm / self.__previous_update_norm
             # log.debug(f'The norm of the field update has changed by a factor {relative_update_norm:0.3f}.')
 
             # Check if the iteration is diverging
