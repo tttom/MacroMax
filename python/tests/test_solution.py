@@ -2,7 +2,7 @@ import unittest
 import numpy.testing as npt
 
 from macromax.solver import Solution, solve
-from macromax.utils.array import Grid
+from macromax.utils.ft import Grid
 from macromax.bound import LinearBound
 import numpy as np
 import scipy.constants as const

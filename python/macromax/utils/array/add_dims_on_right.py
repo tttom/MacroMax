@@ -25,6 +25,5 @@ def add_dims_on_right(arr: array_like, new_axes_on_right: int = 0, ndim: Optiona
         new_axes_on_right = ndim - arr.ndim
     if new_axes_on_right > 0:
         return np.expand_dims(arr, tuple(range(arr.ndim, ndim)))
-        # return arr.reshape(*arr.shape, *([1] * new_axes_on_right))
     else:
         return arr.reshape(arr.shape[:ndim])

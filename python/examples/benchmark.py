@@ -5,9 +5,7 @@ import numpy as np
 import time
 
 import macromax
-import logging
-macromax.log.setLevel(logging.WARNING)  # Suppress MacroMax information logs
-from macromax.utils.array import Grid
+from macromax.utils.ft import Grid
 from macromax.bound import LinearBound
 try:
     from examples import log
@@ -18,7 +16,7 @@ try:
     import multiprocessing
     nb_threads = multiprocessing.cpu_count()
     import os
-    log.info(f'Setting number of threads to use to {nb_threads}.')
+    log.info(f'Setting maximum number of threads to {nb_threads}.')
     for _ in ['OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS']:
         os.environ[_] = str(nb_threads)
     import mkl
@@ -71,11 +69,11 @@ def calculate(dtype=np.complex64, magnetic=False, birefringent=False, vectorial=
     start_time = time.perf_counter()
     solution = macromax.solve(grid, vacuum_wavelength=wavelength, source_distribution=source, bound=bound,
                               epsilon=permittivity, mu=permeability, dtype=dtype,
-                              callback=lambda s: s.iteration < 1000 and s.residue > 1e-5
+                              callback=lambda s: s.iteration < 1000 and s.residue > 1e-6
                               )
     total_time = time.perf_counter() - start_time
 
-    log.debug(f'Total time: {total_time:0.3f} s for {solution.iteration} iterations:' +
+    log.info(f'Total time: {total_time:0.3f} s for {solution.iteration} iterations:' +
              f' ({1000 * total_time / solution.iteration:0.3f} ms) for a residue of {solution.residue:0.6f}.')
 
     return total_time / solution.iteration
@@ -86,17 +84,17 @@ def measure(dtype=np.complex64, magnetic=False, birefringent=False, vectorial=Fa
         vectorial = True
     log.info(('Vectorial' if vectorial else 'Scalar') + (' and magnetic' if magnetic else '') + (' and birefringent' if birefringent else '') + f' {ndim}D calculation with {dtype.__name__}...')
     iteration_time = min(calculate(dtype=dtype, magnetic=magnetic, birefringent=birefringent, vectorial=vectorial, ndim=ndim) for _ in range(nb_trials))
-    log.info(f'Iteration time: {iteration_time * 1000:0.3f} ms.')
+    log.info(f'Minimum iteration time: {iteration_time * 1000:0.3f} ms.')
     return iteration_time
 
 
 if __name__ == '__main__':
     nb_trials = 10
-    ndim = 2  # 3
+    ndim = 3
     dtype = np.complex64  # np.complex128
 
     log.info(f'MacroMax version {macromax.__version__}')
-
+    #
     measure(dtype=dtype, magnetic=True, birefringent=True, ndim=ndim, nb_trials=nb_trials)
     measure(dtype=dtype, magnetic=True, ndim=ndim, nb_trials=nb_trials)
     measure(dtype=dtype, birefringent=True, ndim=ndim, nb_trials=nb_trials)

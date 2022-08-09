@@ -13,18 +13,20 @@ The specific implementation that is used can be:
 """
 import numpy as np
 import scipy.constants as const
-from typing import Callable, Union, Sequence, List, Dict
+from typing import Callable, Union, Sequence, List, Dict, Optional, Type
 from numbers import Complex
 from abc import ABC, abstractmethod
 import json
+import logging
 
-from .. import log
+from macromax.utils.ft import Grid
+from macromax.utils.array import vector_to_axis
 
-from macromax.utils.array import Grid, vector_to_axis
-
+log = logging.getLogger(__name__)
 
 __all__ = ['config', 'load', 'BackEnd', 'array_like', 'tensor_type']
 
+DType = Union[Type[np.float_], Type[np.single]]
 
 __config_list = None
 
@@ -60,7 +62,7 @@ class BackEnd(ABC):
         # Cache some arrays
         self.__longitudinal_projection = None  # scalar array for the calculation of longitudinal_projection_ft
         self.__k = None  # list of vectors returned by self.k
-        self.__k2 = None  # scalar array with k-squared
+        self.__k2 = None  # scalar array with k-squared, repeatedly used in vectorial mode but not in scalar
 
         self.__eye = None
 
@@ -129,7 +131,8 @@ class BackEnd(ABC):
         return np.finfo(self.hardware_dtype).eps
 
     @abstractmethod
-    def allocate_array(self, shape: array_like = None, dtype = None, fill_value: Complex = None) -> tensor_type:
+    def allocate_array(self, shape: array_like = None, dtype: Optional[DType] = None,
+                       fill_value: Optional[Complex] = None) -> tensor_type:
         """
         Allocates a new vector array of shape grid.shape and word-aligned for efficient calculations.
 
@@ -153,10 +156,11 @@ class BackEnd(ABC):
 
         :return: The target array or a newly allocated array with the same values as those in arr.
         """
-        arr = self.to_matrix_field(arr)
-        if np.any(arr.shape[-self.grid.ndim:] != self.grid.shape) \
-                or arr.shape[-self.grid.ndim-2] != 1 + 2 * self.vectorial:
-            arr = np.tile(arr, np.asarray([1 + 2 * self.vectorial, 1, *self.grid.shape]) // arr.shape)
+        arr = self.to_matrix_field(arr)  # TODO potential dtype missmatch
+        if not np.isscalar(arr) and \
+            (np.any(arr.shape[-self.grid.ndim:] != self.grid.shape)
+                    or arr.shape[-self.grid.ndim-2] != 1 + 2 * self.vectorial):
+                arr = np.tile(arr, np.asarray([1 + 2 * self.vectorial, 1, *self.grid.shape]) // arr.shape)
         out = self.assign_exact(arr, out)
         return out
         
@@ -501,8 +505,7 @@ class BackEnd(ABC):
 
         return 1j * curl_field_array_ft
 
-    @staticmethod
-    def cross(A: array_like, B: array_like) -> tensor_type:
+    def cross(self, A: array_like, B: array_like) -> tensor_type:
         """
         Calculates the cross product of vector arrays A and B.
 
@@ -513,7 +516,7 @@ class BackEnd(ABC):
             in the first dimension and the other dimensions remain on the same axes.
         """
         vector_length = A.shape[0]
-        result = np.zeros(A.shape, dtype=A.dtype)
+        result = self.allocate_array(A.shape, dtype=A.dtype)
         for dim_idx in range(vector_length):
             other_dims = (dim_idx + np.array([-1, 1])) % vector_length
             if other_dims[1] < A.shape[0] and other_dims[0] < B.shape[0]:
@@ -534,7 +537,7 @@ class BackEnd(ABC):
             containing the dyadic product :math:`A \otimes B` in the first two dimensions and
             the other dimensions remain on the same axes.
         """
-        return A * B.conjugate()[np.newaxis, :, 0, ...]  # transpose the first two axes of B
+        return A * np.conj(B)[np.newaxis, :, 0]  # transpose the first two axes of B
 
     def div(self, field_array: array_like) -> tensor_type:
         """
@@ -559,7 +562,7 @@ class BackEnd(ABC):
         field_array_ft = self.astype(field_array_ft)
         div_field_array_ft = self.allocate_array(shape=field_array_ft.shape[1:], dtype=self.hardware_dtype, fill_value=0)
         for dim_idx in range(np.minimum(self.grid.ndim, len(field_array_ft.shape))):
-            div_field_array_ft += 1j * self.k[dim_idx] * field_array_ft[dim_idx, :, ...]
+            div_field_array_ft += 1j * self.k[dim_idx] * field_array_ft[dim_idx, :]
 
         return self.expand_dims(div_field_array_ft, 1)
 
@@ -614,7 +617,7 @@ class BackEnd(ABC):
         nb_output_dims = np.maximum(nb_data_dims, nb_input_vector_dims)
         field_array_ft = self.astype(field_array_ft)
 
-        zero_k2 = tuple(0 for _ in range(nb_data_dims))
+        zero_k2 = (0, ) * nb_data_dims
 
         # Store the DC components for later use
         field_dc = [field_array_ft[out_dim_idx, 0][zero_k2] for out_dim_idx in range(nb_data_dims)]
@@ -648,7 +651,7 @@ class BackEnd(ABC):
         :return: A list of the k-vector components along each axis.
         """
         if self.__k is None:
-            self.__k = [self.copy(self.astype(_)) for _ in self.grid.k]
+            self.__k = [self.copy(self.astype(_)) for _ in self.grid.k]  # todo: is the copy needed here?
         return self.__k
 
     @property
@@ -658,9 +661,10 @@ class BackEnd(ABC):
 
         :return: :math:`|k|^2` for the specified sample grid and output shape
         """
-        if self.__k2 is None:
-            self.__k2 = sum(_**2 for _ in self.k)
-        return self.__k2
+        k2 = sum(_**2 for _ in self.k) if self.__k2 is None else self.__k2
+        if self.__k2 is None and self.vectorial:
+            self.__k2 = k2
+        return k2
 
     def mat3_eigh(self, arr: array_like) -> tensor_type:
         """
@@ -708,16 +712,16 @@ class BackEnd(ABC):
         else:
             if matrix_shape[0] == 1:  # Maybe a scalar or diagonal-as-column
                 result = self.copy(arr)
-                result = result[0, ...]
+                result = result[0]
             elif matrix_shape[1] == 1:  # Maybe a scalar or diagonal-as-column
                 result = self.copy(arr)
-                result = result[:, 0, ...]
+                result = result[:, 0]
             else:
                 raise ValueError(f'The vector dimensions of the input array should be of length 1 or 3, not {matrix_shape}.')
 
         return result
 
-    def calc_roots_of_low_order_polynomial(self, C: array_like) -> tensor_type:
+    def calc_roots_of_low_order_polynomial(self, C: array_like) -> np.ndarray:
         """
         Calculates the (complex) roots of polynomials up to order 3 in parallel.
         The coefficients of the polynomials are in the first dimension of C and repeated in the following dimensions,
@@ -788,7 +792,7 @@ class BackEnd(ABC):
             return roots[..., 0]
 
         if nb_terms < 2:
-            X = np.empty(shape=(0, *C[1:]), dtype=C.dtype)
+            X = self.allocate_array(shape=(0, *C[1:]), dtype=C.dtype)
         elif nb_terms == 2:  # linear
             # C[0] + C[1]*X == 0
             C, nb_roots_added = add_roots(C)
@@ -804,7 +808,6 @@ class BackEnd(ABC):
             X = remove_roots(X, nb_roots_added)
         elif nb_terms == 4:  # cubic
             C, nb_roots_added = add_roots(C)
-
             a = C[2] / C[3] / 3
             b = C[1] / C[3]
             c = C[0] / C[3]
@@ -814,7 +817,7 @@ class BackEnd(ABC):
             del b, c
 
             S2 = R**2 - Q**3
-            # complex_root = is_significant(R.imag) | is_significant(Q.imag) | (S2 >= 0)  # TODO: function not available on torch yet with complex
+            # complex_root = is_significant(R.imag) | is_significant(Q.imag) | (S2 >= 0)  # TODO: function not yet available on torch with complex
             complex_root = self.astype(True, dtype=bool)
             not_around_origin = is_significant(Q)  # avoiding division by zero in case the roots are centered around zero
             RQm32 = R ** (1/3) / (not_around_origin * Q ** 0.5 + (~not_around_origin))
@@ -834,8 +837,8 @@ class BackEnd(ABC):
             B = complex_root * (A_significant * B_complex_roots + (~A_significant) * B_complex_roots_origin) \
                 + (~complex_root) * (-AB_all_real_roots)
             complex_triangle = self.astype(vector_to_axis(np.exp(2j * const.pi * np.array([-1, 0, 1]) / 3), 0, output_shape.size))
-            X = A[np.newaxis, ...] * complex_triangle + B[np.newaxis, ...] * self.conj(complex_triangle)
-            X -= a[np.newaxis, ...]
+            X = A[np.newaxis] * complex_triangle + B[np.newaxis] * self.conj(complex_triangle)
+            X -= a[np.newaxis]
 
             X = remove_roots(X, nb_roots_added)
         else:
@@ -869,8 +872,7 @@ class BackEnd(ABC):
 def config(*args: Sequence[Dict], **kwargs: str):
     """
     Configure a specific back-end, overriding the automatic detection.
-    E.g.:
-
+    E.g. use `from macromax import backend` followed by
     - `backend.config(type='numpy')`
     - `backend.config(dict(type='numpy'))`
     - `backend.config(type='torch', device='cpu')`
@@ -938,18 +940,26 @@ def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) ->
             config_list = __config_list
 
     config_list += [{'type': 'torch', 'device': 'cuda'},
-                    {'type': 'tensorflow', 'device': 'tpu'},
-                    {'type': 'tensorflow', 'device': 'gpu'},
+                    # {'type': 'tensorflow', 'device': 'tpu'},
+                    # {'type': 'tensorflow', 'device': 'gpu'},
+                    # {'type': 'opencl_vulkan', 'device': 'gpu'},
                     {'type': 'numpy'}]  # always use numpy as a backup plan
 
     for c in config_list:
         config_type = c.get('type', 'unknown').lower()
         try:
+            device = c.get('device', None)
+            if device is not None:
+                device = device.lower()
             if config_type == 'torch':
                 import torch
-                device = c.get('device', 'cuda').lower()
-                want_cuda = device[:4] == 'cuda'
                 gpu_available = torch.cuda.is_available()
+                if device is not None:
+                    if device.startswith('gpu'):
+                        device = 'cuda' + device[3:]
+                    want_cuda = device.startswith('cuda')
+                else:
+                    want_cuda = False
                 log.info(f'PyTorch version {torch.__version__} ' + ('with' if gpu_available else 'but no') + ' GPU detected.')
                 if want_cuda and not gpu_available:
                     raise ImportError('PyTorch installed but no CUDA GPU found!')
@@ -967,27 +977,31 @@ def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) ->
                     backend = BackEndTorch(nb_pol_dims, grid, dtype, device=device)
                     log.info(f'Using back-end "torch" using device "{device}".')
                 except Exception as re:
-                    log.warning(f'Could not initialize PyTorch with device {device}.')
+                    log.warning(f'Could not initialize PyTorch with {"any device" if device is None else device}: {re}.')
                     raise ImportError(str(re))
             elif config_type == 'tensorflow':
                 try:
-                    device = c.get('device', None)
                     import tensorflow
                     from .tensorflow import BackEndTensorFlow
                     address = c.get('address', None)
                     backend = BackEndTensorFlow(nb_pol_dims, grid, dtype, device=device, address=address)
                     log.info(f'Using back-end "tensorflow" with device {device} on address {address}.')
                 except Exception as re:
-                    log.warning(f'Could not initialize TensorFlow with {device}.')
+                    log.warning(f'Could not initialize TensorFlow with {"any device" if device is None else device}: {re}.')
+                    import traceback
+                    log.warning(traceback.format_exc())
                     raise ImportError(str(re))
+            elif config_type == 'opencl_vulkan':
+                from .opencl_vulkan import BackEndOpenCLVulkan
+                backend = BackEndOpenCLVulkan(nb_pol_dims, grid, dtype)
+                log.info('Using back-end "vulkan".')
             elif config_type == 'numpy':
                 from .numpy import BackEndNumpy
                 backend = BackEndNumpy(nb_pol_dims, grid, dtype)
                 log.info('Using back-end "numpy".')
             else:
-                backend = None
                 raise ImportError(f'Backend config type {config_type} not recognized.')
             return backend
         except ImportError as ie:
-            log.info(f'Backend type "{config_type}" did not load as expected.')
+            log.info(f'Backend type "{config_type}" did not load as expected: {ie}.')
     raise TypeError('No viable backend detected!')

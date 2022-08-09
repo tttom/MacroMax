@@ -2,10 +2,11 @@ import unittest
 import numpy.testing as npt
 
 from macromax.utils.beam import Beam, BeamSection
-from macromax.utils.array import add_dims_on_right, Grid
-from macromax.utils import ft
+from macromax.utils.array import add_dims_on_right
+from macromax.utils import ft, Grid
 
 import numpy as np
+
 
 class TestBeamSection(unittest.TestCase):
     def setUp(self):
@@ -15,7 +16,7 @@ class TestBeamSection(unittest.TestCase):
         self.k0 = self.n0 * 2 * np.pi / self.vacuum_wavelength  # NOT in vacuum
 
         # Section grids of 1 dimension less than the beam volume
-        self.section_grids = [Grid([16, 4], self.vacuum_wavelength / 4, first = [0, 0]),
+        self.section_grids = [Grid([16, 4], self.vacuum_wavelength / 4, first=[0, 0]),
                               Grid([], []),  # 0-dimensional Grid for 1D propagation
                               Grid([256], self.vacuum_wavelength / 16),  # Note the need to specify the shape as a sequence!
                               Grid([256, 64], self.vacuum_wavelength / 16),
@@ -247,9 +248,9 @@ class TestBeam(unittest.TestCase):
         self.k0 = self.n0 * 2 * np.pi / self.vacuum_wavelength  # NOT in vacuum
 
         self.grids = [Grid([8, 16], self.vacuum_wavelength / 16),
-                      Grid([4, 16], self.vacuum_wavelength / 4, first = [0, 0]),
+                      Grid([4, 16], self.vacuum_wavelength / 4, first=[0, 0]),
                       Grid([8, 16, 3], self.vacuum_wavelength / 4),
-                      Grid([8, 16, 3], self.vacuum_wavelength / 4, first = [0, 0, 0]),
+                      Grid([8, 16, 3], self.vacuum_wavelength / 4, first=[0, 0, 0]),
                       Grid([8], self.vacuum_wavelength / 16),  # Note the need to specify it as a sequence, not scalar!
                       Grid(8, [self.vacuum_wavelength / 16, self.vacuum_wavelength / 8]),
                       ]
@@ -268,15 +269,12 @@ class TestBeam(unittest.TestCase):
                     elif prop_axis == -1:
                         polarization = polarization[[2, 1, 0]]
                     field = add_dims_on_right(polarization, 3) * field
-                beam = Beam(grid, vacuum_wavelength = self.vacuum_wavelength, background_permittivity = self.epsilon0,
-                            field = field, propagation_axis=prop_axis)
+                beam = Beam(grid, vacuum_wavelength=self.vacuum_wavelength, background_permittivity=self.epsilon0,
+                            field=field, propagation_axis=prop_axis)
                 propagated_field = beam.field()
-                field = np.asarray(field)
-                while field.ndim < 1 + 3:  # when scalar
-                    field = field[np.newaxis]
                 field = np.broadcast_to(field, [1 + vectorial*2, *([1] * (3 - grid.ndim)), *grid.shape])
                 npt.assert_array_almost_equal(propagated_field,
-                                              field * np.exp(1j * self.k0 * (grid[prop_axis] - grid[prop_axis].ravel()[0])),
+                                              field * np.exp(1j * self.k0 * grid[prop_axis]),
                                               err_msg=f'Propagated field incorrect for {desc}.')
 
     def test_propagation_along_different_axis(self):
@@ -293,14 +291,13 @@ class TestBeam(unittest.TestCase):
                         elif prop_axis == -1:
                             polarization = polarization[[2, 1, 0]]
                         field = add_dims_on_right(polarization, 3) * field
-                    beam = Beam(grid, vacuum_wavelength = self.vacuum_wavelength, background_permittivity = self.epsilon0,
-                                field = field, propagation_axis=prop_axis)
+                    beam = Beam(grid, vacuum_wavelength=self.vacuum_wavelength, background_permittivity=self.epsilon0,
+                                field=field, propagation_axis=prop_axis)
                     propagated_field = beam.field()
-                    field = np.asarray(field)
-                    while field.ndim < 1 + 3:  # for scalar
-                        field = field[np.newaxis]
                     field = np.broadcast_to(field, [1 + vectorial*2, *([1] * (3 - grid.ndim)), *grid.shape])
-                    npt.assert_array_almost_equal(propagated_field, field * np.exp(1j * self.k0 * (grid[prop_axis] - grid[prop_axis].ravel()[0])),
+                    npt.assert_array_almost_equal(np.abs(propagated_field), np.abs(field * np.exp(1j * self.k0 * grid[prop_axis])),
+                                                  err_msg=f'Absolute value of propagated field incorrect for {desc}.')
+                    npt.assert_array_almost_equal(propagated_field, field * np.exp(1j * self.k0 * grid[prop_axis]),
                                                   err_msg=f'Propagated field incorrect for {desc}.')
 
 

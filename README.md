@@ -34,3 +34,14 @@ The convergence rate of MacroMax is approximately inversely proportional to the 
 Please follow the links for further information, source code, and examples:
 * [Python](python)
 * [Matlab](matlab)
+
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/macromax)](https://www.python.org/downloads)
+[![PyPI - License](https://img.shields.io/pypi/l/macromax)](https://opensource.org/licenses/MIT)
+[![PyPI](https://img.shields.io/pypi/v/macromax?label=version&color=808000)](https://github.com/corilim/MacroMax/tree/master/python)
+[![PyPI - Status](https://img.shields.io/pypi/status/macromax)](https://pypi.org/project/macromax/tree/master/python)
+[![PyPI - Wheel](https://img.shields.io/pypi/wheel/macromax?label=python%20wheel)](https://pypi.org/project/macromax/#files)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/macromax)](https://pypi.org/project/macromax/)
+[![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/corilim/MacroMax)](https://github.com/corilim/MacroMax)
+[![GitHub last commit](https://img.shields.io/github/last-commit/corilim/MacroMax)](https://github.com/corilim/MacroMax)
+[![Libraries.io dependency status for latest release](https://img.shields.io/librariesio/release/pypi/macromax)](https://libraries.io/pypi/macromax)
+[![Documentation Status](https://readthedocs.org/projects/macromax/badge/?version=latest)](https://readthedocs.org/projects/macromax)

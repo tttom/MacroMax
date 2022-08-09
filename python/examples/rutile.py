@@ -9,15 +9,17 @@ import time
 import pathlib
 
 import macromax
-from macromax.utils.array import Grid
+from macromax.bound import LinearBound
+from macromax.utils.ft import Grid
 from macromax.utils.display import complex2rgb, grid2extent
 try:
     from examples import log
 except ImportError:
     from macromax import log  # Fallback in case this script is not started as part of the examples package.
+from examples.utils.sphere_packing import pack, pack_and_rasterize, draw_spheres
 
 
-def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
+def calculate_and_display_scattering(vectorial=True, anisotropic=True):
     if not vectorial:
         anisotropic = False
 
@@ -29,7 +31,7 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     #
     scale = 2
     wavelength = 500e-9
-    medium_refractive_index = 1.0  # 1.4758, 2.7114
+    medium_refractive_index = 1.0
     boundary_thickness = 2e-6
     beam_diameter = 1.0e-6 * scale
     layer_thickness = 2.5e-6 * scale
@@ -53,35 +55,16 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
         current_density = current_density * source_polarization
 
     # Place randomly oriented TiO2 particles
+    start_time = time.perf_counter()
     permittivity, orientation, grain_pos, grain_rad, grain_dir = \
-        generate_random_layer(grid, layer_thickness=layer_thickness, grain_mean=1e-6,
-                              grain_std=0.2e-6, normal_dim=1,
-                              birefringent=anisotropic, medium_refractive_index=medium_refractive_index,
-                              scattering_layer=scattering_layer)
+        generate_birefringent_random_layer(grid, layer_thickness=layer_thickness, radius_mean=0.5e-6,
+                                           radius_std=0.1e-6, normal_dim=1,
+                                           birefringent=anisotropic, medium_refractive_index=medium_refractive_index)
+    log.info(f'{time.perf_counter() - start_time:0.6}s to generate layer with {grain_pos.shape[0]} grains.')
 
     if not anisotropic:
         permittivity = permittivity[:1, :1, ...]
     log.info('Sample ready.')
-
-    # for r, pos in zip(grain_rad, grain_pos):
-    #     plot_circle(plt, radius=r*1e6, origin=pos[::-1]*1e6)
-    # epsilon_abs = np.abs(permittivity[0, 0]) - 1
-    # rgb_image = colors.hsv_to_rgb(np.stack((np.mod(direction / (2*np.pi),1), 1+0*direction, epsilon_abs), axis=2))
-    # plt.imshow(rgb_image, zorder=0, extent=grid2extent(grid)*1e6)
-    # plt.axis('equal')
-    # plt.pause(0.01)
-    # plt.show(block=True)
-
-    # Add boundary
-    dist_in_boundary = np.maximum(
-        np.maximum(0.0, -(grid[0] - (grid[0].ravel()[0]+boundary_thickness)))
-        + np.maximum(0.0, grid[0] - (grid[0].ravel()[-1]-boundary_thickness)),
-        np.maximum(0.0, -(grid[1] - (grid[1].ravel()[0]+boundary_thickness)))
-        + np.maximum(0.0, grid[1] - (grid[1].ravel()[-1]-boundary_thickness))
-    )
-    weight_boundary = dist_in_boundary / boundary_thickness
-    for dim_idx in range(permittivity.shape[0]):
-        permittivity[dim_idx, dim_idx, :, :] += -1.0 + (1.0 + 0.5j * weight_boundary)  # boundary
 
     # Prepare the display
     def add_circles_to_axes(axes):
@@ -153,10 +136,14 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
 
         return s.residue > 1e-3 and s.iteration < 1e4
 
-    # The actual work is done here:
+    #
+    # Calculate the field produced by the current density source.
+    # The actual work is done here.
+    #
     start_time = time.perf_counter()
     solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, callback=update_function, dtype=np.complex64
+                              epsilon=permittivity, callback=update_function, dtype=np.complex64,
+                              bound=LinearBound(grid, thickness=boundary_thickness, max_extinction_coefficient=0.5)
                               )
 
     # Display how the method converged
@@ -198,68 +185,58 @@ def show_scatterer(vectorial=True, anisotropic=True, scattering_layer=True):
     return times, residues, forward_poynting_vector
 
 
-def generate_random_layer(grid, layer_thickness, grain_mean, grain_std=0.0, normal_dim=0,
-                          birefringent=True, medium_refractive_index=1.0, scattering_layer=True):
-    rng = np.random.RandomState()
-    rng.seed(0)  # Make sure that this is exactly reproducible
+def generate_birefringent_random_layer(grid, layer_thickness, radius_mean, radius_std=0.0, normal_dim=0,
+                                       birefringent=True, medium_refractive_index=1.0):
+    random_seed = 0
+    rng = np.random.RandomState(seed=random_seed)  # Make sure that this is exactly reproducible
 
     if birefringent:
         log.info('Generating layer of randomly placed, sized and oriented rutile (TiO2) particles...')
     else:
         log.info('Generating layer of randomly placed and sized particles...')
 
-    volume_dims = grid.extent
-    layer_dims = np.array([*volume_dims[:normal_dim], layer_thickness, *volume_dims[normal_dim+1:]])
+    layer_grid = Grid(extent=[*grid.extent[:normal_dim], layer_thickness, *grid.extent[normal_dim+1:]], center_at_index=False)
+    spheres = pack(layer_grid, radius_mean=radius_mean, radius_std=radius_std, seed=random_seed)  # Make sure that this is exactly reproducible
+    grain_radius = np.asarray([_.radius for _ in spheres])
+    grain_position = np.asarray([_.position for _ in spheres])
 
-    # Choose a set of random positions for the nuclei
-    grain_position = np.zeros([0, grid.ndim])
-    grain_radius = np.zeros(0)
-    nb_pos = 0
-    failures = 0
-    max_energy = (grain_mean / 100) ** 2
-
-    def relax(positions, radii, max_iterations=100):
-        relax_idx = 0
-        energy = np.inf
-        while relax_idx < max_iterations and energy > max_energy:
-            relax_idx += 1
-            forces, energy = calc_forces_between_spheres(positions, radii, layer_dims)
-            positions += forces * (1.0 ** (-relax_idx))
-        return energy, positions
-
-    log.debug('Determining random sphere positions and diameters without overlap in the layer...')
-    while failures < 10 and scattering_layer:
-        nb_pos += 1
-        # Insert a new random grain
-        grain_position = np.concatenate((grain_position, rng.uniform(-0.5, 0.5, [1, grid.ndim]) * layer_dims))
-        grain_radius = np.concatenate((grain_radius, rng.normal(grain_mean/2, grain_std/2, 1)))
-
-        energy, grain_position = relax(grain_position, grain_radius)
-
-        if energy > max_energy:
-            grain_position = grain_position[:-2, :]
-            grain_radius = grain_radius[:-2]
-            nb_pos -= 1
-            failures += 1
-            energy, grain_position = relax(grain_position, grain_radius)
-
-    energy, grain_position = relax(grain_position, grain_radius, max_iterations=1000)
-
-    # Pick random crystal axes
+    # If birefringent, pick random crystal axes
     # 1. Generate random rotation matrices
     # 2. Apply diagonal matrices to randomly oriented coordinate system
     # nb_pos = positions.shape[0]
     # nb_dims = positions.shape[1]
-    if birefringent:
-        log.debug('Determining a random rotation per rutile grain...')
+    def conj_transpose(a):
+        return np.conj(a).swapaxes(-2, -1)
+
+    def orth(A):
+        """
+        Orthonormalizes the matrices represented in the array A.
+        The vectors in the final dimension will all have normal length and be orthogonal to those found along
+        the penultimate dimension.
+        :param A: An array of which the matrices in the final two dimensions are to be orthonormalized.
+        :return: A reference to the same array, now orthonormalized.
+        """
+        conj_inner = lambda a, b: np.sum(np.conj(a) * b, axis=-1, keepdims=True)
+        nb_dims = A.shape[-2]
+        for dim_idx in range(nb_dims-1):
+            ref = A[..., dim_idx, np.newaxis, :]
+            rest = A[..., dim_idx+1:, :]
+            projection = ref * (conj_inner(ref, rest) / conj_inner(ref, ref))
+            rest -= projection
+        # Normalize
+        A /= np.linalg.norm(A, axis=-1, keepdims=True)
+
+        return A
+
     nb_pol = 3
-    rot_matrices = orth(rng.normal(0.0, 1.0, [nb_pos, nb_pol, nb_pol]))
+    rot_matrices = orth(rng.normal(0.0, 1.0, [len(spheres), nb_pol, nb_pol]))
     # rot_matrices = np.tile(np.eye(3)[np.newaxis, :, :], [rot_matrices.shape[0], 1, 1])
     # Rutile @500nm:
     medium_permittivity = medium_refractive_index ** 2
     n_o = 2.7114
     n_e = 3.0335
     if birefringent:
+        log.debug('Determining a random rotation per rutile grain...')
         eps_eye = np.diag((n_o, n_o, n_e)) ** 2
     else:
         log.debug('Changing extraordinary propagation speed to the ordinary one.')
@@ -271,7 +248,6 @@ def generate_random_layer(grid, layer_thickness, grain_mean, grain_std=0.0, norm
     log.debug('Rasterizing permittivity tensor...')
     epsilon = np.tile(medium_permittivity * np.eye(nb_pol, dtype=np.complex128)[:, :, np.newaxis, np.newaxis], (1, 1, *grid.shape))
     direction = np.zeros(grid.shape)
-    x_range, y_range = grid
     for pos_idx, pos in enumerate(grain_position):
         R2 = (grid[0] - pos[0]) ** 2 + (grid[1] - pos[1]) ** 2
         inside = np.where(R2 < (grain_radius[pos_idx]**2))
@@ -283,76 +259,12 @@ def generate_random_layer(grid, layer_thickness, grain_mean, grain_std=0.0, norm
     return epsilon, direction, grain_position, grain_radius, grain_direction
 
 
-def calc_forces_between_spheres(positions, radii, volume_dims):
-    nb_pos = positions.shape[0]
-    nb_dims = positions.shape[1]
-    inner_forces = np.zeros([nb_pos, nb_dims])
-    # Add forces between particles
-    for pos_idx in range(nb_pos):
-        pos = positions[pos_idx]
-        vectors = positions - pos
-        distances = np.sqrt(np.sum(vectors ** 2, axis=1))
-        normals = vectors / (distances + (distances == 0))[:, np.newaxis]
-        intersection = np.minimum(0.0, distances - (radii[pos_idx] + radii))
-        # intersection[pos_idx] = 0
-        inner_forces -= normals * intersection[:, np.newaxis]
-    # Add forces from box
-    outer_forces = np.zeros([nb_pos, nb_dims])
-    for dim_idx in range(nb_dims):
-        dist_beyond_border = np.minimum(0.0, positions[:, dim_idx] - radii - -(volume_dims[dim_idx] / 2)) \
-                             + np.maximum(0.0, positions[:, dim_idx] + radii - (volume_dims[dim_idx] / 2))
-        direction = np.zeros(nb_dims)
-        direction[dim_idx] = -1
-        outer_forces += direction * dist_beyond_border[:, np.newaxis]
-
-    forces = inner_forces + outer_forces
-
-    inner_energy = np.sum(inner_forces.flatten() ** 2)
-    outer_energy = np.sum(outer_forces.flatten() ** 2)
-    energy = inner_energy + outer_energy
-
-    return forces, energy
-
-
-def conj_transpose(a):
-    return np.conj(a).swapaxes(-2, -1)
-
-
-def conj_inner(a, b):
-    return np.sum(np.conj(a) * b, axis=-1, keepdims=True)
-
-
-def orth(A):
-    """
-    Orthonormalizes the matrices represented in the array A.
-    The vectors in the final dimension will all have normal length and be orthogonal to those found along
-    the penultimate dimension.
-    :param A: An array of which the matrices in the final two dimensions are to be orthonormalized.
-    :return: A reference to the same array, now orthonormalized.
-    """
-    nb_dims = A.shape[-2]
-    for dim_idx in range(nb_dims-1):
-        ref = A[..., dim_idx, np.newaxis, :]
-        rest = A[..., dim_idx+1:, :]
-        projection = ref * (conj_inner(ref, rest) / conj_inner(ref, ref))
-        rest -= projection
-    # Normalize
-    A /= np.linalg.norm(A, axis=-1, keepdims=True)
-
-    return A
-
-
-def plot_circle(ax, radius=1, origin=(0, 0), nb_segments=40):
-    thetas = 2 * np.pi * np.mod(np.arange(nb_segments+1) / nb_segments, 1.0)
-    return ax.plot(origin[0] + radius * np.cos(thetas), origin[1] + radius * np.sin(thetas))
-
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     start_time = time.perf_counter()
-    # times, residues, forward_poynting_vector = show_scatterer(vectorial=False)  # calc time small 2.9s, large: 23.5s (320 MB)
-    # times, residues, forward_poynting_vector = show_scatterer(anisotropic=False)  # calc time small 11.2s, large: 96.1 (480MB)
-    times, residues, forward_poynting_vector = show_scatterer(anisotropic=True, scattering_layer=True)  # calc time small 55.9s, large: 198.8s (740MB)
-    log.info("Total time: %0.3fs." % (time.perf_counter() - start_time))
+    # times, residues, forward_poynting_vector = calculate_and_display_scattering(vectorial=False)  # calc time small 2.9s, large: 23.5s (320 MB)
+    times, residues, forward_poynting_vector = calculate_and_display_scattering(anisotropic=False)  # calc time small 11.2s, large: 96.1 (480MB)
+    # times, residues, forward_poynting_vector = calculate_and_display_scattering(anisotropic=True)  # calc time small 55.9s, large: 198.8s (740MB)
+    log.info(f'Total time: {time.perf_counter() - start_time:0.3f}s.')
 
     # Display how the method converged
     fig_summary, axs_summary = plt.subplots(1, 2, frameon=False, figsize=(12, 9))

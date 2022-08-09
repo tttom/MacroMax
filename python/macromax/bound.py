@@ -7,10 +7,17 @@ It is sufficient to leave some space for the boundaries.
 from __future__ import annotations
 
 import numpy as np
-from typing import Union, Sequence, Callable
+import scipy.constants as const
+from typing import Union, Sequence, Callable, Optional
 from numbers import Complex, Real
+import logging
 
-from .utils.array import Grid
+from .utils import ft
+from .utils.ft import Grid
+from .utils.array import vector_to_axis
+from .utils.beam import BeamSection
+
+log = logging.getLogger(__name__)
 
 
 class Electric:
@@ -149,7 +156,6 @@ class AbsorbingBound(Bound, Electric):
 
     @property
     def is_electric(self) -> bool:
-        """True when this boundary affects the permittivity, extinction coefficient, or complex refractive index."""
         return True
 
     @property

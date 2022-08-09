@@ -6,10 +6,12 @@ import tensorflow as tf
 # from tensorflow.python.ops.numpy_ops import np_config
 # np_config.enable_numpy_behavior()
 import os
+import logging
 
-from macromax.utils.array import Grid
-from .. import log
+from macromax.utils.ft import Grid
 from .__init__ import BackEnd, array_like
+
+log = logging.getLogger(__name__)
 
 tensor_type = tf.Tensor
 array_like = Union[array_like, tensor_type]
@@ -43,7 +45,12 @@ class BackEndTensorFlow(BackEnd):
         if device is None or device.lower() == 'tpu':
             if address is None:
                 if 'COLAB_TPU_ADDR' in os.environ:
-                    address = 'grpc://' + os.environ['COLAB_TPU_ADDR']
+                    env_tpu_addr = os.environ['COLAB_TPU_ADDR']
+                    log.info('COLAB_TPU_ADDR:')
+                    log.info(env_tpu_addr)
+                    if not isinstance(env_tpu_addr, str):
+                       env_tpu_addr = env_tpu_addr[0]
+                    address = 'grpc://' + env_tpu_addr
                 else:
                     log.debug('No TPU address specified. Should be of the form grpc://IP:port')
 
@@ -58,15 +65,15 @@ class BackEndTensorFlow(BackEnd):
                 tpus = tf.config.list_logical_devices('TPU')
                 _tpu_cache[address if address is not None else 'None'] = tpus  # cache
             if len(tpus) > 0:
-                log.info('Found TPU devices: ' + tpus)
+                log.info(f'Found TPU devices: {tpus}')
             else:
                 log.info('No TPU found.')
                 if device is not None:
                     raise ValueError('No TPU found!')
         if device is None or device.lower() == 'gpu':
-            gpus = tf.config.list_physical_devices("GPU")
+            gpus = tf.config.list_physical_devices('GPU')
             if len(gpus) > 0:
-                log.info('Found GPU devices: ' + gpus)
+                log.info(f'Found GPU devices: {gpus}')
             else:
                 log.info('No GPUs found.')
                 if device is not None:
@@ -116,7 +123,7 @@ class BackEndTensorFlow(BackEnd):
         return arr
 
     def asnumpy(self, arr: array_like) -> np.ndarray:
-        if not isinstance(arr, np.ndarray):
+        if isinstance(arr, tensor_type):
             arr = arr.numpy()  #tf.make_ndarray(tf.make_tensor_proto(arr))  # todo: not working yet!
         return arr
 
@@ -127,8 +134,9 @@ class BackEndTensorFlow(BackEnd):
         out = self.assign_exact(arr, out)
         return out
 
-    def assign_exact(self, arr, out) -> tensor_type:
-        out = tf.raw_ops.Copy(input=self.astype(arr))  # TODO: Is this even needed for TensorFlow? Or better use Assign?
+    def assign_exact(self, arr, out: tensor_type) -> tensor_type:
+        out = tf.identity(arr)
+        # out = tf.raw_ops.Copy(input=self.astype(arr))  # TODO: Is this even needed for TensorFlow? Or better use Assign?
         return out
 
     def allocate_array(self, shape: array_like = None, dtype=None, fill_value: Complex = None) -> tensor_type:
@@ -178,11 +186,11 @@ class BackEndTensorFlow(BackEnd):
 
     def allclose(self, arr: array_like, other: array_like = 0.0) -> bool:
         """Returns True if all elements in arr are close to other."""
-        return tf.reduce_all(tf.abs(arr - self.astype(other)) < 2 * self.eps)
+        return self.asnumpy(tf.reduce_all(tf.abs(arr - self.astype(other)) < self.eps**0.5)).ravel()[0]
 
     def amax(self, arr):
         """Returns the maximum of the flattened array."""
-        return tf.reduce_max(self.astype(arr, dtype=float))
+        return self.asnumpy(tf.reduce_max(self.astype(arr, dtype=float)))
 
     def sort(self, arr: array_like) -> tensor_type:
         """Sorts array elements along the first (left-most) axis."""
@@ -221,7 +229,7 @@ class BackEndTensorFlow(BackEnd):
             arr = tf.signal.ifft(arr)
         return arr
 
-    # @tf.function
+    @tf.function
     def convolve(self, operation_ft: Callable[[array_like], array_like], arr: array_like) -> tensor_type:
         return super().convolve(operation_ft=operation_ft, arr=arr)
 
@@ -330,7 +338,7 @@ class BackEndTensorFlow(BackEnd):
             return self.astype(result)
 
     def norm(self, arr: array_like) -> float:
-        return float(tf.linalg.norm(arr))
+        return float(tf.math.real(tf.linalg.norm(arr)))
 
     def longitudinal_projection_ft(self, field_array_ft: array_like) -> np.ndarray:
         """

@@ -1,8 +1,9 @@
 import numpy as np
+import logging
 
-from .. import log
-from macromax.utils.array import Grid
+from macromax.utils.ft import Grid
 
+log = logging.getLogger(__name__)
 
 def grid2extent(*args, origin_lower: bool = False):
     """

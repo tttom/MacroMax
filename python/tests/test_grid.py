@@ -1,7 +1,7 @@
 import unittest
 import numpy.testing as npt
 
-from macromax.utils.array import Grid, MutableGrid
+from macromax.utils.ft import Grid, MutableGrid
 
 import numpy as np
 

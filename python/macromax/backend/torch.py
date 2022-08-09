@@ -4,10 +4,12 @@ from typing import Union
 from numbers import Complex
 import torch
 import torch.fft as ft
+import logging
 
-from macromax.utils.array import Grid
-from .. import log
+from macromax.utils.ft import Grid
 from .__init__ import BackEnd, array_like
+
+log = logging.getLogger(__name__)
 
 tensor_type = torch.Tensor
 array_like = Union[array_like, tensor_type]
@@ -46,8 +48,7 @@ class BackEndTorch(BackEnd):
         self.__device = torch.device(device)
 
         if device == 'cuda':
-            # Check whether CUDA actually works
-            try:
+            try:  # Check whether CUDA actually works
                 arr = self.allocate_array()
                 self.subtract(arr, arr)
                 del arr
@@ -79,11 +80,11 @@ class BackEndTorch(BackEnd):
             dtype = self.hardware_dtype
         elif dtype == np.complex64:
             dtype = torch.complex64
-        elif dtype in [np.complex128, np.complex, complex]:
+        elif dtype in [np.complex128, complex]:
             dtype = torch.complex128
         elif dtype == np.float32:
             dtype = torch.float32
-        elif dtype in [np.float64, np.float, float]:
+        elif dtype in [np.float64, float]:
             dtype = torch.float64
         if not isinstance(arr, torch.Tensor):
             arr = torch.tensor(arr, dtype=dtype, device=self.__device)
@@ -94,7 +95,7 @@ class BackEndTorch(BackEnd):
     def asnumpy(self, arr: array_like) -> np.ndarray:
         if not isinstance(arr, np.ndarray):
             arr = arr.to(device='cpu')
-            arr = np.asarray(arr)
+            arr = arr.resolve_conj().numpy()
         return arr
 
     def assign(self, arr, out) -> tensor_type:
@@ -117,6 +118,8 @@ class BackEndTorch(BackEnd):
         arr = torch.empty(shape, dtype=dtype).to(self.__device)
         if fill_value is not None:
             arr[:] = fill_value
+        # import traceback
+        # log.info(f'Allocating array of shape {shape} and dtype {dtype} with fill value {fill_value} ({np.prod(arr.size()) * arr.element_size() / 1024**3:0.1f}GB)\nat{traceback.format_stack()[-2]}.')
         return arr
 
     def copy(self, arr: array_like) -> tensor_type:
@@ -155,7 +158,7 @@ class BackEndTorch(BackEnd):
 
     def amax(self, arr):
         """Returns the maximum of the flattened array."""
-        return torch.amax(self.astype(arr, dtype=float))
+        return torch.amax(self.astype(arr, dtype=float)).item()
 
     def sort(self, arr: array_like) -> tensor_type:
         """Sorts array elements along the first (left-most) axis."""
@@ -276,5 +279,25 @@ class BackEndTorch(BackEnd):
             result = Y.transpose(old_order)
             return self.astype(result)
 
+    # def mat3_eigh(self, arr: array_like) -> tensor_type:
+    #     """
+    #     Calculates the eigenvalues of the 3x3 matrices represented by A and returns a new array of 3-vectors,
+    #     one for each matrix in A and of the same dimensions, baring the second dimension. When the first two
+    #     dimensions are 3x1 or 1x3, a diagonal matrix is assumed. When the first two dimensions are singletons (1x1),
+    #     a constant diagonal matrix is assumed and only one eigenvalue is returned.
+    #     Returns an array of one dimension less: 3 x data_shape.
+    #     With the exception of the first dimension, the shape is maintained.
+    #
+    #     :param arr: The set of 3x3 input matrices for which the eigenvalues are requested.
+    #               This must be an ndarray with the first two dimensions of size 3.
+    #     :return: The set of eigenvalue-triples contained in an ndarray with its first dimension of size 3,
+    #              and the remaining dimensions equal to all but the first two input dimensions.
+    #     """
+    #     arr = self.astype(arr)
+    #     arr = arr.permute(*(2 + np.arange(self.grid.ndim)), 0, 1)
+    #     result = torch.linalg.eigvalsh(arr)  # gets eigenvalues for matrices in the right-most axes
+    #     result = result.permute(-1, *np.arange(self.grid.ndim))
+    #     return result
+
     def norm(self, arr: array_like) -> float:
-        return float(torch.norm(torch.view_as_real(arr)))
+        return float(torch.linalg.norm(torch.view_as_real(arr)))

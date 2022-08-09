@@ -6,15 +6,16 @@ except ImportError:
     formatter_class = logging.Formatter
 
 # create logger
-log = logging.getLogger('MacroMaxExamples')
+log = logging.getLogger(__name__)
+log.propagate = False
 log.setLevel(logging.INFO)
 
 # create formatter and add it to the handlers
 log_format = '%(asctime)s|%(name)s-%(levelname)s: %(message)s'
 
 # Clear all previously added handlers
-for h in log.handlers:
-    log.removeHandler(h)
+if log.hasHandlers():
+    log.handlers.clear()
 
 # create console handler
 ch = logging.StreamHandler()

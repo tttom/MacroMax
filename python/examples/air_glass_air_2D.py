@@ -9,7 +9,7 @@ import time
 import pathlib
 
 import macromax
-from macromax.utils.array import Grid
+from macromax.utils.ft import Grid
 from macromax.utils.display import complex2rgb, grid2extent
 from macromax.bound import LinearBound
 try:
@@ -18,7 +18,7 @@ except ImportError:
     from macromax import log  # Fallback in case this script is not started as part of the examples package.
 
 
-def show_plate(vectorial=True):
+def calculate_and_display(vectorial=True):
     output_path = pathlib.Path('output').absolute()
     output_filepath = pathlib.PurePath(output_path, 'air_glass_air_2D')
 
@@ -52,14 +52,14 @@ def show_plate(vectorial=True):
     # define the plate
     refractive_index = 1 + (plate_refractive_index - 1) * np.ones(grid[1].shape) * (np.abs(grid[0]) < plate_thickness/2)
 
-    # Set the boundary conditions
+    # Set the numerical boundary conditions
     bound = LinearBound(grid, thickness=boundary_thickness, max_extinction_coefficient=0.25)
 
     # Prepare the display
     fig, axs = plt.subplots(1 + vectorial, 2, frameon=False, figsize=(12, 9), sharex='all', sharey='all')
     for ax in axs.ravel():
-        ax.set_xlabel('y [$\mu$m]')
-        ax.set_ylabel('x [$\mu$m]')
+        ax.set_xlabel('y [$\\mu$m]')
+        ax.set_ylabel('x [$\\mu$m]')
         ax.set_aspect('equal')
         rectangle = plt.Rectangle(np.array((grid[1].ravel()[0], -plate_thickness / 2))*1e6,
                                   (grid.extent[1])*1e6, plate_thickness*1e6,
@@ -145,10 +145,10 @@ def show_plate(vectorial=True):
     return times, residues
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     start_time = time.perf_counter()
-    times, residues = show_plate(vectorial=True)
-    log.info("Total time: %0.3fs." % (time.perf_counter() - start_time))
+    times, residues = calculate_and_display(vectorial=True)
+    log.info(f'Total time: {time.perf_counter() - start_time:0.3f}s.')
 
     # Display how the method converged
     fig_summary, axs_summary = plt.subplots(1, 2, frameon=False, figsize=(12, 9))

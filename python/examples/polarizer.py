@@ -122,9 +122,9 @@ def show_polarizer(center_polarizer=True):
     plt.show()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     start_time = time.perf_counter()
     show_polarizer(center_polarizer=False)
     show_polarizer(center_polarizer=True)
-    log.debug("Total time: %0.3fs." % (time.perf_counter() - start_time))
+    log.debug(f'Total time: {time.perf_counter() - start_time:0.3f}s.')
     plt.show(block=True)

@@ -57,8 +57,8 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     energy_line = ax[0].plot(x_range * 1e6, x_range * 0, color=[0, 1, 1])[0]
     real_line = ax[0].plot(x_range * 1e6, x_range * 0, color=[0, 0.7, 0])[0]
     imag_line = ax[0].plot(x_range * 1e6, x_range * 0, color=[1, 0, 0])[0]
-    ax[0].set_xlabel("x  [$\mu$m]")
-    ax[0].set_ylabel("E, S  [a.u.]")
+    ax[0].set_xlabel('x  [$\\mu$m]')
+    ax[0].set_ylabel('E, S  [a.u.]')
     ax[0].set_xlim(x_range[[0, -1]] * 1e6)
 
     ax[1].plot(x_range[-1] * 2e6, 0, color=[0, 0, 0], label='|E|')
@@ -115,7 +115,7 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     # The actual work is done here:
     start_time = time.perf_counter()
     solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, mu=permeability, bound=bound, callback=update_function, dtype=np.complex64
+                              refractive_index=permittivity**0.5, mu=permeability, bound=bound, callback=update_function, dtype=np.complex64
                               )
     log.info("Calculation time: %0.3fs." % (time.perf_counter() - start_time))
 
@@ -149,8 +149,8 @@ def bandpass_and_remove_gain(v, dims, ranges, periods):
     return v
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     start_time = time.perf_counter()
     show_air_glass_transition(impedance_matched=False, birefringent=False)
-    log.info("Total time: %0.3fs." % (time.perf_counter() - start_time))
+    log.info(f'Total time: {time.perf_counter() - start_time:0.3f}s.')
     plt.show(block=True)

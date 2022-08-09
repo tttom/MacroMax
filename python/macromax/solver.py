@@ -8,17 +8,19 @@ import scipy.constants as const
 import scipy.optimize
 from typing import Union, Sequence, Callable, Optional
 from numbers import Real, Complex
+import logging
 
-from . import log
 from . import backend
-from .utils.array import Grid
-from macromax.bound import Bound, Electric, Magnetic, PeriodicBound
+from .utils.ft import Grid
+from macromax.bound import Bound, Electric, Magnetic, PeriodicBound, InfiniBound
+
+log = logging.getLogger(__name__)
 
 array_like = Union[Complex, Sequence, np.ndarray]
 
 
 def solve(grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = None,
-          wavenumber: Optional[Real] = None, angular_frequency: Optional[Real] = None, vacuum_wavelength: Optional[Real] = None,
+          wavenumber: Optional[Real] = 1.0, angular_frequency: Optional[Real] = None, vacuum_wavelength: Optional[Real] = None,
           current_density: array_like = None, source_distribution: array_like = None,
           epsilon: array_like = None, xi: array_like = 0.0, zeta: array_like = 0.0, mu: array_like = 1.0,
           refractive_index: array_like = None,
@@ -76,7 +78,7 @@ def solve(grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = N
 
 class Solution(object):
     def __init__(self, grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = None,
-                 wavenumber: Optional[Real] = None, angular_frequency: Optional[Real] = None, vacuum_wavelength: Optional[Real] = None,
+                 wavenumber: Optional[Real] = 1.0, angular_frequency: Optional[Real] = None, vacuum_wavelength: Optional[Real] = None,
                  current_density: array_like = None, source_distribution: array_like = None,
                  epsilon: array_like = None, xi: array_like = 0.0, zeta: array_like = 0.0, mu: array_like = 1.0,
                  refractive_index: array_like = None,
@@ -130,20 +132,17 @@ class Solution(object):
 
         self.__grid = grid.immutable
 
-        if wavenumber is not None:
-            self.__wavenumber = wavenumber
-            if angular_frequency is not None or vacuum_wavelength is not None:
-                log.debug(f'Using specified wavenumber = {self.__wavenumber}, ignoring angular_frequency and vacuum_wavelength.')
-        elif angular_frequency is not None:
+        if angular_frequency is not None:
             self.__wavenumber = angular_frequency / const.c
             if vacuum_wavelength is not None:
                 log.debug(f'Using specified angular_frequency = {angular_frequency}, ignoring vacuum_wavelength.')
         elif vacuum_wavelength is not None:
             self.__wavenumber = 2 * const.pi / vacuum_wavelength
+            log.debug(f'Using vacuum_wavelength = {vacuum_wavelength}.')
         else:
-            message = 'Error: no wavenumber, angular frequency, nor wavelength specified.'
-            log.critical(message)
-            raise Exception(message)
+            self.__wavenumber = wavenumber
+            if angular_frequency is not None or vacuum_wavelength is not None:
+                log.debug(f'Using specified wavenumber = {self.__wavenumber}, ignoring angular_frequency and vacuum_wavelength.')
 
         self.__previous_update_norm = np.inf
 
@@ -160,16 +159,12 @@ class Solution(object):
         # Determine the source distribution, either directly, or from current_density (assuming this is a an EM problem)
         if source_distribution is None:
             if current_density is None:
-                current_density = 0.0
-            current_density = func2arr(current_density)
-            source_distribution = -1j * const.c * self.wavenumber * const.mu_0 * current_density  # [ V m^-3 ]
-        else:
-            source_distribution = func2arr(source_distribution)
-
-        # Create an object to handle our parallel operations
-        if source_distribution.ndim > grid.ndim and source_distribution.shape[0] == 3:
-            nb_pol_dims = 3
-            log.debug('Doing a vectorial calculation...')
+                if vectorial is None:
+                    vectorial = True
+                current_density = np.zeros((1 + 2*vectorial, *self.grid.shape),
+                                           dtype=dtype if dtype is not None else np.complex128)
+            current_density = np.asarray(func2arr(current_density))
+            source_distribution = current_density * (-1j * self.angular_frequency * const.mu_0)  # [ V m^-3 ]
         else:
             source_distribution = np.asarray(func2arr(source_distribution))
 
@@ -202,7 +197,7 @@ class Solution(object):
 
         # Allocate the working memory
         self.__field_array = self.__BE.allocate_array()
-        self.__d_field = self.__BE.allocate_array() if self.__BE.vectorial else self.__BE.array_ft_input
+        self.__d_field = self.__BE.array_ft_input
 
         # The following requires the self.__PO to be defined
         self.E = initial_field
@@ -274,7 +269,6 @@ class Solution(object):
             - self.__alpha
             - self.__chi_op
             - self.__green_function_op
-            - self.__forward_op_on_field
         """
         log.debug('Preparing pre-conditioner: determining alpha and beta...')
 
@@ -288,32 +282,31 @@ class Solution(object):
         self.__magnetic = not(self.__BE.allclose(xi) and self.__BE.allclose(zeta)
                               and self.__BE.allclose(mu, self.__BE.first(mu)))
         if self.magnetic:
-            log.debug('Medium has magnetic properties.')
+            log.debug('Material has magnetic properties.')
         else:
-            log.debug('Medium has no magnetic properties. Using faster permittivity-only solver.')
+            log.debug('Material has no magnetic properties. Using faster permittivity-only solver.')
 
-        def largest_eigenvalue(a):  # todo: relatively slow operation during initialization
+        def largest_eigenvalue(a):  # todo: relatively slow operation during startup
             return self.__BE.amax(self.__BE.abs(self.__BE.mat3_eigh(a)))
 
         def largest_singularvalue(a):
             return (largest_eigenvalue(self.__BE.mul(self.__BE.adjoint(a), a))) ** 0.5
 
         # Do a quick check to see if the the media has no gain
+        max_allowed_gain = np.sqrt(self.__BE.eps)
         def has_gain(a):
             return self.__BE.any(
-                self.__BE.real(self.__BE.mat3_eigh(-0.5j * (a - self.__BE.adjoint(a)))) < - 2 * self.__BE.eps
+                self.__BE.real(self.__BE.mat3_eigh(-0.5j * (a - self.__BE.adjoint(a)))) < - max_allowed_gain
             )
 
         if has_gain(epsilon) or has_gain(xi) or has_gain(zeta) or has_gain(mu):
             def max_gain(a):
                 return self.__BE.amax(-self.__BE.real(self.__BE.mat3_eigh(-0.5j * (a - self.__BE.adjoint(a)))))
-            log.warning("Convergence not guaranteed!\n"
-                        "Permittivity has a gain as large as %0.3g, xi up to %0.3g, zeta up to %0.3g,"
-                        " and the permeability up to %0.3g." %
-                        (max_gain(epsilon), max_gain(xi), max_gain(zeta), max_gain(mu))
-                        )
+            log.warning(f'Convergence not guaranteed!\n'
+                        f'Permittivity has a gain as large as {max_gain(epsilon):0.3g}, xi up to { max_gain(xi):0.3g}, zeta up to {max_gain(zeta):0.3g},'
+                        f' and the permeability up to {max_gain(mu):0.3g}. All are expected to be less than {max_allowed_gain:0.3g}.')
         else:
-            log.debug('Media has no gain, safe to proceed.')
+            log.debug('Material has no gain, safe to proceed.')
 
         # determine alpha and beta for the given media
         # Determine mu^-2
@@ -347,7 +340,7 @@ class Solution(object):
         chiEH_beta = -1.0j * self.__BE.mul(xi, mu_inv)
         chiHE_beta = 1.0j * self.__BE.mul(mu_inv, zeta)
 
-        # zeta is needed for conversion from E to H
+        # zeta needed for conversion from E to H
         xi_mu_inv_zeta = self.__BE.mul(xi, -1.0j * chiHE_beta)
         del xi
         epsilon_xi_mu_inv_zeta = self.__BE.subtract(epsilon, xi_mu_inv_zeta)
@@ -464,7 +457,6 @@ class Solution(object):
             - self.__alpha
             - self.__chi_op
             - self.__green_function_op
-            - self.__forward_op_on_field
         """
         # Rescale the source
         self.__source_normalized *= self.__alpha.imag / alpha.imag
@@ -516,8 +508,8 @@ class Solution(object):
 
         # Now create the Green function operator
         # Pre-calculate the convolution filter
-        scalar_offset_laplacian_ft = self.__BE.k2 - self.__alpha
-        g_scalar_ft = -1.0j * self.__alpha.imag / scalar_offset_laplacian_ft
+        g_scalar_ft = -1.0j * self.__alpha.imag / (self.__BE.k2 - self.__alpha)
+
         if self.__BE.vectorial:
             def g_ft_op(FFt):  # Overwrites input argument! No need to represent the full matrix in memory
                 PiL_FFt = self.__BE.longitudinal_projection_ft(FFt)  # Creates K^2 on-the-fly and still memory intensive
@@ -538,26 +530,6 @@ class Solution(object):
         self.__chi_op = chi_op
         # Set the Green function
         self.__green_function_op = dyadic_green_function_op
-
-        if self.__BE.vectorial:
-            def offset_laplacian_ft_op(FFt):  # No need to represent the full matrix in memory
-                PiL_FFt = self.__BE.longitudinal_projection_ft(FFt)  # Creates K^2 on-the-fly and still memory intensive
-                result = self.__BE.subtract(FFt, PiL_FFt)
-                result *= scalar_offset_laplacian_ft
-                result -= PiL_FFt * self.__alpha
-                return result
-        else:
-            def offset_laplacian_ft_op(FFt):
-                FFt *= scalar_offset_laplacian_ft
-                return FFt
-
-        def forward_op_on_field():
-            result = self.__BE.copy(self.__field_array)
-            result = self.__BE.convolve(offset_laplacian_ft_op, result)  # offset_laplacian_ft_op(FFt) is memory intensive
-            result -= chi_op(result)
-            return result  # Back to spatial coordinates
-
-        self.__forward_op_on_field = forward_op_on_field
 
     def __increase_bias_to_limit_kernel_width(self, alpha, max_kernel_field_residue=0.001):
         """
@@ -916,7 +888,7 @@ class Solution(object):
                 if self.__previous_update_norm > 0 else 0
 
         return float(self.__residue)
-    
+
     def __iter__(self):
         """
         Returns an iterator that on __next__() yields this Solution after updating it with one cycle of the algorithm.
@@ -947,7 +919,7 @@ class Solution(object):
 
             # Determine convergence rate
             current_update_norm = self.__BE.norm(d_field)  # ||d||
-            relative_update_norm = current_update_norm / self.__previous_update_norm
+                relative_update_norm = current_update_norm / self.__previous_update_norm
             # log.debug(f'The norm of the field update has changed by a factor {relative_update_norm:0.3f}.')
 
             # Check if the iteration is diverging
@@ -958,7 +930,7 @@ class Solution(object):
                 self.__previous_update_norm = current_update_norm
                 # log.debug(f'Updated field in iteration {self.iteration}.')
             else:
-                log.warning(f'The field update is scaled by {relative_update_norm:0.3f} >= 1 in iteration {self.iteration}, rescaling problem...')
+                log.warning(f'The field update is scaled by {relative_update_norm:0.3f} >= 1 in iteration {self.iteration}.')
                 alpha_imag_current = self.__alpha.imag
                 alpha_new = self.__alpha.real + 1.50j * self.__alpha.imag
                 log.info(f'Increasing the imaginary part of alpha from {alpha_imag_current:0.3g} to {alpha_new.imag:0.3g}.')

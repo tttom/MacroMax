@@ -3,7 +3,7 @@ import numpy as np
 import numpy.testing as npt
 
 from macromax.bound import Electric, Magnetic, LinearBound, PeriodicBound
-from macromax.utils.array import Grid
+from macromax.utils.ft import Grid
 
 
 class TestBound(unittest.TestCase):

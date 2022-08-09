@@ -2,9 +2,10 @@ import unittest
 import numpy.testing as npt
 
 import numpy as np
+import scipy.sparse.linalg as sla
 
-from macromax.utils.array import Grid
 from macromax.utils import ft
+from macromax.utils.ft import Grid
 from macromax.bound import LinearBound
 from macromax import matrix
 
@@ -27,7 +28,6 @@ class TestMatrix(unittest.TestCase):
             thickness = np.zeros([grid.ndim, 1])
             thickness[0, 0] = 20 * self.wavelength  # Periodic boundaries in transverse
             bound = LinearBound(grid, thickness=thickness, max_extinction_coefficient=0.25)
-            # bound = InfiniBound(grid, thickness=thickness)  # TODO: try with a grid of shape [256, 7]
             self.bounds.append(bound)
 
     def test_srcvec2freespace(self):
@@ -82,7 +82,7 @@ class TestMatrix(unittest.TestCase):
                                                *(radial_mode_pol * k_vector_dir[0])])
                         expected_at_origin = amplitude * (radial_pol + azimuthal_pol)
                     else:
-                        expected_at_origin = amplitude
+                        expected_at_origin = amplitude   # TODO / k_vector_dir[0]
                     # Compensate for angle of incidence. The field vector corresponds to the longitudinal propagation,
                     # if the field propagates transversally it must have a larger amplitude to compensate.
                     expected_at_origin /= np.sqrt(k_vector_dir[0])
@@ -122,7 +122,7 @@ class TestMatrix(unittest.TestCase):
                     npt.assert_array_almost_equal(field_from_source[:, source_indices], freespace_fld[:, source_indices],
                                                   err_msg=f'Plane wave source at angle {dir_idx} different from free space plane wave distribution for {desc} {grid}.')
 
-    def test_srcvec2det_field(self):
+    def test_srcvec2detfield(self):
         for vectorial in (False, True):
             desc = ('vectorial' if vectorial else 'scalar') + ' free space plane wave distribution'
             for grid, bound in zip(self.grids, self.bounds):
@@ -137,7 +137,7 @@ class TestMatrix(unittest.TestCase):
                     input_vector = np.zeros(m.shape[1], dtype=np.complex128)
                     input_vector[_] = 1 + 1j
                     freespace_fld = m.srcvec2freespace(input_vector)
-                    fld = m.srcvec2det_field(input_vector)
+                    fld = m.srcvec2detfield(input_vector)
 
                     if vectorial:
                         for pol_axis in range(3):
@@ -151,7 +151,7 @@ class TestMatrix(unittest.TestCase):
                     npt.assert_array_almost_equal(fld[:, freespace_indices], freespace_fld[:, freespace_indices], decimal=2,
                                                   err_msg=f'Calculated plane wave field at angle {_} different from {desc} for {grid}.')
 
-    def test_det_field2detvec(self):
+    def test_detfield2detvec(self):
         for vectorial in (False, True):
             desc = 'vectorial' if vectorial else 'scalar'
             for grid, bound in zip(self.grids, self.bounds):
@@ -175,7 +175,7 @@ class TestMatrix(unittest.TestCase):
                         outward_fld = outward_fld + freespace_fld * output_mask
 
                     # Determine the vector for the output field
-                    output_vector = m.det_field2detvec(outward_fld)
+                    output_vector = m.detfield2detvec(outward_fld)
                     npt.assert_array_almost_equal(np.linalg.norm(output_vector), np.linalg.norm(input_vector), decimal=8,
                                                   err_msg=f'Norm of output vector not as expected for input vector at angle {angle_idx} for {desc} {grid}.')
                     npt.assert_array_almost_equal(np.abs(output_vector), np.abs(input_vector), decimal=8,
@@ -199,7 +199,7 @@ class TestMatrix(unittest.TestCase):
                     for _ in grid:
                         polarization = polarization[..., np.newaxis]
                     emanating_fld = polarization * emanating_fld
-                    detvec = m.det_field2detvec(emanating_fld * side_mask)  # Describe as detection vector
+                    detvec = m.detfield2detvec(emanating_fld * side_mask)  # Describe as detection vector
                     srcvec = m.detvec2srcvec(detvec)  # Convert to source vector
                     reversed_fld = m.srcvec2freespace(srcvec)  # Converted field
                     # Compare
@@ -262,9 +262,9 @@ class TestMatrix(unittest.TestCase):
                 npt.assert_almost_equal(singular_values, 1.0, decimal=2,
                                         err_msg=f'Thin film scattering matrix is not unitary for {desc} {grid}.')
 
+                # Generate a random scattering refractive index, including transverse
                 # Test if a random sample without absorption acts as a unitary scatterer
-                # Generate a random scattering refractive index
-                rng = np.random.RandomState(seed=1)
+                rng = np.random.Generator(np.random.PCG64(seed=1))
                 layer_shape = grid.shape
                 layer_shape[0] = 8*self.wavelength // grid.step[0]
                 # # Random noise
@@ -273,7 +273,7 @@ class TestMatrix(unittest.TestCase):
                 # Random spheres
                 material_n = np.zeros(grid.shape, dtype=bool)
                 while np.mean(material_n) < 0.75:
-                    center = rng.rand(grid.ndim) * grid.extent + grid.first
+                    center = rng.random(grid.ndim) * grid.extent + grid.first
                     radius = rng.uniform(0.75, 1.5) * self.wavelength / 2
                     sphere = sum((x - c)**2 for x, c in zip(grid, center)) <= radius ** 2
                     material_n = np.logical_or(material_n, sphere)
@@ -284,27 +284,95 @@ class TestMatrix(unittest.TestCase):
                 m = matrix.ScatteringMatrix(grid, vectorial=vectorial, vacuum_wavelength=self.wavelength, refractive_index=n, bound=bound)
                 base_vector_lengths = np.sqrt(np.sum(np.abs(m)**2, axis=0))
                 npt.assert_almost_equal(base_vector_lengths, 1.0, decimal=2,
-                                        err_msg=f'Random scattering matrix does not have unit columns {desc} {grid}.')
+                                        err_msg=f'Random scattering matrix does not have unit columns for {desc} {grid}.')
                 u, singular_values, vt = np.linalg.svd(m)
                 npt.assert_almost_equal(singular_values, 1.0, decimal=2,
                                         err_msg=f'Random scattering matrix is not unitary for {desc} {grid}.')
 
-                # # check if open transmission channels
-                # transmission_matrix = m.forward_transmission
-                # _, transmission_singular_values, vt = np.linalg.svd(transmission_matrix)
-                # closed_channel_idx = np.argmin(transmission_singular_values)
-                # closed_channel_in = np.concatenate([vt[closed_channel_idx].conj(), np.zeros(vt.shape[0])])
-                # closed_channel_out = m @ closed_channel_in
-                # closed_channel_out[closed_channel_out.size//2:] = 0  # ignore back reflected
-                # open_channel_idx = np.argmax(transmission_singular_values)
-                # open_channel_in = np.concatenate([vt[open_channel_idx].conj(), np.zeros(vt.shape[0])])
-                # open_channel_out = m @ open_channel_in
-                # open_channel_out[open_channel_out.size//2:] = 0  # ignore back reflected
-                # print(f'closed channel theory {transmission_singular_values[closed_channel_idx]:0.6f}, actual {np.linalg.norm(closed_channel_out):0.6f}  for {desc} on {grid.shape} (n_avg {np.mean(n.ravel()):0.6f}).')
-                # print(f'  open channel theory {transmission_singular_values[open_channel_idx]:0.6f}, actual {np.linalg.norm(open_channel_out):0.6f}  for {desc} on {grid.shape} (n_avg {np.mean(n.ravel()):0.6f}).')
+    def test_transmission_and_reflection_quadrants(self):
+        for vectorial in (False, True):
+            for grid, bound in zip(self.grids, self.bounds):
+                desc = ('vectorial' if vectorial else 'scalar') + '-' + str(grid.shape)
+                # Test if a thin film with multiple layers acts as a unitary scatterer
+                n = np.ones(grid.shape)
+                n[grid.shape[0]//2 - 11] = 1.5
+                n[grid.shape[0]//2 - 10] = 1.5
+                n[grid.shape[0]//2 - 9] = 1.5
+                n[grid.shape[0]//2 - 8] = 1.5
+                n[grid.shape[0]//2 - 1] = 1.5
+                n[grid.shape[0]//2] = 1.5
+                n[grid.shape[0]//2 + 2] = 1.5
+                m = matrix.ScatteringMatrix(grid, vectorial=vectorial, vacuum_wavelength=self.wavelength, refractive_index=n, bound=bound)
+                print(f'Calculating scattering matrix for {desc} and its transmission and reflection quadrants...')
+                m_ft = m.forward_transmission
+                m_fr = m.front_reflection
+                m_br = m.back_reflection
+                m_bt = m.backward_transmission
+                npt.assert_array_equal(m, np.vstack([np.hstack([m_ft, m_br]), np.hstack([m_fr, m_bt])]), err_msg='The Quadrant matrices do not combine to the scattering matrix of a thin film.')
+                print(f'Calculating inverse problem with the forward transmission matrix for {desc}...')
+                target_vec = np.zeros(m_ft.shape[0], dtype=complex)
+                target_mode_index = 0
+                target_vec[target_mode_index] = 0.5 + 0.5j
+                source_vec  = matrix.inv(m_ft, 1e-6) @ target_vec  # relatively slow for small problems like this
+                npt.assert_array_almost_equal(m_ft @ source_vec, target_vec, err_msg='Solving the inverse problem on the forward transmission matrix did not work as expected for a thin film.')
+
+                # Generate a random scattering refractive index, including transverse
+                # Test if a random sample without absorption acts as a unitary scatterer
+                rng = np.random.Generator(np.random.PCG64(seed=1))
+                layer_shape = grid.shape
+                layer_shape[0] = 8 * self.wavelength // grid.step[0]
+                # # Random noise
+                # material_n = np.ones(grid.shape)
+                # material_n[grid.shape[0]//2 + np.arange(layer_shape[0]) - layer_shape[0]//2] = rng.uniform(1.0, 1.5, layer_shape)
+                # Random spheres
+                material_n = np.zeros(grid.shape, dtype=bool)
+                while np.mean(material_n) < 0.75:
+                    center = rng.random(grid.ndim) * grid.extent + grid.first
+                    radius = rng.uniform(0.75, 1.5) * self.wavelength / 2
+                    sphere = sum((x - c)**2 for x, c in zip(grid, center)) <= radius ** 2
+                    material_n = np.logical_or(material_n, sphere)
+                material_n = 1 + 0.5 * material_n
+                n = np.ones(grid.shape)  # set background refractive index to 1
+                n[grid.shape[0]//2 + np.arange(layer_shape[0]) - layer_shape[0]//2] = material_n[grid.shape[0]//2 + np.arange(layer_shape[0]) - layer_shape[0]//2]
+                m = matrix.ScatteringMatrix(grid, vectorial=vectorial, vacuum_wavelength=self.wavelength, refractive_index=n, bound=bound)
+                print(f'Calculating a random scattering matrix for {desc} and its transmission and reflection quadrants...')
+                m_ft = m.forward_transmission
+                m_fr = m.front_reflection
+                m_br = m.back_reflection
+                m_bt = m.backward_transmission
+                npt.assert_array_equal(m, np.vstack([np.hstack([m_ft, m_br]), np.hstack([m_fr, m_bt])]),
+                                       err_msg=f'{desc}: The Quadrant matrices do not combine to the scattering matrix of a random scatterer.')
+                print(f'Calculating inverse problem with a random forward transmission matrix for {desc}...')
+                target_vec = np.zeros(m_ft.shape[0])
+                target_vec[target_mode_index] = 1.0
+                source_vec = matrix.inv(m_ft, 1e-6) @ target_vec
+                # source_vec, info  = sla.cgs(m_ft, target_vec, atol=1e-9, maxiter=2*m_ft.shape[1])  # relatively slow for small problems like this
+                # if info != 0:
+                #     if info > 0:
+                #         print(f'scipy.sparse.linalg.cgs did not converge in {info} iterations.')
+                #     else:
+                #         print(f'scipy.sparse.linalg.cgs exited with error {info}.')
+                npt.assert_array_almost_equal(m_ft @ source_vec, target_vec, decimal=3,
+                                              err_msg=f'{desc}: Solving the inverse problem on the forward transmission matrix did not work as expected for a random scatterer.')
+                print(f'Calculating the maximally transparent eigenchannel of a random forward transmission matrix for {desc}...')
+                eigenvalues, eigenvectors = np.linalg.eig(m_ft)
+                eigenvalue, eigenvector = sorted(zip(eigenvalues, eigenvectors.transpose()), key=lambda _: np.abs(_[0]))[-1]  # Pick the one with the highest transmission for testing
+                npt.assert_array_almost_equal(m_ft @ eigenvector, eigenvalue * eigenvector, decimal=3,
+                                        err_msg=f'{desc}: Eigentransmission transparency test failed.')
+                # Perfect open and closed channels do not exist for small systems!
+                # # u, s, vh = np.linalg.svd(m_ft)
+                # u, s, vh = sla.svds(m_ft, k=1, ncv=None, tol=1e-6, which='SM', v0=None, maxiter=100)
+                # closed_channel_vec = vh.transpose().conj()[:, -1]
+                # npt.assert_almost_equal(np.linalg.norm(m_ft @ closed_channel_vec), 0.0, decimal=1,
+                #                         err_msg=f'{desc}: Transmission of closed channel is greater than 0.')
+                # # u, s, vh = np.linalg.svd(m_ft)
+                # u, s, vh = sla.svds(m_ft, k=1, ncv=None, tol=1e-6, which='LM', v0=None, maxiter=100)
+                # open_channel_vec = vh.transpose().conj()[:, 0]
+                # npt.assert_almost_equal(np.linalg.norm(m_ft @ open_channel_vec), 1.0, decimal=1,
+                #                         err_msg=f'{desc}: Transmission of open channel is not close to 1.')
 
     #
-    # Tests of scattering <-> transfer matrix conversion functionality
+    # Tests of scattering <=> transfer matrix conversion functionality
     #
 
     def test_convert_scalar(self):
@@ -367,4 +435,47 @@ class TestMatrix(unittest.TestCase):
         s3 = matrix.convert(matrix.convert(s, noise_level=1e-3), noise_level=1e-3)
         npt.assert_array_almost_equal(s3, s, err_msg='Regularization did not work for repeated conversion.')
 
+    def test_deposition_matrix(self):
+        for vectorial in (False, True):
+            desc = 'vectorial' if vectorial else 'scalar'
+            for grid, bound in zip(self.grids, self.bounds):
+                s = matrix.ScatteringMatrix(grid, vectorial=vectorial, vacuum_wavelength=self.wavelength, refractive_index=1, bound=bound)
 
+                dep_mat_default = matrix.DepositionMatrix(s)
+                npt.assert_equal(dep_mat_default.dtype, s.dtype,
+                                 err_msg=f'{desc}: The dtype of the DepositionMatrix ({dep_mat_default.dtype}) does not equal that of the wrapped ScatteringMatrix ({s.dtype}).')
+                npt.assert_array_equal(dep_mat_default.shape, s.shape,
+                                       err_msg=f'{desc}: The shape of the DepositionMatrix should be {dep_mat_default.shape}, not {dep_mat_default.shape}.')
+                test_vec = dep_mat_default @ np.ones(dep_mat_default.shape[1])
+                npt.assert_array_equal(test_vec.shape, (s.shape[0], ))
+                test_vec = dep_mat_default @ np.ones([dep_mat_default.shape[1], 1])
+                npt.assert_array_equal(test_vec.shape, (s.shape[0], 1))
+                test_mat = dep_mat_default @ np.ones([dep_mat_default.shape[1], 2])
+                npt.assert_array_equal(test_mat.shape, (s.shape[0], 2))
+                test_mat = dep_mat_default @ np.eye(dep_mat_default.shape[0])
+                npt.assert_array_equal(test_mat.shape, s.shape)
+
+                def select_center(fld: np.ndarray) -> np.ndarray:
+                    selection = fld.reshape([1 + 2 * vectorial, *s.grid.shape])
+                    while selection.ndim > 0:
+                        selection = selection[selection.shape[0]//2]
+                    return selection
+                dep_mat_1 = matrix.DepositionMatrix(s, output_operator=select_center)
+                npt.assert_equal(dep_mat_1.dtype, s.dtype,
+                                 err_msg=f'{desc}: The dtype of the DepositionMatrix ({dep_mat_1.dtype}) does not equal that of the wrapped ScatteringMatrix ({s.dtype}).')
+                npt.assert_array_equal(dep_mat_1.shape, (1, s.shape[1]),
+                                       err_msg=f'{desc}: The shape of the DepositionMatrix should be {(1, s.shape[1])}, not {dep_mat_1.shape}.')
+
+                def select_pair(fld: np.ndarray) -> np.ndarray:
+                    return np.asarray([fld[0], fld[-1]])
+                dep_mat_pair = matrix.DepositionMatrix(s, output_operator=select_pair)
+                npt.assert_equal(dep_mat_pair.dtype, s.dtype,
+                                 err_msg=f'{desc}: The dtype of the DepositionMatrix ({dep_mat_pair.dtype}) does not equal that of the wrapped ScatteringMatrix ({s.dtype}).')
+                npt.assert_array_equal(dep_mat_pair.shape, (2, s.shape[1]),
+                                       err_msg=f'{desc}: The shape of the DepositionMatrix should be {(2, s.shape[1])}, not {dep_mat_pair.shape}.')
+
+                dep_mat_all = matrix.DepositionMatrix(s, output_operator=lambda _: _)
+                npt.assert_equal(dep_mat_all.dtype, s.dtype,
+                                 err_msg=f'{desc}: The dtype of the DepositionMatrix ({dep_mat_all.dtype}) does not equal that of the wrapped ScatteringMatrix ({s.dtype}).')
+                npt.assert_array_equal(dep_mat_all.shape, ((1 + 2 * vectorial) * s.grid.size, s.shape[1]),
+                                       err_msg=f'{desc}: The shape of the DepositionMatrix should be {(s.grid.size, s.shape[1])}, not {dep_mat_all.shape}.')

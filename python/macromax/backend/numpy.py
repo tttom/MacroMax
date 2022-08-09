@@ -2,12 +2,12 @@
 import numpy as np
 from typing import Union
 from numbers import Complex
-
-from .. import log
+import logging
 
 from macromax.utils import ft
-from macromax.utils.array import Grid
 from macromax.backend.__init__ import BackEnd, array_like
+
+log = logging.getLogger(__name__)
 
 array_like = Union[array_like, np.ndarray]
 
@@ -18,7 +18,7 @@ class BackEndNumpy(BackEnd):
     where the first two dimensions are those of the matrix, and the final dimensions are the coordinates over
     which the operations are parallelized and the Fourier transforms are applied.
     """
-    def __init__(self, nb_dims: int, grid: Grid, hardware_dtype = np.complex128):
+    def __init__(self, nb_dims: int, grid: ft.Grid, hardware_dtype = np.complex128):
         """
         Construct object to handle parallel operations on square matrices of nb_rows x nb_rows elements.
         The matrices refer to points in space on a uniform plaid grid.
@@ -102,13 +102,15 @@ class BackEndNumpy(BackEnd):
         arr = self.__empty_word_aligned(shape, dtype=dtype)
         if fill_value is not None:
             arr[:] = fill_value
-        #log.debug(f'Allocating array of shape {shape} and dtype {dtype} with fill value {fill_value}.')
+        # import traceback
+        # log.info(f'Allocating array of shape {shape} and dtype {dtype} with fill value {fill_value} ({arr.nbytes / 1024**3:0.1f}GB)\nat{traceback.format_stack()[-2]}.')
+        # log.info(''.join(traceback.format_stack()[:-1]))
         return arr
 
     def ft(self, arr: array_like) -> np.ndarray:
         """
         Calculates the discrete Fourier transform over the spatial dimensions of E.
-        The computational complexity is that of a Fast Fourier Transform: ``O(N\log(N))``.
+        The computational complexity is that of a Fast Fourier Transform: ``O(N\\log(N))``.
 
         :param arr: An ndarray representing a vector field.
 
@@ -119,7 +121,7 @@ class BackEndNumpy(BackEnd):
     def ift(self, arr: array_like) -> np.ndarray:
         """
         Calculates the inverse Fourier transform over the spatial dimensions of E.
-        The computational complexity is that of a Fast Fourier Transform: ``O(N\log(N))``.
+        The computational complexity is that of a Fast Fourier Transform: ``O(N\\log(N))``.
         The scaling is so that ``E == self.ift(self.ft(E))``
 
         :param arr: An ndarray representing a Fourier-transformed vector field.
@@ -129,7 +131,7 @@ class BackEndNumpy(BackEnd):
         return self.__ift(arr)  # Defined in __init__ depending on imports
 
     def ldivide(self, denominator: array_like, numerator: array_like = 1.0) -> np.ndarray:
-        """
+        r"""
         Parallel matrix left division, A^{-1}B, on the final two dimensions of A and B
         result_lm = A_kl \ B_km
 
