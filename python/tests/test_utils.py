@@ -46,7 +46,7 @@ class TestSolution(unittest.TestCase):
 
         # Check saturation
         rgb = complex2rgb(10.0 * c)
-        npt.assert_almost_equal(rgb, res, err_msg='Saturated values are not as expected.')
+        npt.assert_almost_equal(rgb, np.ones_like(res), err_msg='Saturated values are not as expected.')
 
         # Check intensity scaling
         rgb = complex2rgb(0.5 * c)

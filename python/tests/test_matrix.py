@@ -230,7 +230,7 @@ class TestMatrix(unittest.TestCase):
                 expected = np.eye(*m.shape)
                 vec = np.zeros(m.shape[1])
                 det_field = m.srcvec2detfield(vec)
-                detvec = m.det_field2detvec(det_field)
+                detvec = m.detfield2detvec(det_field)
                 npt.assert_array_almost_equal(np.abs(m), expected, decimal=2,
                                               err_msg=f'Absolute value of empty space {desc} scattering matrix not correct for {grid}.')
                 npt.assert_array_almost_equal(m, expected, decimal=2,
