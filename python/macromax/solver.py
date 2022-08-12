@@ -11,7 +11,7 @@ from numbers import Real, Complex
 import logging
 
 from . import backend
-from .utils.ft import Grid
+from macromax.utils.ft.grid import Grid
 from macromax.bound import Bound, Electric, Magnetic, PeriodicBound
 
 log = logging.getLogger(__name__)
@@ -778,8 +778,8 @@ class Solution(object):
         H = self.H  # Can be calculated more efficiently from B and E, though avoiding code-replication for now.
         D = self.D  # Can be calculated more efficiently from H, though avoiding code-replication for now.
 
-        u = np.sum(self.__BE.asnumpy((E * self.__BE.conj(D)).real), axis=0)
-        u += np.sum(self.__BE.asnumpy((B * self.__BE.conj(H)).real), axis=0)
+        u = np.sum(self.__BE.asnumpy((self.__BE.astype(E) * self.__BE.conj(D)).real), axis=0)
+        u += np.sum(self.__BE.asnumpy((self.__BE.astype(B) * self.__BE.conj(H)).real), axis=0)
         u *= 0.5 * 0.5  # 0.5 * (E.D' + B.H'), the other 0.5 is because we time-average the products of real functions
 
         return u

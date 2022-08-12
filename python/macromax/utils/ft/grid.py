@@ -4,7 +4,7 @@ from typing import Union, Sequence
 import numpy as np
 
 from macromax.utils.array.vector_to_axis import vector_to_axis
-from macromax.utils import ft
+from numpy.fft import ifftshift
 
 
 class Grid(Sequence):
@@ -472,7 +472,7 @@ class Grid(Sequence):
                 rng = rng * st
             rng = rng + c
             if not self._origin_at_center[axis]:
-                rng = ft.ifftshift(rng)
+                rng = ifftshift(rng)
             if not self.flat[axis]:
                 rng = vector_to_axis(rng, axis=axis, ndim=self.ndim)
 

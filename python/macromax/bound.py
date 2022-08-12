@@ -7,15 +7,11 @@ It is sufficient to leave some space for the boundaries.
 from __future__ import annotations
 
 import numpy as np
-import scipy.constants as const
-from typing import Union, Sequence, Callable, Optional
+from typing import Union, Sequence, Callable
 from numbers import Complex, Real
 import logging
 
-from .utils import ft
-from .utils.ft import Grid
-from .utils.array import vector_to_axis
-from .utils.beam import BeamSection
+from macromax.utils.ft.grid import Grid
 
 log = logging.getLogger(__name__)
 

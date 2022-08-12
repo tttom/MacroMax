@@ -9,7 +9,7 @@ import logging
 
 from . import Solution
 from .utils import ft
-from .utils.ft import Grid
+from macromax.utils.ft.grid import Grid
 from macromax.bound import Bound, PeriodicBound
 
 log = logging.getLogger(__name__)

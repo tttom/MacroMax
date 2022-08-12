@@ -117,7 +117,7 @@ class TestMatrix(unittest.TestCase):
                     # Correct for tilted wavefront with respect to source plane
                     forward_fraction = np.sqrt(np.maximum(1.0 - sum((grid.k[_]/self.k0)**2 for _ in range(1, grid.ndim)), 0.0))
                     source2field = 1j * grid.step[0] / (2 * self.k0 * forward_fraction + np.isclose(forward_fraction, 0.0))
-                    field_from_source = ft.ifftn(ft.fftn(src, axes=1+np.arange(grid.ndim)) * source2field, axes=1+np.arange(grid.ndim))
+                    field_from_source = ft.ifftn(ft.fftn(src, axes=1 + np.arange(grid.ndim)) * source2field, axes=1 + np.arange(grid.ndim))
 
                     npt.assert_array_almost_equal(field_from_source[:, source_indices], freespace_fld[:, source_indices],
                                                   err_msg=f'Plane wave source at angle {dir_idx} different from free space plane wave distribution for {desc} {grid}.')

@@ -57,7 +57,7 @@ except IOError:
 # Import in main name space
 from .solver import solve, Solution
 from .matrix import ScatteringMatrix
-from .utils.ft import Grid
+from .utils.ft.grid import Grid
 import macromax.backend
 
 __version__ = '0.1.6'

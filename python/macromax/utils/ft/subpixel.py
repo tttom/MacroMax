@@ -7,8 +7,8 @@ Optics Letters. 33, 156-158 (2008).
 import numpy as np
 from typing import Union, Sequence, Optional
 
-from . import ft
-from .grid import Grid
+from . import ft_implementation as ft
+from macromax.utils.ft.grid import Grid
 
 
 __all__ = ['register', 'roll', 'roll_ft', 'Registration', 'Reference']

@@ -1,6 +1,6 @@
 # Version History
 
-## Version 0.1.6
+## Version 0.2.0
 * Implemented the ScatteringMatrix class, which allows calculation of scattering, reflection,and transmission
   matrices for any material for which the MacroMax solver can calculate the electro-magnetic field. 
 * Added TensorFlow back-end, allowing access to, for instance, Google Colab's Tensor Processing Units.

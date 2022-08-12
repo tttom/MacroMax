@@ -7,7 +7,7 @@ import functools
 from inspect import signature
 
 from . import ft
-from .ft import Grid
+from macromax.utils.ft.grid import Grid
 
 
 __all__ = ['Beam', 'BeamSection']

@@ -3,7 +3,8 @@ import numpy.testing as npt
 
 from macromax.utils.beam import Beam, BeamSection
 from macromax.utils.array import add_dims_on_right
-from macromax.utils import ft, Grid
+from macromax.utils import ft
+from macromax.utils.ft import Grid
 
 import numpy as np
 
