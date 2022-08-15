@@ -11,7 +11,8 @@ oscillating current-density distribution.
 The method iteratively corrects an estimated solution for the electric field (default: all zero). Its memory 
 requirements are on the order of the storage requirements for the material properties and the electric field within the 
 calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript 
-["Calculating coherent light-wave propagation in large heterogeneous media."](https://doi.org/10.1364/OE.27.011946)
+["Calculating coherent light-wave propagation in large heterogeneous media"](https://doi.org/10.1364/OE.27.011946). 
+Automatic leveraging of detected GPU/Cloud is implemented using Pytorch (for further details [follow this link](https://arxiv.org/abs/2208.01118)).
 
 Examples of usage can be found in [the examples/ sub-folder](examples). The [Complete MacroMax Documentation](https://macromax.readthedocs.io) 
 can be found at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
@@ -64,9 +65,9 @@ conda install -c intel intelpython
 ````
 
 NVidia CUDA-enabled GPU can be leveraged to offer an even more significant boost in efficiency. This can be as simple as installing the appropriate [CUDA drivers](https://www.nvidia.co.uk/Download/index.aspx?lang=en-uk) and the PyTorch module following the [PyTorch Guide](https://pytorch.org/).
-Note that for PyTorch to work correctly, Nvidia drivers need to be up to date and match the installed CUDA version, e.g. for CUDA 11.0 you could install PyTorch as follows: 
+Note that for PyTorch to work correctly, Nvidia drivers need to be up to date and match the installed CUDA version. At the time of writing, for CUDA version 11.6, PyTorch can be installed as follows using pip: 
 ````sh
-pip install torch===1.7.0+cu110 -f https://download.pytorch.org/whl/torch_stable.html
+pip install torch --extra-index-url https://download.pytorch.org/whl/cu116
 ````
 Specifics for your CUDA version and operating system are listed on [PyTorch Guide](https://pytorch.org/).
 
