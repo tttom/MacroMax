@@ -3,18 +3,18 @@
 ## Introduction
 This Python 3 package enables solving the macroscopic Maxwell equations in complex dielectric materials.
 
-The material properties are defined on a rectangular grid (1D, 2D, or 3D) for which each voxel defines an isotropic or 
-anisotropic permittivity. Optionally, a heterogeneous (anisotropic) permeability as well as bi-anisotropic coupling 
-factors may be specified (e.g. for chiral media). The source, such as an incident laser field, is specified as an 
+The material properties are defined on a rectangular grid (1D, 2D, or 3D) for which each voxel defines an isotropic or
+anisotropic permittivity. Optionally, a heterogeneous (anisotropic) permeability as well as bi-anisotropic coupling
+factors may be specified (e.g. for chiral media). The source, such as an incident laser field, is specified as an
 oscillating current-density distribution.
 
-The method iteratively corrects an estimated solution for the electric field (default: all zero). Its memory 
-requirements are on the order of the storage requirements for the material properties and the electric field within the 
-calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript 
-["Calculating coherent light-wave propagation in large heterogeneous media"](https://doi.org/10.1364/OE.27.011946). 
-Automatic leveraging of detected GPU/Cloud is implemented using Pytorch (for further details [follow this link](https://arxiv.org/abs/2208.01118)).
+The method iteratively corrects an estimated solution for the electric field (default: all zero). Its memory
+requirements are on the order of the storage requirements for the material properties and the electric field within the
+calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript
+["Calculating coherent light-wave propagation in large heterogeneous media"](https://doi.org/10.1364/OE.27.011946).
+Automatic leveraging of detected GPU/Cloud is implemented using PyTorch (for further details [follow this link](https://arxiv.org/abs/2208.01118)).
 
-Examples of usage can be found in [the examples/ sub-folder](examples). The [Complete MacroMax Documentation](https://macromax.readthedocs.io) 
+Examples of usage can be found in [the examples/ sub-folder](examples). The [Complete MacroMax Documentation](https://macromax.readthedocs.io)
 can be found at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
 All [source code](https://github.com/corilim/MacroMax) is available on [GitHub](https://github.com/corilim/MacroMax) under the
 **[MIT License](https://opensource.org/licenses/MIT): [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)**
@@ -43,7 +43,7 @@ other formats. This is only necessary for software development.
 The code has been tested on Python 3.7 and 3.8, though it is expected to work on versions 3.6 and above.
 
 ### Installing
-Installing the ````macromax```` package and its mandatory dependencies is as straightforward as running the following command in a terminal: 
+Installing the ````macromax```` package and its mandatory dependencies is as straightforward as running the following command in a terminal:
 ````sh
 pip install macromax
 ````
@@ -51,7 +51,7 @@ While this is sufficient to get started, optional packages are useful to display
 
 #### Optimizing execution speed
 The calculation time can be reduced to a fraction by ensuring you have the fastest libraries installed for your system.
-Python packages for multi-core CPUs and the FFTW library can be installed with: 
+Python packages for multi-core CPUs and the FFTW library can be installed with:
 ````sh
 pip install macromax multiprocessing pyFFTW
 ````
@@ -65,7 +65,7 @@ conda install -c intel intelpython
 ````
 
 NVidia CUDA-enabled GPU can be leveraged to offer an even more significant boost in efficiency. This can be as simple as installing the appropriate [CUDA drivers](https://www.nvidia.co.uk/Download/index.aspx?lang=en-uk) and the PyTorch module following the [PyTorch Guide](https://pytorch.org/).
-Note that for PyTorch to work correctly, Nvidia drivers need to be up to date and match the installed CUDA version. At the time of writing, for CUDA version 11.6, PyTorch can be installed as follows using pip: 
+Note that for PyTorch to work correctly, Nvidia drivers need to be up to date and match the installed CUDA version. At the time of writing, for CUDA version 11.6, PyTorch can be installed as follows using pip:
 ````sh
 pip install torch --extra-index-url https://download.pytorch.org/whl/cu116
 ````
@@ -83,7 +83,7 @@ to choose PyTorch with a CUDA GPU if available, and NumPy as a back-up option. T
 
 #### Additional packages
 The package comes with a submodule containing example code that should run as-is on most desktop installations of Python.
-Some systems may require the installation of the ubiquitous ````matplotlib```` graphics library: 
+Some systems may require the installation of the ubiquitous ````matplotlib```` graphics library:
 ````sh
 pip install matplotlib
 ````
@@ -143,7 +143,7 @@ x_range = 50e-9 * np.arange(1000)
 ```
 
 Ranges for multiple dimensions can be passed to ````solve(...)```` as a tuple of ranges:
-````ranges = (x_range, y_range)````, or the convenience object `Grid` in 
+````ranges = (x_range, y_range)````, or the convenience object `Grid` in
 the `macromax.utils.array` sub-package. The latter can be used as follows:
 
 ```python
@@ -158,7 +158,7 @@ unless specified otherwise.
 #### Defining the material property distributions
 The material properties are defined by ndarrays of 2+N dimensions, where N can be up to 3 for three-dimensional samples. In each sample point, or voxel, a complex 3x3 matrix defines the anisotropy at that point in the sample volume. The first two dimensions of the ndarray are used to store the 3x3 matrix, the following dimensions are the spatial indices x, y, and z. Four complex ndarrays can be specified: ````epsilon````, ````mu````, ````xi````, and ````zeta````. These ndarrays represent the permittivity, permeability, and the two coupling factors, respectively.
 
-When the first two dimensions of a property are found to be both a singleton, i.e. 1x1, that property is assumed to be isotropic. Similarly, singleton spatial dimensions are interpreted as homogeneity in that property. 
+When the first two dimensions of a property are found to be both a singleton, i.e. 1x1, that property is assumed to be isotropic. Similarly, singleton spatial dimensions are interpreted as homogeneity in that property.
 The default permeability `mu` is 1, and the coupling constants are zero by default.
 
 ##### Boundary conditions
@@ -178,7 +178,7 @@ in the desired direction. I.e. the current density at neighboring voxels should
 have a phase difference matching the k-vector in the background medium.
 Optionally, instead of a current density, the internally-used source distribution may be
 specified directly. It is related to the current density as follows: `S = i omega mu_0 J` with units of rad s^-1 H m^-1 A m^-2 = rad V m^-3,
-where `omega` is the angular frequency, and `mu_0` is the vacuum permeability, mu_0. 
+where `omega` is the angular frequency, and `mu_0` is the vacuum permeability, mu_0.
 
 The source distribution is stored as a complex ndarray with 1+N dimensions.
 The first dimension contains the current 3D direction and amplitude for each voxel. The complex argument indicates the relative phase at each voxel.
@@ -192,18 +192,18 @@ solution = macromax.solve(...)
 
 The function arguments to ````macromax.solve(...)```` can be the following:
 
-* ````grid|x_range````: A Grid object, a vector (1D), or tuple of vectors (2D, or 3D) indicating the spatial coordinates of the sample points. Each vector must be a uniformly increasing array of coordinates, sufficiently dense to avoid aliasing artefacts. 
+* ````grid|x_range````: A Grid object, a vector (1D), or tuple of vectors (2D, or 3D) indicating the spatial coordinates of the sample points. Each vector must be a uniformly increasing array of coordinates, sufficiently dense to avoid aliasing artefacts.
 
-* ````vacuum_wavelength|wave_number|anguler_frequency````: The wavelength in vacuum of the coherent illumination in units of meters. 
+* ````vacuum_wavelength|wave_number|anguler_frequency````: The wavelength in vacuum of the coherent illumination in units of meters.
 
 * ````current_density```` or ````source_distribution````: An ndarray of complex values indicating the source value and direction at each sample point. The source values define the free current density in the sample. The first dimension contains the vector index, the following dimensions contain the spatial dimensions.
-If the source distribution is not specified, it is calculated as 
-:math:`-i c k0 mu_0 J`, where `i` is the imaginary constant, `c`, `k0`, and `mu_0`, the light-speed, wavenumber, and permeability in 
+If the source distribution is not specified, it is calculated as
+:math:`-i c k0 mu_0 J`, where `i` is the imaginary constant, `c`, `k0`, and `mu_0`, the light-speed, wavenumber, and permeability in
 vacuum. Finally, `J` is the free current density (excluding the movement of bound charges in a dielectric), specified as the input argument current_density.
-These input arguments should be ```numpy.ndarray```s with a shape as specified by the `grid` input argument, or have one extra dimension on the left to indicate the polarization. If polarization is not specified the solution to the _scalar_ wave equation is calculated. However, when polarization is specified the _vectorial_ problem is solved. 
+These input arguments should be ```numpy.ndarray```s with a shape as specified by the `grid` input argument, or have one extra dimension on the left to indicate the polarization. If polarization is not specified the solution to the _scalar_ wave equation is calculated. However, when polarization is specified the _vectorial_ problem is solved.
   The returned ```macromax.Solution``` object has the property ```vectorial``` to indicate whether polarization is accounted for or not.    
 
-* ````refractive_index````: A complex ```numpy.ndarray``` of a shape as indicated by the `grid` argument. Each value indicates the refractive at the corresponding spatial grid point. Real values indicate a loss-less material. A positive imaginary part indicates the absorption coefficient, :math:`\kappa`. This input argument is not required if the permittivity, `epsilon` is specified. 
+* ````refractive_index````: A complex ```numpy.ndarray``` of a shape as indicated by the `grid` argument. Each value indicates the refractive at the corresponding spatial grid point. Real values indicate a loss-less material. A positive imaginary part indicates the absorption coefficient, :math:`\kappa`. This input argument is not required if the permittivity, `epsilon` is specified.
 
 * ````epsilon````: (optional, default: :math:`n^2`) A complex ```numpy.ndarray``` of a shape as indicated by the `grid` argument for _isotropic_ media, or a shape with two extra dimensions on the left to indicate _anisotropy/birefringence_. The array values indicate the relative permittivity at all sample points in space. The optional two first (left-most) dimensions may contain a 3x3 matrix at each spatial location to indicate the anisotropy/birefringence. By default the 3x3 identity matrix is assumed, scaled by the scalar value of the array without the first two dimensions. Real values indicate loss-less permittivity. This input argument is unit-less, it is relative to the vacuum permittivity.
 
@@ -344,9 +344,9 @@ Naturally, the number of operations and the duration of each operation should be
 However, the latter is often dominated by memory accesses and copying of arrays.
 The memory usage therefore does not only affect the size of the problems that can be solved,
 it also tends to have an important impact on the total calculation time.
- 
+
 A straightforward method to reduce memory usage is to switch from 128-bit
-precision complex numbers to 64-bit. By default, the precision of the 
+precision complex numbers to 64-bit. By default, the precision of the
 source_density is used, which is typically `np.complex128` or its real
 equivalent. The `Solution`'s default `dtype` can be overridden by specifying
 it as `solve(... dtype=np.complex64)`. Halving the storage requirements
@@ -438,4 +438,4 @@ Installing from the test repository is done as follows:
 pip install -i https://test.pypi.org/simple/ macromax --upgrade
 ```
 
-To facilitate importing the code, IntelliJ IDEA/PyCharm project files can be found in ```MacroMax/python/```: ```MacroMax/python/python.iml``` and the folder ```MacroMax/python/.idea```. 
+To facilitate importing the code, IntelliJ IDEA/PyCharm project files can be found in ```MacroMax/python/```: ```MacroMax/python/python.iml``` and the folder ```MacroMax/python/.idea```.

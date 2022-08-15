@@ -5,7 +5,11 @@ Efficient solving the macroscopic Maxwell equations in complex dielectric materi
 
 The material properties are defined on a rectangular grid (1D, 2D, or 3D) for which each voxel defines an isotropic or anisotropic permittivity. Optionally, a heterogeneous (anisotropic) permeability as well as bi-anisotropic coupling factors may be specified (e.g. for chiral media). The source, such as an incident laser field, is specified as an oscillating current-density distribution.
 
-The method iteratively corrects an estimated solution for the electric field (default: all zero). Its memory requirements are on the order of the storage requirements for the material properties and the electric field within the calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript ["Calculating coherent light-wave propagation in large heterogeneous media."](https://doi.org/10.1364/OE.27.011946)
+The method iteratively corrects an estimated solution for the electric field (default: all zero). Its memory
+requirements are on the order of the storage requirements for the material properties and the electric field within the
+calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript
+["Calculating coherent light-wave propagation in large heterogeneous media"](https://doi.org/10.1364/OE.27.011946).
+Automatic leveraging of detected GPU/Cloud is implemented using PyTorch in the Python version of MacroMax (for further details [follow this link](https://arxiv.org/abs/2208.01118)).
 
 The [source code](https://github.com/tttom/MacroMax) is available on [GitHub](https://github.com/tttom/MacroMax) under the
 **[MIT License](https://opensource.org/licenses/MIT): [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)**
