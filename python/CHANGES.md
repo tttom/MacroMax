@@ -1,5 +1,8 @@
 # Version History
 
+## Version 0.2.1
+* Fixed GPU memory leaks when using PyTorch back-end, thus enabling to solve larger problems. 
+
 ## Version 0.2.0
 * Implemented the ScatteringMatrix class, which allows calculation of scattering, reflection,and transmission
   matrices for any material for which the MacroMax solver can calculate the electro-magnetic field. 

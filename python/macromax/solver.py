@@ -197,11 +197,11 @@ class Solution(object):
         self.__BE = backend.load(1 + 2 * self.vectorial, self.grid * self.wavenumber, dtype=dtype)
 
         # Allocate the working memory
-        self.__field_array = self.__BE.allocate_array()  # TODO: 1 of 8 in ram
-        self.__d_field = self.__BE.array_ft_input  # TODO: 1 of 8 in ram
+        self.__field_array = self.__BE.allocate_array()
+        self.__d_field = self.__BE.array_ft_input
 
         # The following requires the self.__PO to be defined
-        self.E = initial_field  # TODO: 1 of 8 in ram (takes 2x mem: fix it)
+        self.E = initial_field
         del initial_field
         self.__BE.clear_cache()
 
@@ -366,7 +366,7 @@ class Solution(object):
         # zeta needed for conversion from E to H
         xi_mu_inv_zeta = self.__BE.mul(xi, -1.0j * chiHE_beta)
         del xi
-        epsilon_xi_mu_inv_zeta = self.__BE.subtract(epsilon, xi_mu_inv_zeta)  # TODO: big array [ram]
+        epsilon_xi_mu_inv_zeta = self.__BE.subtract(epsilon, xi_mu_inv_zeta)
         del epsilon, xi_mu_inv_zeta
         self.__BE.clear_cache()
 
@@ -432,7 +432,7 @@ class Solution(object):
 
             log.debug('beta = %0.4g, finding optimal alpha...' % self.__beta)
             try:
-                alpha_real, min_value = scipy.optimize.fmin(target_function_vec, 0.0, initial_simplex=[[0.0], [1.0]],  # TODO: why does it use 2x matrix size memory on GPU
+                alpha_real, min_value = scipy.optimize.fmin(target_function_vec, 0.0, initial_simplex=[[0.0], [1.0]],  # TODO: uses a lot of VRAM during optimisation
                                                             disp=False, full_output=True,
                                                             ftol=alpha_tolerance, xtol=alpha_tolerance,
                                                             maxiter=100, maxfun=100)[:2]
@@ -457,7 +457,7 @@ class Solution(object):
         self.__chiHE = chiHE_beta * (1.0j / self.__alpha.imag / self.__beta)
         del chiHE_beta
         self.__chiHH = calc_chiHH(self.__beta) * (1.0j / self.__alpha.imag)
-        self.__chiEE_base = epsilon_xi_mu_inv_zeta * (1.0j / self.__alpha.imag / self.__beta)  # TODO: 1 of 8 in ram
+        self.__chiEE_base = epsilon_xi_mu_inv_zeta * (1.0j / self.__alpha.imag / self.__beta)
         if self.__chiEE_base.shape[0] == 1:
             self.__chiEE_base -= self.__alpha * 1.0j / self.__alpha.imag
         else:
@@ -521,10 +521,10 @@ class Solution(object):
 
                 def D(field_E): return self.__BE.curl(field_E)  # includes k0^-1 by the definition of __PO
 
-                chiE = self.__BE.mul(self.__chiEE_base, E)  # todo: this creates an array
-                chiH = self.__BE.mul(self.__chiEH, E)  # todo: this creates an array
+                chiE = self.__BE.mul(self.__chiEE_base, E)
+                chiH = self.__BE.mul(self.__chiEH, E)
                 ED = D(E)
-                chiE += self.__BE.mul(self.__chiHE, ED)  # todo: this creates an array
+                chiE += self.__BE.mul(self.__chiHE, ED)
                 chiH += self.__BE.mul(self.__chiHH, ED, out=ED)
 
                 result = chiE
@@ -546,7 +546,7 @@ class Solution(object):
         # Pre-calculate the convolution filter
         g_scalar_ft = self.__BE.k2 - self.__BE.astype(self.__alpha)
         self.__BE.clear_cache()
-        g_scalar_ft = self.__BE.astype(-1.0j) * self.__BE.astype(self.__alpha.imag) / g_scalar_ft  # TODO gpu: 1 of 8 matrix
+        g_scalar_ft = self.__BE.astype(-1.0j) * self.__BE.astype(self.__alpha.imag) / g_scalar_ft
 
         if self.__BE.vectorial:
             def g_ft_op(FFt):  # Overwrites input argument! No need to represent the full matrix in memory
@@ -868,9 +868,7 @@ class Solution(object):
         """
         # Could be written more efficiently by either caching H or explicitly calculating the stress tensor
         # in this method. Leaving this for now, so to avoid code replication.
-        fo = self.__BE.div(self.stress_tensor)  # TODO: restore after debugging
-        rce = self.__BE.real(fo) * self.wavenumber
-        force = self.__BE.asnumpy(rce)  # The parallel operations is pre-scaled by k0
+        force = self.__BE.asnumpy(self.__BE.real(self.__BE.div(self.stress_tensor)) * self.wavenumber)  # The parallel operations is pre-scaled by k0
         # The time derivative of the Poynting vector averages to zero.
         # Make sure to remove imaginary part which must be due to rounding errors
 

@@ -60,6 +60,6 @@ from .matrix import ScatteringMatrix
 from .utils.ft.grid import Grid
 import macromax.backend
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 
 __all__ = ['__version__', 'solve', 'Solution', 'ScatteringMatrix', 'Grid', 'log', 'backend']
