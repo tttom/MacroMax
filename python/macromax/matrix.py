@@ -921,7 +921,8 @@ class DepositionMatrix(Matrix, CachingMatrix):
             output_shape = output_operator(np.zeros(input_size)).shape
             if len(output_shape) > 1:
                 output_operator = lambda _: output_operator(_).ravel()
-            output_operator = LinearOperator(shape=(np.prod(output_shape, dtype=np.int), input_size),
+            output_operator = LinearOperator(shape=(np.prod(output_shape, dtype=
+            int), input_size),
                                              matvec=output_operator,
                                              dtype=scattering_matrix.dtype
                                              )

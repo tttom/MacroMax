@@ -5,6 +5,7 @@ from numbers import Complex
 import torch
 import torch.fft as ft
 import logging
+import gc
 
 from macromax.utils.ft import Grid
 from .__init__ import BackEnd, array_like
@@ -311,6 +312,11 @@ class BackEndTorch(BackEnd):
     #     result = torch.linalg.eigvalsh(arr)  # gets eigenvalues for matrices in the right-most axes
     #     result = result.permute(-1, *np.arange(self.grid.ndim))
     #     return result
+
+    @staticmethod
+    def clear_cache():
+        torch.cuda.empty_cache()
+        gc.collect()
 
     def norm(self, arr: array_like) -> float:
         return float(torch.linalg.norm(torch.view_as_real(arr)))

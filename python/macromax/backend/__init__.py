@@ -863,6 +863,10 @@ class BackEnd(ABC):
 
         return results
 
+    @staticmethod
+    def clear_cache():
+        pass
+
     def norm(self, arr: array_like) -> float:
         """Returns the l2-norm of a vectorized array."""
         return np.linalg.norm(arr.ravel())

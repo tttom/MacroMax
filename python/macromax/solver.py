@@ -142,7 +142,8 @@ class Solution(object):
         else:
             self.__wavenumber = wavenumber
             if angular_frequency is not None or vacuum_wavelength is not None:
-                log.debug(f'Using specified wavenumber = {self.__wavenumber}, ignoring angular_frequency and vacuum_wavelength.')
+                log.debug(
+                    f'Using specified wavenumber = {self.__wavenumber}, ignoring angular_frequency and vacuum_wavelength.')
 
         self.__previous_update_norm = np.inf
 
@@ -161,7 +162,7 @@ class Solution(object):
             if current_density is None:
                 if vectorial is None:
                     vectorial = True
-                current_density = np.zeros((1 + 2*vectorial, *self.grid.shape),
+                current_density = np.zeros((1 + 2 * vectorial, *self.grid.shape),
                                            dtype=dtype if dtype is not None else np.complex128)
             current_density = np.asarray(func2arr(current_density))
             source_distribution = current_density * (-1j * self.angular_frequency * const.mu_0)  # [ V m^-3 ]
@@ -196,11 +197,13 @@ class Solution(object):
         self.__BE = backend.load(1 + 2 * self.vectorial, self.grid * self.wavenumber, dtype=dtype)
 
         # Allocate the working memory
-        self.__field_array = self.__BE.allocate_array()
-        self.__d_field = self.__BE.array_ft_input
+        self.__field_array = self.__BE.allocate_array()  # TODO: 1 of 8 in ram
+        self.__d_field = self.__BE.array_ft_input  # TODO: 1 of 8 in ram
 
         # The following requires the self.__PO to be defined
-        self.E = initial_field
+        self.E = initial_field  # TODO: 1 of 8 in ram (takes 2x mem: fix it)
+        del initial_field
+        self.__BE.clear_cache()
 
         # Adapt the material properties of the boundaries as defined by the `bound` argument.
         mu = func2arr(mu).astype(dtype)  # TODO: Is .astype(dtype) always redundant?
@@ -209,15 +212,20 @@ class Solution(object):
         if epsilon is None:  # Calculate it as the square of the refractive index
             refractive_index = func2arr(refractive_index).astype(dtype) if refractive_index is not None else 1.0
             refractive_index = self.__BE.to_matrix_field(refractive_index)
-            epsilon = self.__BE.mul(refractive_index, refractive_index)  # Square the refractive index to get permittivity
+            epsilon = self.__BE.mul(refractive_index,
+                                    refractive_index)  # Square the refractive index to get permittivity
             # If negative refractive index material => invert both epsilon and mu
-            if self.__BE.is_scalar(refractive_index) and self.__BE.any(self.__BE.real(self.__BE.ravel(refractive_index)) < 0):  # TODO: Can this be made to work for matrices by checking the eigenvalues? Problem: need to implement non-Hermitian eigenvalue decomposition for all backends, not just numpy and pytorch.
+            if self.__BE.is_scalar(refractive_index) and self.__BE.any(self.__BE.real(self.__BE.ravel(
+                    refractive_index)) < 0):  # TODO: Can this be made to work for matrices by checking the eigenvalues? Problem: need to implement non-Hermitian eigenvalue decomposition for all backends, not just numpy and pytorch.
                 mu = mu * self.__BE.astype(1 - 2 * (self.__BE.real(refractive_index) < 0))
                 epsilon *= (1 - 2 * (self.__BE.real(refractive_index) < 0))
+            del refractive_index
+            self.__BE.clear_cache()
         else:
             epsilon = func2arr(epsilon).astype(dtype)
+            epsilon = self.__BE.astype(epsilon)
 
-        epsilon = self.__BE.astype(epsilon)
+
 
         # Apply the boundary properties before the iteration
         if isinstance(self.__bound, Electric):
@@ -225,22 +233,27 @@ class Solution(object):
             if np.any(np.asarray(epsilon.shape[:-self.grid.ndim]) > 1):
                 bound_chi_epsilon = self.__BE.eye * bound_chi_epsilon
             epsilon = self.__BE.astype(epsilon + bound_chi_epsilon)
+            del bound_chi_epsilon
         if isinstance(self.__bound, Magnetic):
             bound_chi_mu = self.__BE.astype(self.__bound.magnetic_susceptibility)
             if np.any(np.asarray(mu.shape[:-self.grid.ndim]) > 1):
                 bound_chi_mu = self.__BE.eye * bound_chi_mu
             mu = self.__BE.astype(mu + self.__BE.eye * bound_chi_mu)
+            del bound_chi_mu
+        self.__BE.clear_cache()
 
         xi = func2arr(xi)
         zeta = func2arr(zeta)
 
         # Before the first iteration, the pre-conditioner must be determined and applied to the source and medium
-        self.__source_normalized = self.__BE.allocate_array()
+        self.__source_normalized = None
         self.__prepare_preconditioner(
             source_distribution, epsilon, xi, zeta, mu, self.grid.step, self.wavenumber
         )
         # Now we can forget epsilon, xi, zeta, mu, and source_distribution. Their information is encapsulated
         # in the newly created operator method __chi_op
+        del mu, zeta, xi, epsilon
+        self.__BE.clear_cache()
         self.__residue = None  # Invalid residue
 
     def __prepare_preconditioner(self, source_distribution, epsilon, xi, zeta, mu, sample_pitch, wavenumber):
@@ -279,8 +292,8 @@ class Solution(object):
         mu = self.__BE.to_matrix_field(mu)
 
         # Determine if the media is magnetic
-        self.__magnetic = not(self.__BE.allclose(xi) and self.__BE.allclose(zeta)
-                              and self.__BE.allclose(mu, self.__BE.first(mu)))
+        self.__magnetic = not (self.__BE.allclose(xi) and self.__BE.allclose(zeta)
+                               and self.__BE.allclose(mu, self.__BE.first(mu)))
         if self.magnetic:
             log.debug('Material has magnetic properties.')
         else:
@@ -294,16 +307,22 @@ class Solution(object):
 
         # Do a quick check to see if the the media has no gain
         max_allowed_gain = np.sqrt(self.__BE.eps)
+
         def has_gain(a):
-            return self.__BE.any(
-                self.__BE.real(self.__BE.mat3_eigh(-0.5j * (a - self.__BE.adjoint(a)))) < - max_allowed_gain
-            )
+            gain_condition = self.__BE.real(
+                self.__BE.mat3_eigh(-0.5j * (a - self.__BE.adjoint(a)))) < - max_allowed_gain
+            result = self.__BE.any(gain_condition)
+            del gain_condition
+            del a
+            self.__BE.clear_cache()
+            return result
 
         if has_gain(epsilon) or has_gain(xi) or has_gain(zeta) or has_gain(mu):
             def max_gain(a):
                 return self.__BE.amax(-self.__BE.real(self.__BE.mat3_eigh(-0.5j * (a - self.__BE.adjoint(a)))))
+
             log.warning(f'Convergence not guaranteed!\n'
-                        f'Permittivity has a gain as large as {max_gain(epsilon):0.3g}, xi up to { max_gain(xi):0.3g}, zeta up to {max_gain(zeta):0.3g},'
+                        f'Permittivity has a gain as large as {max_gain(epsilon):0.3g}, xi up to {max_gain(xi):0.3g}, zeta up to {max_gain(zeta):0.3g},'
                         f' and the permeability up to {max_gain(mu):0.3g}. All are expected to be less than {max_allowed_gain:0.3g}.')
         else:
             log.debug('Material has no gain, safe to proceed.')
@@ -314,7 +333,8 @@ class Solution(object):
 
         # Determine calcChiHH, calcSigmaHH
         if self.magnetic:
-            def calc_chiHH(beta_): return self.__BE.subtract(1.0, mu_inv / beta_)
+            def calc_chiHH(beta_):
+                return self.__BE.subtract(1.0, mu_inv / beta_)
 
             mu_inv_transpose = self.__BE.adjoint(mu_inv)
             mu_inv2 = self.__BE.mul(mu_inv_transpose, mu_inv)  # Positive definite
@@ -324,7 +344,8 @@ class Solution(object):
                         self.__BE.subtract(np.abs(beta_) ** 2, mu_inv_transpose * beta_ + mu_inv * np.conj(beta_))
                         )
 
-            def calc_sigmaHH(beta_): return largest_eigenvalue(calc_chiHH_beta2(beta_)) ** 0.5 / abs(beta_)
+            def calc_sigmaHH(beta_):
+                return largest_eigenvalue(calc_chiHH_beta2(beta_)) ** 0.5 / abs(beta_)
 
             if has_gain(mu) or has_gain(xi) or has_gain(zeta):
                 log.warning('Permeability or bi-(an)isotropy has gain. Convergence not guaranteed!')
@@ -332,9 +353,11 @@ class Solution(object):
                 log.debug('Permeability and bi-(an)isotropy have no gain, safe to proceed.')
         else:
             # non-magnetic, mu is scalar and both xi and zeta are zero
-            def calc_chiHH(beta_): return 1.0 - mu_inv * (1 / beta_)  # always zero when beta == mu_inv
+            def calc_chiHH(beta_):
+                return 1.0 - mu_inv * (1 / beta_)  # always zero when beta == mu_inv
 
-            def calc_sigmaHH(beta_): return abs(calc_chiHH(beta_))  # always zero when beta == mu_inv
+            def calc_sigmaHH(beta_):
+                return abs(calc_chiHH(beta_))  # always zero when beta == mu_inv
 
         # Determine: calcChiEE, chiEHTheta, chiHETheta, chiHH, alpha, beta
         chiEH_beta = -1.0j * self.__BE.mul(xi, mu_inv)
@@ -343,51 +366,58 @@ class Solution(object):
         # zeta needed for conversion from E to H
         xi_mu_inv_zeta = self.__BE.mul(xi, -1.0j * chiHE_beta)
         del xi
-        epsilon_xi_mu_inv_zeta = self.__BE.subtract(epsilon, xi_mu_inv_zeta)
+        epsilon_xi_mu_inv_zeta = self.__BE.subtract(epsilon, xi_mu_inv_zeta)  # TODO: big array [ram]
         del epsilon, xi_mu_inv_zeta
+        self.__BE.clear_cache()
 
-        epsilon_xi_mu_inv_zeta_transpose = self.__BE.adjoint(epsilon_xi_mu_inv_zeta)
-        epsilon_xi_mu_inv_zeta2 = self.__BE.mul(epsilon_xi_mu_inv_zeta_transpose, epsilon_xi_mu_inv_zeta)
+        # TODO: These were put in calc_deltaEE_beta2 to save memory [but slowdown startup (performed 2x in this fun)]
+        # epsilon_xi_mu_inv_zeta_transpose = self.__BE.adjoint(epsilon_xi_mu_inv_zeta)
+        # epsilon_xi_mu_inv_zeta2 = self.__BE.mul(epsilon_xi_mu_inv_zeta_transpose, epsilon_xi_mu_inv_zeta)
+
         # The above must be positive definite
-
         def calc_DeltaEE_beta2(alpha_, beta_):  # todo: relatively slow during startup
             alpha_beta = self.__BE.astype(self.__BE.real(alpha_) * beta_)
-            result = epsilon_xi_mu_inv_zeta_transpose * alpha_beta
+            result = self.__BE.adjoint(epsilon_xi_mu_inv_zeta) * alpha_beta
             result += epsilon_xi_mu_inv_zeta * self.__BE.conj(alpha_beta)
             result = self.__BE.subtract(self.__BE.abs(alpha_beta) ** 2, result)
-            result += epsilon_xi_mu_inv_zeta2
+            result += self.__BE.mul(self.__BE.adjoint(epsilon_xi_mu_inv_zeta), epsilon_xi_mu_inv_zeta)
             return result
 
         def calc_sigmaEE(alpha_, beta_):  # todo: relatively slow during startup
-            return float(largest_eigenvalue(calc_DeltaEE_beta2(alpha_, beta_)))**0.5 / abs(float(beta_))
+            return float(largest_eigenvalue(calc_DeltaEE_beta2(alpha_, beta_))) ** 0.5 / abs(float(beta_))
 
         # Determine alpha, beta and chiHH
         alpha_tolerance = 0.01
         if self.magnetic:
             # Optimize the real part of alpha and beta
-            sigmaD = np.linalg.norm(2.0*np.pi / (2.0*sample_pitch)) / wavenumber
+            sigmaD = np.linalg.norm(2.0 * np.pi / (2.0 * sample_pitch)) / wavenumber
             sigmaHE_beta = largest_singularvalue(chiHE_beta)
             sigmaEH_beta = largest_singularvalue(chiEH_beta)
 
             def max_singular_value_sum(eta_, beta_):
-                return sigmaD**2 * calc_sigmaHH(beta_) + \
+                return sigmaD ** 2 * calc_sigmaHH(beta_) + \
                        sigmaD * (sigmaEH_beta + sigmaHE_beta) / np.abs(beta_) + calc_sigmaEE(eta_, beta_)
 
-            def beta_from_vec(alpha_beta_vec_): return alpha_beta_vec_[1] ** 2  # enforce positivity
+            def beta_from_vec(alpha_beta_vec_):
+                return alpha_beta_vec_[1] ** 2  # enforce positivity
 
             def target_function_vec(vec):
                 beta = beta_from_vec(vec)
-                return max_singular_value_sum(vec[0], beta) * beta + np.maximum(0.0, beta - 1e-3) ** 2  # ensure that beta doesn't get too close to 0
+                return max_singular_value_sum(vec[0], beta) * beta + np.maximum(0.0,
+                                                                                beta - 1e-3) ** 2  # ensure that beta doesn't get too close to 0
 
             log.debug('Finding optimal alpha and beta...')
             try:
-                alpha_beta_vec = scipy.optimize.fmin(target_function_vec, [0, 1], initial_simplex=[[0, 1], [1, 1], [0, 0.9]],
+                alpha_beta_vec = scipy.optimize.fmin(target_function_vec, [0, 1],
+                                                     initial_simplex=[[0, 1], [1, 1], [0, 0.9]],
                                                      disp=False, full_output=False,
-                                                     ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100, maxfun=200)
+                                                     ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100,
+                                                     maxfun=200)
             except TypeError:  # Some older scipy implementations don't seem to have the initial_simplex argument
                 alpha_beta_vec = scipy.optimize.fmin(target_function_vec, [0, 1],
                                                      disp=False, full_output=False,
-                                                     ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100, maxfun=200)
+                                                     ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100,
+                                                     maxfun=200)
             self.__beta = beta_from_vec(alpha_beta_vec)
 
             alpha = alpha_beta_vec[0] + 1.0j * self.__BE.asnumpy(max_singular_value_sum(alpha_beta_vec[0], self.__beta))
@@ -402,7 +432,7 @@ class Solution(object):
 
             log.debug('beta = %0.4g, finding optimal alpha...' % self.__beta)
             try:
-                alpha_real, min_value = scipy.optimize.fmin(target_function_vec, 0.0, initial_simplex=[[0.0], [1.0]],
+                alpha_real, min_value = scipy.optimize.fmin(target_function_vec, 0.0, initial_simplex=[[0.0], [1.0]],  # TODO: why does it use 2x matrix size memory on GPU
                                                             disp=False, full_output=True,
                                                             ftol=alpha_tolerance, xtol=alpha_tolerance,
                                                             maxiter=100, maxfun=100)[:2]
@@ -415,6 +445,7 @@ class Solution(object):
             alpha = alpha_real[0] + 1.0j * min_value
 
             del alpha_real
+        self.__BE.clear_cache()
 
         alpha = self.__increase_bias_to_limit_kernel_width(alpha)
         log.info(f'Preconditioner constants: alpha = {alpha.real:0.4g} + {alpha.imag:0.4g}i, beta = {self.__beta:0.4g}')
@@ -426,7 +457,7 @@ class Solution(object):
         self.__chiHE = chiHE_beta * (1.0j / self.__alpha.imag / self.__beta)
         del chiHE_beta
         self.__chiHH = calc_chiHH(self.__beta) * (1.0j / self.__alpha.imag)
-        self.__chiEE_base = epsilon_xi_mu_inv_zeta * (1.0j / self.__alpha.imag / self.__beta)
+        self.__chiEE_base = epsilon_xi_mu_inv_zeta * (1.0j / self.__alpha.imag / self.__beta)  # TODO: 1 of 8 in ram
         if self.__chiEE_base.shape[0] == 1:
             self.__chiEE_base -= self.__alpha * 1.0j / self.__alpha.imag
         else:
@@ -434,11 +465,14 @@ class Solution(object):
 
         # Store the modified source distribution
         self.source_distribution = source_distribution
+        del source_distribution, epsilon_xi_mu_inv_zeta
+        self.__BE.clear_cache()
 
         # Update the operators that are stored as private attributes
         self.__update_operators(alpha)
+        self.__BE.clear_cache()
 
-        del source_distribution
+
 
     def __update_operators(self, alpha):
         """
@@ -469,7 +503,8 @@ class Solution(object):
         if self.__chiEE_base.shape[0] == 1:
             self.__chiEE_base += self.__alpha - alpha  # remove the previous alpha before applying new one
         else:
-            self.__chiEE_base += self.__BE.eye * (self.__alpha - alpha)  # remove the previous alpha before applying new one
+            self.__chiEE_base += self.__BE.eye * (
+                        self.__alpha - alpha)  # remove the previous alpha before applying new one
         self.__chiEE_base *= 1.0j / alpha.imag
         self.__alpha = alpha
 
@@ -483,6 +518,7 @@ class Solution(object):
 
                 :return: an array with the result E of the same size as E or of the size of its singleton expansion.
                 """
+
                 def D(field_E): return self.__BE.curl(field_E)  # includes k0^-1 by the definition of __PO
 
                 chiE = self.__BE.mul(self.__chiEE_base, E)  # todo: this creates an array
@@ -508,7 +544,9 @@ class Solution(object):
 
         # Now create the Green function operator
         # Pre-calculate the convolution filter
-        g_scalar_ft = -1.0j * self.__alpha.imag / (self.__BE.k2 - self.__alpha)
+        g_scalar_ft = self.__BE.k2 - self.__BE.astype(self.__alpha)
+        self.__BE.clear_cache()
+        g_scalar_ft = self.__BE.astype(-1.0j) * self.__BE.astype(self.__alpha.imag) / g_scalar_ft  # TODO gpu: 1 of 8 matrix
 
         if self.__BE.vectorial:
             def g_ft_op(FFt):  # Overwrites input argument! No need to represent the full matrix in memory
@@ -519,7 +557,7 @@ class Solution(object):
                 FFt += PiL_FFt
                 return FFt  # g_scalar_ft * self.__PO.subtract(FFt, PiL_FFt) - PiL_FFt * 1.0j * self.__alpha.imag / self.__alpha
         else:
-            def g_ft_op(FFt):  #  Overwrites input argument!
+            def g_ft_op(FFt):  # Overwrites input argument!
                 FFt *= g_scalar_ft
                 return FFt  # g_scalar_ft * FFt
 
@@ -551,15 +589,19 @@ class Solution(object):
         if thicknesses.size > 0:
             bound_thickness = np.amin(thicknesses)
 
-            min_kappa = np.log(max_kernel_field_residue) / (- self.wavenumber * bound_thickness)  # extinction coefficient
-            corresponding_n_real = (np.maximum(0, float(alpha.real) + min_kappa**2) ** 0.5)  # Calculate the real part of the refractive index from alpha.real and min_kappa
-            min_susceptibility_offset = 2 * corresponding_n_real * min_kappa   # because alpha = (n + i*kappa)^2, so alpha.imag = 2 * n * kappa
+            min_kappa = np.log(max_kernel_field_residue) / (
+                        - self.wavenumber * bound_thickness)  # extinction coefficient
+            corresponding_n_real = (np.maximum(0, float(
+                alpha.real) + min_kappa ** 2) ** 0.5)  # Calculate the real part of the refractive index from alpha.real and min_kappa
+            min_susceptibility_offset = 2 * corresponding_n_real * min_kappa  # because alpha = (n + i*kappa)^2, so alpha.imag = 2 * n * kappa
 
             if susceptibility_offset < min_susceptibility_offset:
-                log.info(f'Increasing susceptibility offset to {min_susceptibility_offset} in order to avoid passing through the boundary of thickness {bound_thickness}.')
+                log.info(
+                    f'Increasing susceptibility offset to {min_susceptibility_offset} in order to avoid passing through the boundary of thickness {bound_thickness}.')
                 susceptibility_offset = min_susceptibility_offset
             else:
-                log.debug(f'Minimum susceptibility offset {min_susceptibility_offset} is lower than that required for the permittivity variation: {susceptibility_offset}.')
+                log.debug(
+                    f'Minimum susceptibility offset {min_susceptibility_offset} is lower than that required for the permittivity variation: {susceptibility_offset}.')
 
         alpha = alpha.real + 1j * susceptibility_offset
 
@@ -647,9 +689,14 @@ class Solution(object):
             field, and 3 in case of a vector field.
         """
         new_source_dist = self.__BE.to_matrix_field(new_source_dist)
-        self.__source_normalized = self.__BE.assign(
-            new_source_dist * (1.0j / self.__alpha.imag / self.__beta), self.__source_normalized)  # Adjust for bias
 
+        if self.__source_normalized is None:
+            self.__source_normalized = new_source_dist * (1.0j / self.__alpha.imag / self.__beta)
+        else:
+            self.__source_normalized = self.__BE.assign(
+                new_source_dist * (1.0j / self.__alpha.imag / self.__beta), self.__source_normalized)  # Adjust for bias
+        del new_source_dist
+        self.__BE.clear_cache()
         self.__previous_update_norm = np.inf
 
     @property
@@ -722,7 +769,8 @@ class Solution(object):
         # D = (J - self.__PO.curl(self.H[:, np.newaxis, ...]) * self.wavenumber) / (1.0j * self.angular_frequency)  # curl includes k0 by definition of __PO
         D = self.__BE.curl(self.H[:, np.newaxis, ...])
         D *= self.wavenumber
-        D -= (self.__beta / (1.0j * self.angular_frequency * const.mu_0)) * (self.__source_normalized * (self.__alpha.imag / 1.0j))
+        D -= (self.__beta / (1.0j * self.angular_frequency * const.mu_0)) * (
+                    self.__source_normalized * (self.__alpha.imag / 1.0j))
         D *= 1j / self.angular_frequency
 
         return self.__BE.asnumpy(D)[:, 0, ...]
@@ -743,12 +791,14 @@ class Solution(object):
 
             # the curl in the following includes factor k0^-1 by the definition of __PO above
             H = (1.0j / (const.mu_0 * const.c)) * (
-                    - self.__BE.mul(mu_inv, self.__BE.curl(self.E[:, np.newaxis, ...]))
-                    + self.__beta * self.__BE.mul(self.__chiHE * (-1.0j * self.__alpha.imag), self.E[:, np.newaxis, ...])
+                    - self.__BE.mul(mu_inv, self.__BE.curl(self.__BE.astype(self.E[:, np.newaxis, ...])))
+                    + self.__beta * self.__BE.mul(self.__chiHE * (-1.0j * self.__alpha.imag),
+                                                  self.E[:, np.newaxis, ...])
             )
         else:
             mu_inv = (1.0 - self.__BE.first(self.__chiHH) * (-1.0j * self.__alpha.imag)) * self.__BE.astype(self.__beta)
-            mu_H = (-1.0j / (const.mu_0 * const.c)) * self.__BE.curl(self.E[:, np.newaxis, ...])  # includes k0^-1 by the definition of __PO
+            mu_H = (-1.0j / (const.mu_0 * const.c)) * self.__BE.curl(
+                self.__BE.astype(self.E[:, np.newaxis, ...]))  # includes k0^-1 by the definition of __PO
             H = mu_inv * mu_H
 
         return self.__BE.asnumpy(H)[:, 0, ...]
@@ -761,6 +811,7 @@ class Solution(object):
         while the following dimensions are the spatial dimensions.
         """
         E = self.E[:, np.newaxis, ...]
+
         H = self.H[:, np.newaxis, ...]
         poynting_vector = 0.5 * self.__BE.asnumpy(self.__BE.cross(self.__BE.astype(E), self.__BE.conj(H))).real
 
@@ -800,9 +851,9 @@ class Solution(object):
         H2 = np.sum(np.abs(H) ** 2, axis=0)
         result += self.__BE.outer(H, H) * const.mu_0
 
+        result -= (0.5 * self.__BE.eye) * self.__BE.astype((const.epsilon_0 * E2 + H2 * const.mu_0))
+        result = 0.5 * result  # TODO: Do we want the Abraham or Minkowski form?
         result = self.__BE.asnumpy(result)
-        result -= (0.5 * self.__BE.asnumpy(self.__BE.eye)) * (const.epsilon_0 * E2 + H2 * const.mu_0)
-        result *= 0.5  # TODO: Do we want the Abraham or Minkowski form?
 
         return result.real
 
@@ -817,7 +868,9 @@ class Solution(object):
         """
         # Could be written more efficiently by either caching H or explicitly calculating the stress tensor
         # in this method. Leaving this for now, so to avoid code replication.
-        force = self.__BE.asnumpy(self.__BE.real(self.__BE.div(self.stress_tensor)) * self.wavenumber)  # The parallel operations is pre-scaled by k0
+        fo = self.__BE.div(self.stress_tensor)  # TODO: restore after debugging
+        rce = self.__BE.real(fo) * self.wavenumber
+        force = self.__BE.asnumpy(rce)  # The parallel operations is pre-scaled by k0
         # The time derivative of the Poynting vector averages to zero.
         # Make sure to remove imaginary part which must be due to rounding errors
 
