@@ -40,7 +40,7 @@ The examples require ````matplotlib```` for displaying the results.
 In the creation of this package for distribution, the ````pypandoc```` package is used for translating this document to
 other formats. This is only necessary for software development.
 
-The code has been tested on Python 3.7 and 3.8, though it is expected to work on versions 3.6 and above.
+The code has been tested on Python 3.7 and 3.10, though it is expected to work on versions 3.6 and above.
 
 ### Installing
 Installing the ````macromax```` package and its mandatory dependencies is as straightforward as running the following command in a terminal:
@@ -49,14 +49,13 @@ pip install macromax
 ````
 While this is sufficient to get started, optional packages are useful to display the results and to speed-up the calculations.
 
-#### Optimizing execution speed
-The calculation time can be reduced to a fraction by ensuring you have the fastest libraries installed for your system.
-Python packages for multi-core CPUs and the FFTW library can be installed with:
+
+#### Optimizing execution speed on a CPU
+The calculation time can be reduced to a fraction by ensuring that you have the fastest libraries installed for your system. In particular the FFTW library can easily halve the calculation time on a CPU:
 ````sh
-pip install macromax multiprocessing pyFFTW
+pip install macromax pyFFTW
 ````
-Do note that the [pyFFTW](https://pypi.org/project/pyFFTW/) package requires the [FFTW library](http://www.fftw.org/download.html),
-and does not always install automatically. However, it is easy to install it using Anaconda with the commands:
+On some systems the [pyFFTW](https://pypi.org/project/pyFFTW/) Python package requires the separate installation of the [FFTW library](http://www.fftw.org/download.html); however, it is easy to install it using Anaconda with the commands:
 ```conda install fftw```, or on Debian-based systems with ```sudo apt-get install fftw```.
 
 Alternatively, the [mkl-fft](https://github.com/IntelPython/mkl_fft) package is available for Intel(R) CPUs, though it may require compilation or relying on the [Anaconda](https://www.anaconda.com/) or [Intel Python](https://software.intel.com/content/www/us/en/develop/tools/distribution-for-python.html) distributions:
@@ -64,22 +63,29 @@ Alternatively, the [mkl-fft](https://github.com/IntelPython/mkl_fft) package is 
 conda install -c intel intelpython
 ````
 
-NVidia CUDA-enabled GPU can be leveraged to offer an even more significant boost in efficiency. This can be as simple as installing the appropriate [CUDA drivers](https://www.nvidia.co.uk/Download/index.aspx?lang=en-uk) and the PyTorch module following the [PyTorch Guide](https://pytorch.org/).
+#### Leveraging a machine learning framework for GPU and cloud-based calculations
+The calculation time can be reduced by several orders of magnitude using the PyTorch machine learning library. This can be as straightforward as using the appropriate runtime on [Google Colab](https://colab.research.google.com/). The MacroMax library can here be installed by prepending the command with an exclamation mark as follows:
+````sh
+!pip install macromax
+````
+Local GPUs can also be used provided that PyTorch has a compatible implementation. At the time of writing, these includes NVidia's CUDA-enabled GPU as well AMD's ROCm-enabled GPUs (on Linux). Prior to installing the PyTorch module following the [PyTorch Guide](https://pytorch.org/), install the appropriate  [CUDA](https://www.nvidia.co.uk/Download/index.aspx?lang=en-uk) or [ROCm drivers](https://docs.amd.com/) for your GPU.
 Note that for PyTorch to work correctly, Nvidia drivers need to be up to date and match the installed CUDA version. At the time of writing, for CUDA version 11.6, PyTorch can be installed as follows using pip:
 ````sh
 pip install torch --extra-index-url https://download.pytorch.org/whl/cu116
 ````
 Specifics for your CUDA version and operating system are listed on [PyTorch Guide](https://pytorch.org/).
 
-When PyTorch and a GPU are detected, these will be used by default. If not, FFTW and mkl-fft will be used if available. NumPy and SciPy will be used otherwise.
-The default backend can be set in your code or by creating a text file named ```backend_config.json``` in the current working directory with contents:
+When PyTorch and a compatible GPU are detected, these will be used by default. If not, FFTW and mkl-fft will be used if available. Otherwise, NumPy and SciPy will be used as a fallback.
+The default backend can be set at the start of your code, or by creating a text file named ```backend_config.json``` in the current working directory with contents as:
 ````json
 [
   {"type": "torch", "device": "cuda"},
   {"type": "numpy"}
 ]
 ````
-to choose PyTorch with a CUDA GPU if available, and NumPy as a back-up option. The latter is usually faster when no GPU is available.  
+to choose PyTorch when a compatible GPU is available, and NumPy otherwise. Although this machine learning library can be used without a hardware accelerator, we found that NumPy (with FFTW) can be faster when no GPU is available. This backend selection rule is used by default.
+
+Experimental support exists for alternative backend implementations such as [TensorFlow](https://www.tensorflow.org/). Please refer to the [source code](https://github.com/corilim/MacroMax/tree/master/python/macromax/backend) for the latest work in progress. Pull requests are always welcome.
 
 #### Additional packages
 The package comes with a submodule containing example code that should run as-is on most desktop installations of Python.
@@ -116,7 +122,6 @@ The complete functionality is described in the [Library Reference Documentation]
 
 ### Loading the Python 3 package
 The ````macromax```` package can be imported using:
-
 ```python
 import macromax
 ```
@@ -156,7 +161,7 @@ unless specified otherwise.
 
 
 #### Defining the material property distributions
-The material properties are defined by ndarrays of 2+N dimensions, where N can be up to 3 for three-dimensional samples. In each sample point, or voxel, a complex 3x3 matrix defines the anisotropy at that point in the sample volume. The first two dimensions of the ndarray are used to store the 3x3 matrix, the following dimensions are the spatial indices x, y, and z. Four complex ndarrays can be specified: ````epsilon````, ````mu````, ````xi````, and ````zeta````. These ndarrays represent the permittivity, permeability, and the two coupling factors, respectively.
+The material properties are defined by ndarrays of 2+N dimensions, where N can be up to 3 for three-dimensional samples. In each sample point, or voxel, a complex 3x3 matrix defines the anisotropy at that point in the sample volume. The first two dimensions of the ndarray are used to store the 3x3 matrix, the following dimensions are the spatial indices x, y, and z. Optionally, four complex ndarrays can be specified: ````epsilon````, ````mu````, ````xi````, and ````zeta````. These ndarrays represent the permittivity, permeability, and the two coupling factors, respectively.
 
 When the first two dimensions of a property are found to be both a singleton, i.e. 1x1, that property is assumed to be isotropic. Similarly, singleton spatial dimensions are interpreted as homogeneity in that property.
 The default permeability `mu` is 1, and the coupling constants are zero by default.
