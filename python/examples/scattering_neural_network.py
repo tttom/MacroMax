@@ -2,14 +2,14 @@
 # Definitions of neural networks that can solve the wave equations for scattering in a heterogeneous material,
 # and their comparison for a simple system.
 #
-# This is a simplified implementation that ignores polarization, birefringence, and magnetic properties. It uses PyTorch
-# on the CPU. A more complete and optimized implementation is integrated in the macromax library.
+# The neural networks in this file are for demonstration only. Here we favor the simplicity of scalar waves in isotropic
+# materials over the generality of vector waves in anisotropic (and magnetic) materials. General problems can be solved
 #
 # The main code at the bottom of this file defines a material structure and a source. It determines the electric field
 # (a) by training a neural network that represents the preconditioned helmholtz equation,
 # (b) infering it using a recurrent neural network that takes the source current density as input.
 #
-# == Key classes ==
+# == Key Classes ==
 #
 # * HelmholtzNet: A neural network that infers the source current density for a given electric field.
 #   This is useful to verify an electric field computed by various methods. This neural network only has one set of
@@ -27,14 +27,46 @@
 #   ```
 #     source_current_density = model(electric_field)
 #   ```
-#
-# * PreconditioningNet: A neural network that preconditions the network it is appended to.
+#   The training of this network is relatively slow even for small problems.
 #
 # * PreconditionedHelmholtzNet: The preconditioned HelmholtzNet infers the preconditioned current density. Unlike, the
 #   original HelmholtzNet, this network can be trained in a reasonable time.
 #
-# * InverseHelmholtzNet: A recurrent neural network that repeatedly takes the source current density and infers the
-#   electric field.
+# * ScatteringNet: A neural network that, when presented with a source distribution at its input neurons, produces the
+#   scattered field at its output neurons, one for each position in space. This network infers the scattered field
+#   without requiring training.
+#
+# == All Classes ==
+#
+# * DirectLayer: A point-wise multiplication layer. This is useful to implement potentials such as in HelmHoltzNet.
+#
+# * ConvFFTLayer: A convolutional neural network layer that is implemented using fast-Fourier transforms. It permits
+#   large convolution kernels without performance penality. Unlike typical convolutional networks, periodic boundaries
+#   are assumed and the number of outputs is the same as the number of inputs. This is useful to implement the Laplacian
+#   as in HelmHoltzNet.
+#
+# * DeconvFFTLayer: Provided it exists, the inverse of a convolution operation is a convolution with the Greens
+#   function. I.e. it is a multiplication in Fourier space with the reciprocal of the convolution filter. This is used
+#   to implement the Greens function in ModifiedWaveModuleBase, which is inherited by PreconditioningNet,
+#   PreconditionedHelmholtzNet, and ScatteringNet.
+#
+# * WaveModuleBase: A base class to help implement neural networks that solve wave equations. It stores the coordinate
+#   system and precalculates some useful constants. This is inherited by HelmholtzNet and ModifiedWaveModuleBase.
+#
+# * HelmholtzNet(WaveModuleBase): The Helmholz wave equation as a neural network.
+#
+# * ModifiedWaveModuleBase(WaveModuleBase): A base class to help modify Helmholtz wave problems. It provides the
+#   shifted Green's function and the modified potential as neural network layers that are inherited by
+#   PreconditionedHelmholtzNet and ScatteringNet.
+#
+# * PreconditioningNet(ModifiedWaveModuleBase): A neural network that preconditions the network it is appended to.
+#
+# * PreconditionedHelmholtzNet(ModifiedWaveModuleBase): The preconditioned HelmholtzNet infers the preconditioned
+#   current density. Unlike, the original HelmholtzNet, this network can be trained in a reasonable time.
+#
+# * ScatteringNet(ModifiedWaveModuleBase): A neural network that, when presented with a source distribution at its input
+#   neurons, produces the scattered field at its output neurons, one for each position in space. This network infers the
+#   scattered field without requiring training.
 #
 # The script at the bottom of this file runs the training of the PreconditionedHelmholtzNet and the inference with
 #   InverseHelmholtzNet in parallel. The latter can be seen to converge in a fraction of the time.
@@ -124,7 +156,12 @@ class DeconvFFTLayer(ConvFFTLayer):
 
 
 class WaveModuleBase(nn.Module):
-    """A base class to help implement neural networks that solve wave equations."""
+    """
+    A base class to help implement neural networks that solve wave equations.
+
+    It stores the coordinate system, pre-calculates k-vectors, and deals with unit conversion.
+
+    """
     def __init__(self, grid: Grid, k0: float = 1.0):
         """
         A class to provide common properties for neural networks that represent wave equations.
@@ -155,7 +192,7 @@ class WaveModuleBase(nn.Module):
 
 
 class HelmholtzNet(WaveModuleBase):
-    """The Helmholz equation as a neural network."""
+    """The Helmholz wave equation as a neural network."""
     def __init__(self, permittivity: array_like, grid: Grid = None, k0: float = 1.0):
         if grid is None:
             grid = Grid(permittivity.shape)
@@ -172,9 +209,10 @@ class HelmholtzNet(WaveModuleBase):
 class ModifiedWaveModuleBase(WaveModuleBase):
     def __init__(self, permittivity: array_like, grid: Grid = None, k0: float = 1.0):
         """
-        A base class to help modify a Helmholtz problem. It provides the modified Green's function and the modified
-        potential as neural network layers. The modification consists in a shifting and scaling so that a simple Born
-        series / power / Neumann iteration converges.
+        A base class to help modify Helmholtz wave problems. It provides the shifted Green's function and the modified
+        potential as neural network layers that are inherited by PreconditionedHelmholtzNet and ScatteringNet.
+        The modifications consist in a shifting and scaling so that the Neumann series or the Richardson, fixed-point,
+        iteration converges.
 
         :param permittivity: The relative permittivity (n^2) distribution at the points defined by the sample grid.
         :param grid: The Cartesian grid at which the potential is sampled.
@@ -248,11 +286,16 @@ class PreconditionedHelmholtzNet(ModifiedWaveModuleBase):
         return -self.modified_potential_layer(layer_3_output)  # - V' (G' V' + 1) E
 
 
-class InverseHelmholtzNet(ModifiedWaveModuleBase):
+class ScatteringNet(ModifiedWaveModuleBase):
     """
-    A recurrent neural network with memory of its output.
+    A neural network that produces the scattered field at its output neurons, one for each position in space, when
+    presented with a source distribution at its input neurons.
 
-    Takes as input the current density source and outputs increasingly close estimates of the electric field.
+    The Scattering Network is a recurrent neural network with memory of its output. In reverse to HolmholtzNet, it takes
+    as input the wave source and outputs increasingly close estimates of the scattered field.
+
+    While the code below is limited to scalar waves in isotropic materials, the integration with the MacroMax solver
+    extends this to vector waves in arbitrary materials.
     """
     def __init__(self, permittivity: array_like, grid: Grid = None, k0: float = 1.0):
         super().__init__(permittivity, grid, k0)
@@ -272,11 +315,18 @@ class InverseHelmholtzNet(ModifiedWaveModuleBase):
                 self.modified_potential_layer(self.output) - _ / self.problem_scale
             ) + self.output
         )  # V' [G' (V' E - j/s) + E]  (no subtractions)
-        self.output += 0.8 * self.update  # E += V' [G' (V' E - j/s) + E]  # todo: Include alpha = 0.80 factor here? It reduces the residue by 1/3 to 1/2 but it is more complicated.
+        self.output += 1.0 * self.update  # E += V' [G' (V' E - j/s) + E]  # todo: Include alpha = 0.80 factor here? It reduces the residue by 1/3 to 1/2 but it is more complicated.
         return self.output
 
 
+#
+# After installing Python and PyTorch, execute this code using:
+# """
+# python scattering_neural_network.py
+# """
+#
 if __name__ == '__main__':
+    # The convergence rate is written to ./output/convergence.pdf
     output_filepath = pathlib.PurePath(pathlib.Path('output').absolute(), 'convergence.pdf')
 
     log.info('Defining the optical system...')
@@ -356,15 +406,15 @@ if __name__ == '__main__':
         return error2
 
     log.info('Calculating the solution once to maximum precision, so we can track progress...')
-    inverse_reference = InverseHelmholtzNet(permittivity, grid, k0)
+    scattering_net_reference = ScatteringNet(permittivity, grid, k0)
     with torch.no_grad():
         prec_inference_error = torch.inf
         while prec_inference_error > 3 * torch.finfo(dtype).eps:
-            reference_solution = inverse_reference(source_j)
-            prec_inference_error = torch.linalg.norm(inverse_reference.update) / torch.linalg.norm(reference_solution)
+            reference_solution = scattering_net_reference(source_j)
+            prec_inference_error = torch.linalg.norm(scattering_net_reference.update) / torch.linalg.norm(reference_solution)
 
     log.info('Calculating the electric field using inference with the recurrent neural network...')
-    inverse = InverseHelmholtzNet(permittivity, grid, k0)
+    scattering_net = ScatteringNet(permittivity, grid, k0)
 
     if display_progress:
         log.info('Displaying...')
@@ -379,17 +429,17 @@ if __name__ == '__main__':
 
         with torch.no_grad():
             # One inference step
-            inferred_field = inverse(source_j)
+            inferred_field = scattering_net(source_j)
 
             if display_progress or _ % 1000 == 0:
                 # calculate and store the relative errors for display
-                prec_inference_error = (torch.linalg.norm(inverse.update) / torch.linalg.norm(inferred_field)).cpu().item()
+                prec_inference_error = (torch.linalg.norm(scattering_net.update) / torch.linalg.norm(inferred_field)).cpu().item()
                 true_output_training_error, true_output_inference_error = (verify_result(_) for _ in (training_model.weight.data, inferred_field))
                 prec_inference_errors.append(prec_inference_error)
                 true_training_errors.append(true_output_training_error)
                 true_inference_errors.append(true_output_inference_error)
                 true_input_training_error = torch.linalg.norm(training_model.weight - reference_solution) / torch.linalg.norm(reference_solution)
-                true_input_inference_error = torch.linalg.norm(inverse.output - reference_solution) / torch.linalg.norm(reference_solution)
+                true_input_inference_error = torch.linalg.norm(scattering_net.output - reference_solution) / torch.linalg.norm(reference_solution)
                 true_input_training_errors.append(true_input_training_error.cpu().item())
                 true_input_inference_errors.append(true_input_inference_error.cpu().item())
 

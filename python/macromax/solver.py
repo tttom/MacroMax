@@ -142,8 +142,7 @@ class Solution(object):
         else:
             self.__wavenumber = wavenumber
             if angular_frequency is not None or vacuum_wavelength is not None:
-                log.debug(
-                    f'Using specified wavenumber = {self.__wavenumber}, ignoring angular_frequency and vacuum_wavelength.')
+                log.debug(f'Using specified wavenumber = {self.__wavenumber}, ignoring angular_frequency and vacuum_wavelength.')
 
         self.__previous_update_norm = np.inf
 
@@ -212,11 +211,9 @@ class Solution(object):
         if epsilon is None:  # Calculate it as the square of the refractive index
             refractive_index = func2arr(refractive_index).astype(dtype) if refractive_index is not None else 1.0
             refractive_index = self.__BE.to_matrix_field(refractive_index)
-            epsilon = self.__BE.mul(refractive_index,
-                                    refractive_index)  # Square the refractive index to get permittivity
+            epsilon = self.__BE.mul(refractive_index, refractive_index)  # Square the refractive index to get permittivity
             # If negative refractive index material => invert both epsilon and mu
-            if self.__BE.is_scalar(refractive_index) and self.__BE.any(self.__BE.real(self.__BE.ravel(
-                    refractive_index)) < 0):  # TODO: Can this be made to work for matrices by checking the eigenvalues? Problem: need to implement non-Hermitian eigenvalue decomposition for all backends, not just numpy and pytorch.
+            if self.__BE.is_scalar(refractive_index) and self.__BE.any(self.__BE.real(self.__BE.ravel(refractive_index)) < 0):  # TODO: Can this be made to work for matrices by checking the eigenvalues? Problem: need to implement non-Hermitian eigenvalue decomposition for all backends, not just numpy and pytorch.
                 mu = mu * self.__BE.astype(1 - 2 * (self.__BE.real(refractive_index) < 0))
                 epsilon *= (1 - 2 * (self.__BE.real(refractive_index) < 0))
             del refractive_index
@@ -432,7 +429,7 @@ class Solution(object):
 
             log.debug('beta = %0.4g, finding optimal alpha...' % self.__beta)
             try:
-                alpha_real, min_value = scipy.optimize.fmin(target_function_vec, 0.0, initial_simplex=[[0.0], [1.0]],  # TODO: uses a lot of VRAM during optimisation
+                alpha_real, min_value = scipy.optimize.fmin(target_function_vec, 0.0, initial_simplex=[[0.0], [1.0]],
                                                             disp=False, full_output=True,
                                                             ftol=alpha_tolerance, xtol=alpha_tolerance,
                                                             maxiter=100, maxfun=100)[:2]
