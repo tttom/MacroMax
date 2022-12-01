@@ -9,7 +9,7 @@
 # (a) by training a neural network that represents the preconditioned helmholtz equation,
 # (b) infering it using a recurrent neural network that takes the source current density as input.
 #
-# == Key Classes ==
+# == Key Neural Network Classes ==
 #
 # * HelmholtzNet: A neural network that infers the source current density for a given electric field.
 #   This is useful to verify an electric field computed by various methods. This neural network only has one set of
@@ -36,7 +36,7 @@
 #   scattered field at its output neurons, one for each position in space. This network infers the scattered field
 #   without requiring training.
 #
-# == All Classes ==
+# == All Classes (Neural Networks and Neural Network Layers) ==
 #
 # * DirectLayer: A point-wise multiplication layer. This is useful to implement potentials such as in HelmHoltzNet.
 #
