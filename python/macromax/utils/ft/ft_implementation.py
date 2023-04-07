@@ -43,7 +43,7 @@ except (ModuleNotFoundError, TypeError):
             pyfftw.config.NUM_THREADS = nb_threads
         except ModuleNotFoundError:
             log.info('Python multiprocessing module not found, using default number of threads')
-    except ModuleNotFoundError:
+    except (ModuleNotFoundError, TypeError):
         try:
             from scipy.fftpack import *
             log.info("Using scipy.fftpack Fast Fourier transforms instead of mkl_fft or pyfftw.")

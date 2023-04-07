@@ -119,7 +119,7 @@ html_static_path = ['_static']
 
 source_suffix = ['.rst', '.md']
 
-autodoc_mock_imports = ['numpy', 'scipy', 'torch', 'tensorflow']
+autodoc_mock_imports = ['torch', 'tensorflow']
 
 # Building the API Documentation...
 code_path = Path(__file__).parent.parent.parent.resolve()

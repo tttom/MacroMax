@@ -4,7 +4,7 @@
     :maxdepth: -1
     :caption: Contents:
 
-    api/modules
+    api/macromax
     changes
     genindex
     modindex
