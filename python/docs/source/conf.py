@@ -19,10 +19,10 @@ sys.path.insert(0, Path(__file__).parent.parent.absolute().as_posix())  # To gen
 # ReadTheDocs seems to require a combination of the following.
 sys.path.insert(0, Path(__file__).parent.parent.parent.absolute().as_posix())
 sys.path.insert(0, Path(__file__).parent.parent.absolute().as_posix())
-sys.path.insert(0, Path.cwd().absolute().as_posix())
-sys.path.insert(0, Path.cwd().parent.absolute().as_posix())
-sys.path.insert(0, Path.cwd().parent.parent.absolute().as_posix())
-sys.path.insert(0, Path.cwd().parent.parent.parent.absolute().as_posix())
+# sys.path.insert(0, Path.cwd().absolute().as_posix())
+# sys.path.insert(0, Path.cwd().parent.absolute().as_posix())
+# sys.path.insert(0, Path.cwd().parent.parent.absolute().as_posix())
+# sys.path.insert(0, Path.cwd().parent.parent.parent.absolute().as_posix())
 
 
 # -- Project information -----------------------------------------------------
