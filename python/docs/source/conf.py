@@ -15,9 +15,9 @@ from pathlib import Path
 import sphinx.ext.apidoc
 import sys
 
-sys.path.insert(0, Path(__file__).parent.parent.absolute().as_posix())  # To generate documentation locally
-# ReadTheDocs seems to require a combination of the following.
-sys.path.insert(0, Path(__file__).parent.parent.parent.absolute().as_posix())
+code_path = Path(__file__).parent.parent.absolute()
+sys.path.insert(0, code_path.as_posix())  # To generate documentation locally
+sys.path.insert(0, code_path.parent.as_posix())  # ReadTheDocs seems to require the repository root instead
 
 
 # -- Project information -----------------------------------------------------
