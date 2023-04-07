@@ -1,7 +1,8 @@
 # Version History
 
 ## Version 0.2.1
-* Fixed GPU memory leaks when using PyTorch back-end, thus enabling to solve larger problems. 
+* Fixed GPU memory leaks when using PyTorch back-end, thus enabling to solve larger problems.
+* Improved documentation and automated deployment.
 
 ## Version 0.2.0
 * Implemented the ScatteringMatrix class, which allows calculation of scattering, reflection,and transmission

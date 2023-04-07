@@ -19,12 +19,13 @@ array_like = Union[Complex, Sequence, np.ndarray, LinearOperator]
 
 class CachingMatrix(object):
     def __init__(self, caching: bool = True):
-        """
-        A mixin for Matrices that can cache the output
+        """A mixin for Matrices that can cache the output.
 
         :param caching: Cache field propagation calculations. By default, the results are cached for multiplications
             with basis vectors. Numerical errors might accumulate for certain superpositions. Setting this property to
-            False will ensure that field propagations are always used and the constructor argument array is ignored.
+            Setting this to `False` disables the cache so that field propagations are always used and the constructor
+            argument array is ignored.
+
         """
         self.__caching: bool = caching
         self.__cached_columns = dict()  # Stores a column vector for each integer column index that has been calculated.
@@ -51,6 +52,7 @@ class CachingMatrix(object):
         :param right: The argument value.
         :param value_function: The function with the argument ```right```, returning a vector of values
         :param out: The optional destination array.
+
         :return: The result of value_function(right), potentially retrieved from the cache.
         """
         right = np.asarray(right)
@@ -93,9 +95,7 @@ class CachingMatrix(object):
 
 
 class Matrix(LinearOperator):
-    """
-    A class to represent rectangular or square matrices that can be multiplied from the left or right, and pseudo-inverted.
-    """
+    """A class to represent rectangular or square matrices that can be multiplied from the left or right, and pseudo-inverted."""
     def __init__(self, array: Optional[array_like] = None, shape: Optional[Sequence[int]] = None, dtype=np.complex128):
         """
         Constructs a matrix from a rectangular numpy.ndarray, array-like object, or a function or method that returns one.
@@ -111,9 +111,7 @@ class Matrix(LinearOperator):
         self.__array = array
 
     def __len__(self) -> int:
-        """
-        :return: The number of rows in the matrix as an integer.
-        """
+        """The number of rows in the matrix as an integer."""
         return self.shape[0]
 
     def __getitem__(self, item: int) -> np.ndarray:
@@ -158,9 +156,7 @@ class Matrix(LinearOperator):
         self.__array.__setitem__(key, value)
 
     def __array__(self) -> np.ndarray:
-        """
-        :return: The array values represented by this matrix.
-        """
+        """The array values represented by this matrix."""
         if self.__array is not None:
             return np.asarray(self.__array)
         else:
@@ -175,8 +171,8 @@ class Matrix(LinearOperator):
 
     def _matvec(self, right: array_like) -> np.ndarray:
         """
-        Multiply this matrix with a vector or matrix: S @ right
-        This is the lowest level operation on which @ and __array__() depend.
+        Multiply this matrix with a vector or matrix: `S @ right`
+        This is the lowest level operation on which `@` and `__array__()` depend.
 
         :param: A vector or matrix to right-multiply with the MxN matrix, specified as either an array of shape (N, ) or (N, P).
             Alternatively, an nd-array can be specified of shape (2, N//2, Q) or (2, N//2, P, Q), where the first axis indicates the side
@@ -187,9 +183,7 @@ class Matrix(LinearOperator):
         return self.__array @ right
 
     def _adjoint(self) -> np.ndarray:
-        """
-        Return the Hermitian transpose of this matrix.
-        """
+        """Returns the Hermitian transpose of this matrix."""
         return self.__array__().conj().transpose()
 
     def __repr__(self) -> str:
@@ -210,9 +204,7 @@ class Matrix(LinearOperator):
 
 
 class SquareMatrix(Matrix):
-    """
-    A class to represent square matrices that can be inverted with or without regularization.
-    """
+    """A class to represent square matrices that can be inverted with or without regularization."""
     def __init__(self, array: Optional[array_like] = None, side: Optional[int] = None, dtype=np.complex128):
         """
         Constructs a matrix from a square array, array-like object, or a function or method that returns one.
@@ -237,9 +229,7 @@ class SquareMatrix(Matrix):
 
 
 class LiteralScatteringMatrix(SquareMatrix):
-    """
-    A class to represent scattering matrices constructed from an array of complex numbers.
-    """
+    """A class to represent scattering matrices constructed from an array of complex numbers."""
     def __init__(self, array: Optional[array_like] = None, side: Optional[int] = None, dtype=np.complex128):
         """
         Constructs a scattering matrix from a square array, array-like object, or a function or method that returns one.
@@ -257,7 +247,7 @@ class LiteralScatteringMatrix(SquareMatrix):
         can have incoming and outgoing waves. This is in contrast to the scattering matrix, ```self.__array__```, which
         relates incoming waves from both sides to outgoing waves from both sides. One can be calculated from the other
         using the ```matrix.convert()``` function, though this calculation may be ill-conditioned (sensitive to noise).
-        Therefore the optional argument ```noise_level``` should be used to indicate the root-mean-square expectation
+        Therefore, the optional argument ```noise_level``` should be used to indicate the root-mean-square expectation
         value of the measurement error. This avoids divisions by near-zero values and obtains a best estimate using
         Tikhonov regularization.
 
@@ -271,18 +261,26 @@ class LiteralScatteringMatrix(SquareMatrix):
         backward along the negative direction.
 
         Notation:
-            p: positive propagation direction along propagation axis 0
-            n: negative propagation direction along propagation axis 0
-            i: inwards propagating (from source on either side)
-            o: outwards propagating (backscattered or transmitted)
+            :p: positive propagation direction along propagation axis 0
+
+            :n: negative propagation direction along propagation axis 0
+
+            :i: inwards propagating (from source on either side)
+
+            :o: outwards propagating (backscattered or transmitted)
 
         Scattering matrix equation (in -> out):
+
             [po] = [A, B] [pi]
-            [no]   [C, D] [ni]
+
+            [no] = [C, D] [ni]
 
         Transfer matrix equation (top -> bottom):
+
             [po] = [A - B inv(D) C,  B inv(D)] [pi]
+
             [ni] = [  -   inv(D) C     inv(D)] [no],
+
         where inv(D) is the (regularized) inverse of D.
         """
         return convert(self, noise_level=noise_level)
@@ -350,11 +348,13 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         The modes are encoded as a vector of length N = 2xMxP for 2 sides, M angles, and P polarizations.
 
         - First the N/2 modes propagating along the positive x-axis are considered, then those propagating in the reverse direction.
+
         - In each direction, M different angles (k-vectors) can be considered. We choose propagating modes on a
             uniformly-spaced plaid grid that includes the origin (corresponding to the k-vector along the x-axis). Modes
             not propagating along the x-axis, i.e. in the y-z-plane are not considered. The angles are ordered in
             raster-scan order from negative k_y to positive k_y (slow) and from negative k_z to positive k_z (fast).
             The grid axes dimensions correspond to x(0), y(1), z(2).
+
         - When polarization is considered, each angle has a pair of modes, one for each polarization. The first mode has
             the polarization oriented along the rotated y'-axis and the second mode along the rotated z'-axis. To avoid
             ambiguity for normal incidence, the Cartesian-coordinate system is rotated along the shortest possible path,
@@ -366,8 +366,8 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         - ```srcvec2source```: super-position of free-space plane waves at the source planes at the front and back (fast)
         - ```source2detfield```: calculate the field in the whole volume using the ```solver.Solution``` object (slow)
         - ```detfield2detvec```: vector corresponding to the detected field at the detection planes (fast). The fields
-            at those planes should only contain the outward propagating waves. Hence, inwards propagating waves should
-            be subtracted before using this method!
+        at those planes should only contain the outward propagating waves. Hence, inwards propagating waves should
+        be subtracted before using this method!
         - ```srcvec2detfield```: calculate the field in the whole volume and convert it to a detection vector (slow)
         The latter is used in the matrix multiplication method: ```matmul```, @
 
@@ -535,9 +535,9 @@ class ScatteringMatrix(LiteralScatteringMatrix):
             radial_dir = self.__norm(self.__dot(k_vector_dir, axial_dir) * k_vector_dir - axial_dir)
             radial_mode_dir = self.__norm(k_vector_dir[1:])  # The mode-space (2D) radial direction
 
-        # Compensate for angle of incidence. The entrance aperture is effectively smaller for waves that enter at an angle,
-        # so they should be brighter to get the same field values.
-        input_vector /= np.sqrt(k_vector_dir[0])  # TODO: Why square root?
+        # Compensate for angle of incidence. The entrance 'aperture' effectively smaller for waves that enter at an
+        # angle, so that they should be brighter to get the same field values.
+        input_vector /= np.sqrt(k_vector_dir[0])  # TODO: Square root to normalize the intensity along the z-axis
 
         # Add the fields emanating from the front (forward to positive) and back (backwards to negative)
         for input_vector_single_side, direction in zip(input_vector, [1, -1]):
@@ -712,7 +712,7 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         output_vector *= np.exp(-1j * self.__solution.wavenumber * k_vector_dir[0] * detector_plane_distances[:, np.newaxis])
 
         # Compensate for emission angle. The exit aperture is effectively smaller for waves exiting at an angle.
-        output_vector *= np.sqrt(k_vector_dir[0])  # TODO: Why square root?
+        output_vector *= np.sqrt(k_vector_dir[0])  # TODO: Square root to normalize the irradiance along the z-axis
 
         # Move polarization from the left to the right-hand side
         output_vector = np.moveaxis(output_vector, 0, -1)

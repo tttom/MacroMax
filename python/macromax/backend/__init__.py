@@ -4,11 +4,11 @@ and it provides specific implementations that are used by the :class:`macromax.S
 
 The specific implementation that is used can be:
 
-- selected automatically based on availability and in order of deemed efficiency, or
+    - selected automatically based on availability and in order of deemed efficiency, or
 
-- specified when loading the backend with the :func:`load` function, or
+    - specified when loading the backend with the :func:`load` function, or
 
-- configured using :func:`config` function.
+    - configured using :func:`config` function.
 
 """
 import numpy as np
@@ -81,16 +81,12 @@ class BackEnd(ABC):
 
     @property
     def grid(self) -> Grid:
-        """
-        A Grid object representing the sample points in the spatial dimensions.
-        """
+        """A Grid object representing the sample points in the spatial dimensions."""
         return self.__grid
 
     @property
     def vectorial(self) -> bool:
-        """
-        A boolean indicating if this object represents a vector space (as opposed to a scalar space).
-        """
+        """A boolean indicating if this object represents a vector space (as opposed to a scalar space)."""
         return self.vector_length > 1
 
     @property
@@ -117,6 +113,7 @@ class BackEnd(ABC):
     def asnumpy(self, arr: array_like) -> np.ndarray:
         """
         Convert the internal array (or tensor) presentation to a numpy.ndarray.
+
         :param arr: The to-be-converted array.
 
         :return: The corresponding numpy ndarray.
@@ -171,6 +168,7 @@ class BackEnd(ABC):
 
         :param arr: The values that need to be assigned to another array.
         :param out: (optional) The target array, which must be of the same shape.
+
         :return: The target array or a newly allocated array with the same values as those in arr.
         """
         out[:] = arr
@@ -187,6 +185,7 @@ class BackEnd(ABC):
     def sign(self, arr: array_like) -> tensor_type:
         """
         Returns an array with values of -1 where arr is negative, 0 where arr is 0, and 1 where arr is positive.
+
         :param arr: The array to check.
 
         :return: np.sign(arr) or equivalent.
@@ -284,6 +283,7 @@ class BackEnd(ABC):
     def conj(self, arr: array_like) -> tensor_type:
         """
         Returns the conjugate of the elements in the input.
+
         :param arr: The input array.
 
         :return: arr.conj or equivalent
@@ -293,6 +293,7 @@ class BackEnd(ABC):
     def abs(self, arr: array_like) -> tensor_type:
         """
         Returns the absolute value (magnitude) of the elements in the input.
+
         :param arr: The input array.
 
         :return: np.abs(arr) or equivalent
@@ -310,7 +311,7 @@ class BackEnd(ABC):
         :param operation_ft: The function that acts on the Fourier-transformed input.
         :param arr: The to-be-convolved argument array.
 
-        :returns the convolved input array.
+        :return: the convolved input array.
         """
         arr_ft = self.ft(arr)
         arr_ft = operation_ft(arr_ft)
@@ -359,7 +360,9 @@ class BackEnd(ABC):
         The first (left-most) dimensions of the output are either
 
         - 1x1: The identity matrix for a scalar field, as sound waves or isotropic permittivity.
+
         - Nx1: A vector for a vector field, as the electric field.
+
         - NxN: A matrix for a matrix field, as anisotropic permittivity
 
         None is interpreted as 0.
@@ -646,9 +649,7 @@ class BackEnd(ABC):
 
     @property
     def k(self) -> Sequence[tensor_type]:
-        """
-        :return: A list of the k-vector components along each axis.
-        """
+        """A list of the k-vector components along each axis."""
         if self.__k is None:
             self.__k = [self.copy(self.astype(_)) for _ in self.grid.k]  # todo: is the copy needed here?
         return self.__k
@@ -875,14 +876,17 @@ class BackEnd(ABC):
 def config(*args: Sequence[Dict], **kwargs: str):
     """
     Configure a specific back-end, overriding the automatic detection.
-    E.g. use `from macromax import backend` followed by
-    - `backend.config(type='numpy')`
-    - `backend.config(dict(type='numpy'))`
-    - `backend.config(type='torch', device='cpu')`
-    - `backend.config(dict(type='torch', device='cpu'))`
-    - `backend.config(dict(type='torch', device='cuda'))`
-    - `backend.config(dict(type='torch', device='cuda'))`
-    - `backend.config([dict(type='torch', device='cuda'), dict(type='numpy')])`
+    E.g. use `from macromax import backend` followed by:
+
+    ::
+
+        backend.config(type='numpy')
+        backend.config(dict(type='numpy'))
+        backend.config(type='torch', device='cpu')
+        backend.config(dict(type='torch', device='cpu'))
+        backend.config(dict(type='torch', device='cuda'))
+        backend.config(dict(type='torch', device='cuda'))
+        backend.config([dict(type='torch', device='cuda'), dict(type='numpy')])
 
     Default back-ends can be specified in the file `backend_config.json` in the current folder.
     This configuration file should contain a list of potential back-ends in [JSON format](https://en.wikipedia.org/wiki/JSON), e.g.

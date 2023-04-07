@@ -134,11 +134,12 @@ class Reference:
         assumed, where the point is in the first element of the nd-array (top-left corner).
 
         :param reference_image: The reference image nd-array. As an alternative, its unshifted Fourier transform can
-        be specified as reference_image_ft.
+            be specified as reference_image_ft.
         :param precision: (optional) The default sub-pixel precision (default: 1/128).
         :param axes: (optional) The axes to operate on. If not specified, all dimensions of the reference image or its
-        Fourier transform are used.
-        :param ndim: The number of dimensions is usually determined from . If neither is specified, ndim determines the number of dimensions to operate on.
+            Fourier transform are used.
+        :param ndim: The number of dimensions is usually determined from . If neither is specified, ndim determines the
+            number of dimensions to operate on.
         :param reference_image_ft:
         """
         if reference_image is not None:

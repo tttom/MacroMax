@@ -10,18 +10,17 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
+from datetime import datetime
+from pathlib import Path
 import sys
-sys.path.insert(0, os.path.abspath('.'))
-sys.path.insert(0, os.path.abspath('../'))
-sys.path.insert(0, os.path.abspath('../../'))
+sys.path.insert(0, str(Path(__file__).parent.parent.absolute()))
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'MacroMax'
-copyright = '2020, Tom Vettenburg'
 author = 'Tom Vettenburg'
+copyright = f'{datetime.now().year}, {author}'
 
 
 # -- General configuration ---------------------------------------------------
@@ -29,36 +28,49 @@ author = 'Tom Vettenburg'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [
-    'm2r2',
-    'sphinx.ext.napoleon',
-    'sphinx.ext.autodoc',
-    'sphinx.ext.doctest',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.coverage',
-    'sphinx.ext.mathjax',
-    'sphinx.ext.ifconfig',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.todo',
-]
+extensions = ['m2r2',  # or m2r
+              'sphinx.ext.duration',
+              'sphinx.ext.doctest',
+              'sphinx.ext.autodoc',
+              'sphinx.ext.todo',
+              'sphinx.ext.coverage',
+              'sphinx.ext.viewcode',
+              'sphinx.ext.autosummary',
+              'sphinx.ext.napoleon',  # Used to write beautiful docstrings
+              'sphinx_autodoc_typehints',  # Used to insert typehints into the final docs
+              'added_value',  # Used to embed values from the source code into the docs
+              'sphinxcontrib.mermaid',  # Used to build graphs
+              'sphinx.ext.intersphinx',
+              'sphinx_rtd_theme',
+              ]
 
 source_suffix = ['.rst', '.md']
-
-intersphinx_mapping = {'python': ('https://docs.python.org/3', None)}
 
 napoleon_google_docstring = False
 napoleon_use_param = False
 napoleon_use_ivar = True
 
+autoclass_content = 'class'
+autodoc_member_order = 'bysource'
 autodoc_default_options = {
-    'member-order': 'bysource',
-    'undoc-members': True,
+    'members': True,
     'special-members': True,
-    'exclude-members': '__weakref__, __module__, __dict__, __str__, __eq__, __abstractmethods__, __orig_bases__, __parameters__'
+    'inherited-members': True,
+    'undoc-members': True,
+    'exclude-members': '__dict__, __weakref__, __abstractmethods__, __annotations__, __parameters__, __module__, __getitem__, __str__, __repr__, __hash__, ' +
+                       '__slots__, __orig_bases__, __subclasshook__, __class_getitem__, __contains__, __reversed__',  # , __eq__, __add__, __sub__, __neg__, __mul__, __imul__, __matmul__, __div__, __idiv__, __rdiv__, __truediv__',
+    'show-inheritance': True,
 }
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
+
+intersphinx_mapping = {'python': ('http://docs.python.org/3', None),
+                       'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+                       'scipy': ('http://docs.scipy.org/doc/scipy/reference/', None),
+                       'matplotlib': ('http://matplotlib.sourceforge.net/', None),
+                       'joblib': ('https://joblib.readthedocs.io/en/latest/', None),
+                       }
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -75,16 +87,32 @@ exclude_patterns = []
 # a list of builtin themes.
 #
 html_theme = 'sphinx_rtd_theme'
-
+html_theme_options = {
+    'sidebar_collapse': False,
+    'show_powered_by': False,
+}
+html_theme_options = {
+    'logo_only': False,
+    'display_version': True,
+    'prev_next_buttons_location': 'bottom',
+    'style_external_links': False,
+    'vcs_pageview_mode': '',
+    'style_nav_header_background': 'white',
+    # ToC options
+    'collapse_navigation': True,
+    'sticky_navigation': True,
+    'navigation_depth': -1,
+    'includehidden': True,
+    'titles_only': False
+}
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
 
-# Customization
-def setup(app):
-    app.add_css_file('theme_overrides.css')
+source_suffix = ['.rst', '.md']
 
 
-autodoc_mock_imports = ['numpy', 'scipy', 'torch']
+autodoc_mock_imports = ['torch', 'tensorflow']
+# autodoc_mock_imports = ['numpy', 'scipy', 'torch', 'tensorflow']

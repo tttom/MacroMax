@@ -97,31 +97,31 @@ class Solution(object):
         Default: True, when vectorial nor the source is specified.
         Default: vectorial (True), unless the source field is scalar (False if first dimension is a singleton dimension).
         :param wavenumber: the wavenumber in vacuum = 2pi / vacuum_wavelength.
-            The wavelength in the same units as used for the other inputs/outputs.
+        The wavelength in the same units as used for the other inputs/outputs.
         :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
         :param vacuum_wavelength: alternative argument to the wavenumber = 2 pi / vacuum_wavelength
         :param current_density: (optional, instead of source_distribution) An array or function that returns
-            the (vectorial) current density input distribution, J. The current density has units of :math:`A m^-2`.
+        the (vectorial) current density input distribution, J. The current density has units of :math:`A m^-2`.
         :param source_distribution: (optional, instead of current_density) An array or function that returns
-            the (vectorial) source input wave distribution. The source values relate to the current density, J,
-            as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
-            :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
-            More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
-            not rely on the vacuum permeability constant, :math:`mu_0`.
+        the (vectorial) source input wave distribution. The source values relate to the current density, J,
+        as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
+        :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
+        More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
+        not rely on the vacuum permeability constant, :math:`mu_0`.
         :param epsilon: an array or function that returns the (tensor) epsilon that represents the permittivity at the
-            points indicated by the `grid` input argument.
+        points indicated by the `grid` input argument.
         :param xi: an array or function that returns the (tensor) xi for bi-(an)isotropy at the points indicated by
-            the `grid` input argument.
+        the `grid` input argument.
         :param zeta: an array or function that returns the (tensor) zeta for bi-(an)isotropy at the points indicated
-            by the `grid` input argument.
+        by the `grid` input argument.
         :param mu: an array or function that returns the (tensor) permeability at the points indicated by the `grid`
-            input argument.
+        input argument.
         :param refractive_index: an array or function that returns the (complex) (tensor) refractive_index, as the
-            square root of the permittivity, at the points indicated by the `grid` input argument.
+        square root of the permittivity, at the points indicated by the `grid` input argument.
         :param bound: An object representing the boundary of the calculation volume. Default: None, PeriodicBound(grid)
         :param initial_field: optional start value for the E-field distribution (default: all zero E)
         :param dtype: optional numpy datatype for the internal operations and results. This must be a complex number type
-            as numpy.complex128 or np.complex64.
+        as numpy.complex128 or np.complex64.
         """
         self.__iteration = 0
 
@@ -896,7 +896,7 @@ class Solution(object):
         """
         The current iteration number.
 
-        :return: An integer indicating the how many iterations have been done.
+        :return: An integer indicating how many iterations have been done.
         """
         return self.__iteration
 

@@ -135,11 +135,11 @@ class TestGrid(unittest.TestCase):
         g = Grid(shape=(2, 3), first=(4, 5))
         npt.assert_array_equal(g[0], np.array([[4], [5]]),
                                err_msg='Grid range 0 incorrect.')
-        npt.assert_equal(g[0].dtype == np.int, True,
+        npt.assert_equal(g[0].dtype == int, True,
                          err_msg='Grid did not maintain integerness of arguments.')
         npt.assert_array_equal(g[1], np.array([[5, 6, 7]]),
                                err_msg='Grid range 1 incorrect.')
-        npt.assert_equal(g[1].dtype == np.int, True,
+        npt.assert_equal(g[1].dtype == int, True,
                          err_msg='Grid did not maintain integerness of arguments.')
 
     def test_grid_frequency_single(self):

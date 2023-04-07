@@ -1,21 +1,22 @@
 """
-The `solver` module calculates the solution to the wave equations. More specifically, the work is done in the iteration defined
-in the :meth:`Solution.__iter__` method of the :class:`Solution` class. The convenience function :func:`solve` is
-provided to construct a :class:`Solution` object and iterate it to convergence using its :meth:`Solution.solve` method.
+The `solver` module calculates the solution to the wave equations. More specifically, the work is done in the iteration
+defined in the :meth:`Solution.__iter__` method of the :class:`Solution` class. The convenience function :func:`solve`
+is provided to construct a :class:`Solution` object and iterate it to convergence using its :meth:`Solution.solve` method.
 
 Public attributes:
 
-- :data:`__version__`: The MacroMax version number as a `str`.
+    :data:`__version__`: The MacroMax version number as a `str`.
 
-- :func:`solve`: The function to solve the wave problem.
+    :func:`solve`: The function to solve the wave problem.
 
-- :class:`Solution`: The class that is used by the :func:`solve` function, which can be used for fine-control of the iteration or re-use.
+    :class:`Solution`: The class that is used by the :func:`solve` function, which can be used for fine-control of the iteration or re-use.
 
-- :class:`Grid`: A class representing uniformly spaced Cartesian grids and their Fourier Transforms.
+    :class:`Grid`: A class representing uniformly spaced Cartesian grids and their Fourier Transforms.
 
-- :attr:`log`: The :mod:`logging` object of the :mod:`macromax` library. This can be used to make the messages more or less verbose.
+    :attr:`log`: The :mod:`logging` object of the :mod:`macromax` library. This can be used to make the messages more or less verbose.
 
-- :mod:`backend <macromax.backend>`: The sub-package with the back-end specifications.
+    :mod:`backend <macromax.backend>`: The sub-package with the back-end specifications.
+
 """
 import logging
 try:
@@ -51,7 +52,7 @@ try:
     log.addHandler(fh)
 except IOError:
     ch.level = logging.DEBUG
-    log.warning("Could not create log file. Redirecting messages to console output.")
+    log.warning('Could not create log file. Redirecting messages to console output.')
 
 
 # Import in main name space

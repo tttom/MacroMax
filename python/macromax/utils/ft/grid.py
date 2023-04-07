@@ -123,7 +123,7 @@ class Grid(Sequence):
             raise AttributeError(f'shape = {shape}. All input ranges should have at least one element.')
 
         self._shape = shape.astype(int)
-        dtype = (step[0] + center[0]).dtype if self.ndim > 0 else np.float
+        dtype = (step[0] + center[0]).dtype if self.ndim > 0 else float
         self._step = step.astype(dtype)
         self._center = center.astype(dtype)
         self._flat = flat
@@ -350,7 +350,7 @@ class Grid(Sequence):
     @property
     def dtype(self):
         """ The numeric data type for the coordinates. """
-        return (self.step[0] + self.center[0]).dtype if self.ndim > 0 else np.float
+        return (self.step[0] + self.center[0]).dtype if self.ndim > 0 else float
 
     #
     # Frequency grids

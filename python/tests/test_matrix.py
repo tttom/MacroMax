@@ -47,7 +47,7 @@ class TestMatrix(unittest.TestCase):
                     if vectorial:
                         pol_idx = _ % 2
                         angle_idx = angle_idx // 2
-                        unit_mode_pol = np.zeros(2, dtype=np.complex)
+                        unit_mode_pol = np.zeros(2, dtype=complex)
                         unit_mode_pol[pol_idx] = 1
 
                     # Determine k-vector direction. The angle_idx is an index in all the propagating modes of one polarization
