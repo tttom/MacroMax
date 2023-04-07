@@ -54,7 +54,7 @@ class Magnetic:
 class Bound:
     """
     A base class to represent calculation-volume-boundaries.
-    Use the sub-classes for practical implementations.
+    Use the subclasses for practical implementations.
     """
     def __init__(self, grid: Union[Grid, Sequence, np.ndarray, None] = None,
                  thickness: Union[Real, Sequence, np.ndarray] = 0.0,
@@ -73,6 +73,7 @@ class Bound:
 
     @property
     def grid(self) -> Grid:
+        """The Cartesian grid that indicates the sample positions of this bound and the volume it encompasses."""
         return self.__grid
 
     @property

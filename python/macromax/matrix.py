@@ -47,10 +47,10 @@ class CachingMatrix(object):
                out: Optional[array_like] = None) -> np.ndarray:
         """
         Retrieve a cached value or calculate it using the specified function as necessary.
-        Usage: ```left = self._cache(right, calc_left)```
+        Usage: ``left = self._cache(right, calc_left)``
 
         :param right: The argument value.
-        :param value_function: The function with the argument ```right```, returning a vector of values
+        :param value_function: The function with the argument ``right``, returning a vector of values
         :param out: The optional destination array.
 
         :return: The result of value_function(right), potentially retrieved from the cache.
@@ -120,7 +120,7 @@ class Matrix(LinearOperator):
 
         :param item: The integer row index, a slice, an np.newaxis, or a tuple thereof.
 
-        :return: An ```numpy.ndarray``` of shape ```(1, self.shape[1])``` and dtype ```self.dtype``` with the row elements.
+        :return: An ``numpy.ndarray`` of shape ``(1, self.shape[1])`` and dtype ``self.dtype`` with the row elements.
         """
         if not isinstance(item, tuple):
             item = (item, slice(None))
@@ -198,7 +198,7 @@ class Matrix(LinearOperator):
 
         :param noise_level: (optional) argument to regularize the inversion of a (near-)singular matrix.
 
-        :return: An nd-array with the inverted matrix so that ```self @ self.inv``` approximates the identity.
+        :return: An nd-array with the inverted matrix so that ``self @ self.inv`` approximates the identity.
         """
         return inv(self, noise_level=noise_level)
 
@@ -244,17 +244,17 @@ class LiteralScatteringMatrix(SquareMatrix):
     def transfer(self, noise_level: float = 0.0) -> np.ndarray:
         """
         Calculates the transfer matrix, relating one side of the scatterer to the other side (top, bottom). Each side
-        can have incoming and outgoing waves. This is in contrast to the scattering matrix, ```self.__array__```, which
+        can have incoming and outgoing waves. This is in contrast to the scattering matrix, ``self.__array__``, which
         relates incoming waves from both sides to outgoing waves from both sides. One can be calculated from the other
-        using the ```matrix.convert()``` function, though this calculation may be ill-conditioned (sensitive to noise).
-        Therefore, the optional argument ```noise_level``` should be used to indicate the root-mean-square expectation
+        using the ``matrix.convert()`` function, though this calculation may be ill-conditioned (sensitive to noise).
+        Therefore, the optional argument ``noise_level`` should be used to indicate the root-mean-square expectation
         value of the measurement error. This avoids divisions by near-zero values and obtains a best estimate using
         Tikhonov regularization.
 
         :param noise_level: (optional) argument to regularize the inversion of a (near) singular backwards transmission matrix.
 
         :return: An nd-array with the transfer matrix relating top-to-bottom instead of in-to-out. This can be converted
-            back into a scattering matrix using the ```matrix.convert()``` function.
+            back into a scattering matrix using the ``matrix.convert()`` function.
 
         The first half of the vector inputs and outputs to the scattering and transfer matrices represent fields
         propagating forward along the positive propagation axis (0) and the second half represents fields propagating
@@ -291,7 +291,7 @@ class LiteralScatteringMatrix(SquareMatrix):
         Select the forward-transmitted quarter of the scattering matrix.
         It indicates how the light coming from negative infinity is transmitted to positive infinity.
 
-        :return: The forward-transmission matrix of shape ```self.shape // 2```.
+        :return: The forward-transmission matrix of shape ``self.shape // 2``.
         """
         return ForwardTransmissionMatrix(self)
 
@@ -301,7 +301,7 @@ class LiteralScatteringMatrix(SquareMatrix):
         Select the quarter of the scattering matrix corresponding to the light that is reflected of the front.
         It indicates how the light coming from negative infinity is back reflected to negative infinity.
 
-        :return: The front-reflection matrix of shape ```self.shape // 2```.
+        :return: The front-reflection matrix of shape ``self.shape // 2``.
         """
         return FrontReflectionMatrix(self)
 
@@ -311,7 +311,7 @@ class LiteralScatteringMatrix(SquareMatrix):
         Select the quarter of the scattering matrix corresponding to the light that is reflected of the back.
         It indicates how the light coming from positive infinity is back reflected to positive infinity.
 
-        :return: The back-reflection matrix of shape ```self.shape // 2```.
+        :return: The back-reflection matrix of shape ``self.shape // 2``.
         """
         return BackReflectionMatrix(self)
 
@@ -321,7 +321,7 @@ class LiteralScatteringMatrix(SquareMatrix):
         Select the backward-transmitted quarter of the scattering matrix.
         It indicates how the light coming from positive infinity is transmitted to negative infinity.
 
-        :return: The backward-transmission matrix of shape ```self.shape // 2```.
+        :return: The backward-transmission matrix of shape ``self.shape // 2``.
         """
         return BackwardTransmissionMatrix(self)
 
@@ -347,29 +347,34 @@ class ScatteringMatrix(LiteralScatteringMatrix):
 
         The modes are encoded as a vector of length N = 2xMxP for 2 sides, M angles, and P polarizations.
 
-        - First the N/2 modes propagating along the positive x-axis are considered, then those propagating in the reverse direction.
+        * First the N/2 modes propagating along the positive x-axis are considered, then those propagating in the reverse direction.
 
-        - In each direction, M different angles (k-vectors) can be considered. We choose propagating modes on a
-            uniformly-spaced plaid grid that includes the origin (corresponding to the k-vector along the x-axis). Modes
-            not propagating along the x-axis, i.e. in the y-z-plane are not considered. The angles are ordered in
-            raster-scan order from negative k_y to positive k_y (slow) and from negative k_z to positive k_z (fast).
-            The grid axes dimensions correspond to x(0), y(1), z(2).
+        * In each direction, M different angles (k-vectors) can be considered. We choose propagating modes on a
+          uniformly-spaced plaid grid that includes the origin (corresponding to the k-vector along the x-axis). Modes
+          not propagating along the x-axis, i.e. in the y-z-plane are not considered. The angles are ordered in
+          raster-scan order from negative k_y to positive k_y (slow) and from negative k_z to positive k_z (fast).
+          The grid axes dimensions correspond to x(0), y(1), z(2).
 
-        - When polarization is considered, each angle has a pair of modes, one for each polarization. The first mode has
-            the polarization oriented along the rotated y'-axis and the second mode along the rotated z'-axis. To avoid
-            ambiguity for normal incidence, the Cartesian-coordinate system is rotated along the shortest possible path,
-            i.e. along the axis that is normal to the original x-axis and the mode's k-vector. All rotations are around the
-            origin of the coordinate system, incurring no phase shift there.
+        * When polarization is considered, each angle has a pair of modes, one for each polarization. The first mode has
+          the polarization oriented along the rotated y'-axis and the second mode along the rotated z'-axis. To avoid
+          ambiguity for normal incidence, the Cartesian-coordinate system is rotated along the shortest possible path,
+          i.e. along the axis that is normal to the original x-axis and the mode's k-vector. All rotations are around the
+          origin of the coordinate system, incurring no phase shift there.
 
         Vectors can be converted to field distributions on the complete grid using the methods:
-        - ```srcvec2freespace```: super-position of free-space plane waves in the whole volume (fast)
-        - ```srcvec2source```: super-position of free-space plane waves at the source planes at the front and back (fast)
-        - ```source2detfield```: calculate the field in the whole volume using the ```solver.Solution``` object (slow)
-        - ```detfield2detvec```: vector corresponding to the detected field at the detection planes (fast). The fields
-        at those planes should only contain the outward propagating waves. Hence, inwards propagating waves should
-        be subtracted before using this method!
-        - ```srcvec2detfield```: calculate the field in the whole volume and convert it to a detection vector (slow)
-        The latter is used in the matrix multiplication method: ```matmul```, @
+
+        :meth:`srcvec2freespace` super-position of free-space plane waves in the whole volume (fast)
+
+        :meth:`srcvec2source` super-position of free-space plane waves at the source planes at the front and back (fast)
+
+        :meth:`source2detfield` calculate the field in the whole volume using the ``solver.Solution`` object (slow)
+
+        :meth:`detfield2detvec` vector corresponding to the detected field at the detection planes (fast). The fields
+            at those planes should only contain the outward propagating waves. Hence, inwards propagating waves should
+            be subtracted before using this method!
+
+        :meth:`srcvec2detfield` calculate the field in the whole volume and convert it to a detection vector (slow)
+            The latter is used in the matrix multiplication method: ``matmul``, @
 
         :param grid: A Grid object or a Sequence of vectors with uniformly increasing values that indicate the positions
             in a plaid grid of sample points for the material and solution. In the one-dimensional case, a simple increasing
@@ -500,9 +505,9 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         at the sample origin). Incident waves at an angle will result in higher amplitudes to compensate for the reduction
         in propagation along the propagation axis through the entrance plane.
 
-        Used in ```ScatteringMatrix.srcvec2source``` to calculate the source field distribution before entering the scatterer.
+        Used in ``ScatteringMatrix.srcvec2source`` to calculate the source field distribution before entering the scatterer.
 
-        Used in ```ScatteringMatrix.__matmul__``` to distinguish incoming from back-scattered light.
+        Used in ``ScatteringMatrix.__matmul__`` to distinguish incoming from back-scattered light.
 
         :param input_vector: A source vector or array of shape [2, M, P], where the first axis indicates the side (front, back),
             the second axis indicates the propagation mode (direction, top-bottom-left-right), and the final axis indicates
@@ -582,9 +587,9 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         Converts a source vector into an (N+1)D-array with the source field at the front and back of the scatterer.
         The source field is such that it produces E-fields of unit intensity for unit vector inputs.
 
-        Used in ```self.vector2field()``` and ```self.__matmul__()```.
+        Used in ``self.vector2field()`` and ``self.__matmul__()``.
 
-        :param input_vector: A source vector with ```self.shape[1]``` elements.
+        :param input_vector: A source vector with ``self.shape[1]`` elements.
             One value per side, per independent polarization (2), and per mode (inwards propagating k-vectors only).
 
         :param out: (optional) numpy array to store the result.
@@ -640,9 +645,9 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         """
         Calculates the (N+1)D-input-field distribution throughout the scatterer for a given input source vector.
 
-        Used in ```self.__matmul__()``` and external code.
+        Used in ``self.__matmul__()`` and external code.
 
-        :param input_vector: A source vector with ```self.shape[1]``` elements.
+        :param input_vector: A source vector with ``self.shape[1]`` elements.
         :param out: (optional) numpy array to store the result.
 
         :return: The field distribution as an array of shape [nb_pol, *self.grid], where nb_pol = 3 for a vectorial
@@ -657,7 +662,7 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         sample origin). The fields at those planes should only contain the outward propagating waves. Hence, inwards
         propagating waves should be subtracted before using this method!
 
-        This is used in ```self.__matmul__()```.
+        This is used in ``self.__matmul__()``.
 
         :param field: The detected field in all space (of which only the detection space is used).
 
@@ -789,7 +794,7 @@ class ScatteringMatrix(LiteralScatteringMatrix):
 
     def __setitem__(self, key, value):
         """
-        Updating this matrix is not possible. Use a ```Matrix``` object instead.
+        Updating this matrix is not possible. Use a ``Matrix`` object instead.
 
         :param key: Index or slice.
         :param value: The new value.

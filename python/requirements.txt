@@ -4,10 +4,8 @@
 numpy >= 1.15.4
 scipy >= 0.17.1
 
-#
-# Requirements for the examples
-#
-# matplotlib >= 3.3.2
+# Required for display
+matplotlib >= 3.3.2
 
 #
 # Optional for efficiency improvements
@@ -30,4 +28,4 @@ scipy >= 0.17.1
 #
 # Deployment
 #
-# m2r2 >= 0.3.3
+# m2r2 == 0.3.2

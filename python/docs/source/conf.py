@@ -12,8 +12,12 @@
 #
 from datetime import datetime
 from pathlib import Path
+import sphinx.ext.apidoc
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.absolute()))
+
+code_path = Path(__file__).parent.parent.absolute()
+sys.path.insert(0, code_path.as_posix())  # To generate documentation locally
+sys.path.insert(0, code_path.parent.as_posix())  # ReadTheDocs seems to require the repository root instead
 
 
 # -- Project information -----------------------------------------------------
@@ -38,7 +42,6 @@ extensions = ['m2r2',  # or m2r
               'sphinx.ext.autosummary',
               'sphinx.ext.napoleon',  # Used to write beautiful docstrings
               'sphinx_autodoc_typehints',  # Used to insert typehints into the final docs
-              'added_value',  # Used to embed values from the source code into the docs
               'sphinxcontrib.mermaid',  # Used to build graphs
               'sphinx.ext.intersphinx',
               'sphinx_rtd_theme',
@@ -65,10 +68,10 @@ autodoc_default_options = {
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
-intersphinx_mapping = {'python': ('http://docs.python.org/3', None),
-                       'numpy': ('http://docs.scipy.org/doc/numpy/', None),
-                       'scipy': ('http://docs.scipy.org/doc/scipy/reference/', None),
-                       'matplotlib': ('http://matplotlib.sourceforge.net/', None),
+intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
+                       'numpy': ('https://numpy.org/doc/stable/', None),
+                       'scipy': ('https://docs.scipy.org/doc/scipy/', None),
+                       'matplotlib': ('https://matplotlib.org/stable/', None),
                        'joblib': ('https://joblib.readthedocs.io/en/latest/', None),
                        }
 
@@ -110,9 +113,18 @@ html_theme_options = {
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-
 source_suffix = ['.rst', '.md']
-
 
 autodoc_mock_imports = ['torch', 'tensorflow']
 # autodoc_mock_imports = ['numpy', 'scipy', 'torch', 'tensorflow']
+
+# Building the API Documentation...
+code_path = Path(__file__).parent.parent.parent.resolve()
+docs_path = code_path / 'docs'
+apidoc_path = docs_path / 'source/api'  # a temporary directory
+html_output_path = docs_path / 'build/html'
+print(f'Building api-doc scaffolding in {apidoc_path}...')
+sphinx.ext.apidoc.main(['-f', '-d', '4', '-M',
+                        '-o', f'{apidoc_path}',
+                        f"{code_path / 'macromax'}"]
+                       )

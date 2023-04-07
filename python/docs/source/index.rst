@@ -4,15 +4,9 @@
     :maxdepth: -1
     :caption: Contents:
 
-    api/modules
-    genindex
+    api/macromax
     modindex
+    genindex
+    changes
 
-.. mdinclude:: ../../CHANGES.md
 
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
