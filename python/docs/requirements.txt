@@ -5,5 +5,5 @@ sphinxcontrib_mermaid>=0.8.1
 sphinx-rtd-theme>=1.2.0
 recommonmark>=0.7.1
 m2r2==0.3.2  # for compatibility with sphinx-rtd-theme, which requires an older version of docutils.
-numpy>=1.8
-scipy>=1.20
+numpy>=1.21
+scipy>=1.7
