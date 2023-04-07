@@ -11,12 +11,6 @@ code_path = pathlib.Path(__file__).parent.parent.resolve()
 docs_path = code_path / 'docs'
 apidoc_path = docs_path / 'source/api'  # a temporary directory
 html_output_path = docs_path / 'build/html'
-log.info(f'Removing temporary directory {apidoc_path}...')
-shutil.rmtree(apidoc_path, ignore_errors=True)
-sphinx.ext.apidoc.main(['-f', '-d', '4', '-M',
-                        '-o', f'{apidoc_path}',
-                        f"{code_path / 'macromax'}"]
-                       )
 log.info(f'Removing old documentation in {html_output_path}...')
 shutil.rmtree(html_output_path, ignore_errors=True)
 log.info('Building html...')

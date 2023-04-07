@@ -12,6 +12,7 @@
 #
 from datetime import datetime
 from pathlib import Path
+import sphinx.ext.apidoc
 import sys
 sys.path.insert(0, str(Path(__file__).parent.parent.absolute()))
 
@@ -109,9 +110,18 @@ html_theme_options = {
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-
 source_suffix = ['.rst', '.md']
-
 
 autodoc_mock_imports = ['torch', 'tensorflow']
 # autodoc_mock_imports = ['numpy', 'scipy', 'torch', 'tensorflow']
+
+# Building the API Documentation...
+code_path = Path(__file__).parent.parent.parent.resolve()
+docs_path = code_path / 'docs'
+apidoc_path = docs_path / 'source/api'  # a temporary directory
+html_output_path = docs_path / 'build/html'
+print(f'Creating api-doc automatically in {apidoc_path}...')
+sphinx.ext.apidoc.main(['-f', '-d', '4', '-M',
+                        '-o', f'{apidoc_path}',
+                        f"{code_path / 'macromax'}"]
+                       )
