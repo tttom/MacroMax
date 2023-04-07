@@ -5,7 +5,8 @@
     :caption: Contents:
 
     api/macromax
-    changes
-    genindex
     modindex
+    genindex
+    changes
+
 
