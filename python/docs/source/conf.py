@@ -19,6 +19,7 @@ code_path = Path(__file__).parent.parent.absolute()
 code_path_on_rtd = Path.cwd().absolute() / 'python'
 sys.path.insert(0, str(code_path))
 sys.path.insert(0, str(code_path_on_rtd))
+sys.path.insert(0, str(Path.cwd().absolute()))
 
 
 # -- Project information -----------------------------------------------------
