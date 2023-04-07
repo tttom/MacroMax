@@ -28,4 +28,4 @@ matplotlib >= 3.3.2
 #
 # Deployment
 #
-# m2r2 >= 0.3.3
+# m2r2 == 0.3.2
