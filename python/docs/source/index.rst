@@ -5,14 +5,7 @@
     :caption: Contents:
 
     api/modules
+    changes
     genindex
     modindex
 
-.. mdinclude:: ../../CHANGES.md
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
