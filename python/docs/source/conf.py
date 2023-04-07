@@ -14,7 +14,11 @@ from datetime import datetime
 from pathlib import Path
 import sphinx.ext.apidoc
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent.absolute()))
+
+code_path = Path(__file__).parent.parent.absolute()
+code_path_on_rtd = Path(__file__).parent.absolute() / 'python'  # In case this script has been moved
+sys.path.insert(0, str(code_path))
+sys.path.insert(0, str(code_path_on_rtd))
 
 
 # -- Project information -----------------------------------------------------
@@ -65,10 +69,10 @@ autodoc_default_options = {
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
-intersphinx_mapping = {'python': ('http://docs.python.org/3', None),
-                       'numpy': ('http://docs.scipy.org/doc/numpy/', None),
-                       'scipy': ('http://docs.scipy.org/doc/scipy/reference/', None),
-                       'matplotlib': ('http://matplotlib.sourceforge.net/', None),
+intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
+                       'numpy': ('https://numpy.org/doc/stable/', None),
+                       'scipy': ('https://docs.scipy.org/doc/scipy/', None),
+                       'matplotlib': ('https://matplotlib.org/stable/', None),
                        'joblib': ('https://joblib.readthedocs.io/en/latest/', None),
                        }
 
@@ -120,7 +124,7 @@ code_path = Path(__file__).parent.parent.parent.resolve()
 docs_path = code_path / 'docs'
 apidoc_path = docs_path / 'source/api'  # a temporary directory
 html_output_path = docs_path / 'build/html'
-print(f'Creating api-doc automatically in {apidoc_path}...')
+print(f'Building api-doc scaffolding in {apidoc_path}...')
 sphinx.ext.apidoc.main(['-f', '-d', '4', '-M',
                         '-o', f'{apidoc_path}',
                         f"{code_path / 'macromax'}"]
