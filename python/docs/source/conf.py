@@ -15,10 +15,14 @@ from pathlib import Path
 import sphinx.ext.apidoc
 import sys
 
-sys.path.insert(0, str(Path(__file__).parent.parent.absolute()))  # To generate documentation locally
-sys.path.insert(0, str(Path.cwd().absolute()))  # ReadTheDocs seems to require a combination of the following.
-sys.path.insert(0, str(Path.cwd().parent.absolute()))
-sys.path.insert(0, str(Path.cwd().parent.parent.absolute()))
+sys.path.insert(0, Path(__file__).parent.parent.absolute().as_posix())  # To generate documentation locally
+# ReadTheDocs seems to require a combination of the following.
+sys.path.insert(0, Path(__file__).parent.parent.parent.absolute().as_posix())
+sys.path.insert(0, Path(__file__).parent.parent.absolute().as_posix())
+sys.path.insert(0, Path.cwd().absolute().as_posix())
+sys.path.insert(0, Path.cwd().parent.absolute().as_posix())
+sys.path.insert(0, Path.cwd().parent.parent.absolute().as_posix())
+sys.path.insert(0, Path.cwd().parent.parent.parent.absolute().as_posix())
 
 
 # -- Project information -----------------------------------------------------
