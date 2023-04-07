@@ -4,4 +4,5 @@ sphinx_autodoc_typehints>=1.22
 sphinxcontrib_mermaid>=0.8.1
 sphinx-rtd-theme>=1.2.0
 recommonmark>=0.7.1
+added-value>=0.24.0
 m2r2==0.3.2  # for compatibility with sphinx-rtd-theme, which requires an older version of docutils.
