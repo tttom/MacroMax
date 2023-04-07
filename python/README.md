@@ -426,7 +426,7 @@ pip install pprofile memory_profiler
 The `make` scripts in the `docs/` subdirectory automatically generate the documentation.
 This uses Sphinx and extensions that can be installed with
 ````sh
-pip install sphinx==5.3.0 sphinx_autodoc_typehints sphinxcontrib_mermaid sphinx-rtd-theme recommonmark added-value
+pip install sphinx==5.3.0 sphinx_autodoc_typehints sphinxcontrib_mermaid sphinx-rtd-theme recommonmark
 ````
 Examples of use can be found in the `examples/` and `tests/` folders. The former is more didactic, while the latter is more complete.
 

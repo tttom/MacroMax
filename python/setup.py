@@ -47,7 +47,6 @@ setup(
             'sphinxcontrib_mermaid>=0.8.1',
             'sphinx-rtd-theme>=1.2.0',
             'recommonmark>=0.7.1',
-            'added-value>=0.24.0',
         ],
     },
     zip_safe=True,

@@ -38,7 +38,6 @@ extensions = ['m2r2',  # or m2r
               'sphinx.ext.autosummary',
               'sphinx.ext.napoleon',  # Used to write beautiful docstrings
               'sphinx_autodoc_typehints',  # Used to insert typehints into the final docs
-              'added_value',  # Used to embed values from the source code into the docs
               'sphinxcontrib.mermaid',  # Used to build graphs
               'sphinx.ext.intersphinx',
               'sphinx_rtd_theme',
