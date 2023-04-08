@@ -30,6 +30,7 @@ All [source code](https://github.com/corilim/MacroMax) is available on [GitHub](
 [![Libraries.io dependency status for latest release](https://img.shields.io/librariesio/release/pypi/macromax)](https://libraries.io/pypi/macromax)
 [![Documentation Status](https://readthedocs.org/projects/macromax/badge/?version=latest)](https://readthedocs.org/projects/macromax)
 
+
 ## Installation
 ### Prerequisites
 
