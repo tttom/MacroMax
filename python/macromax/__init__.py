@@ -27,7 +27,7 @@ except ImportError:
 
 # create logger
 log = logging.getLogger(__name__)
-log.propagate = False
+log.level = logging.WARNING
 
 # create formatter and add it to the handlers
 log_format = '%(asctime)s|%(name)s-%(levelname)s: %(message)s'
@@ -61,6 +61,6 @@ from .matrix import ScatteringMatrix
 from .utils.ft.grid import Grid
 import macromax.backend
 
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 
 __all__ = ['__version__', 'solve', 'Solution', 'ScatteringMatrix', 'Grid', 'log', 'backend']

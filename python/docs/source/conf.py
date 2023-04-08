@@ -121,7 +121,6 @@ autodoc_mock_imports = ['torch', 'tensorflow']
 code_path = Path(__file__).parent.parent.parent.resolve()
 docs_path = code_path / 'docs'
 apidoc_path = docs_path / 'source/api'  # a temporary directory
-html_output_path = docs_path / 'build/html'
 print(f'Building api-doc scaffolding in {apidoc_path}...')
 sphinx.ext.apidoc.main(['-f', '-d', '4', '-M',
                         '-o', f'{apidoc_path}',
