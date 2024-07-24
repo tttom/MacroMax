@@ -69,6 +69,8 @@ The calculation time can be reduced by several orders of magnitude using the PyT
 ````sh
 !pip install macromax
 ````
+For more details, check out the [Google Colab deployment example](examples/Introduction%20to%20MacroMax.ipynb).
+
 Local GPUs can also be used provided that PyTorch has a compatible implementation. At the time of writing, these includes NVidia's CUDA-enabled GPU as well AMD's ROCm-enabled GPUs (on Linux). Prior to installing the PyTorch module following the [PyTorch Guide](https://pytorch.org/), install the appropriate  [CUDA](https://www.nvidia.co.uk/Download/index.aspx?lang=en-uk) or [ROCm drivers](https://docs.amd.com/) for your GPU.
 Note that for PyTorch to work correctly, Nvidia drivers need to be up to date and match the installed CUDA version. At the time of writing, for CUDA version 11.6, PyTorch can be installed as follows using pip:
 ````sh
