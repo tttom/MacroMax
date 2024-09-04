@@ -75,8 +75,8 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
 
     fig, axs = plt.subplots(3, 2, frameon=False, figsize=(12, 9), sharex='all', sharey='all')
     for ax in axs.ravel():
-        ax.set_xlabel('y [$\mu$m]')
-        ax.set_ylabel('x [$\mu$m]')
+        ax.set_xlabel('y [$\\mu$m]')
+        ax.set_ylabel('x [$\\mu$m]')
         ax.set_aspect('equal')
 
     images = [axs[dim_idx][0].imshow(complex2rgb(np.zeros(grid.shape), 1, inverted=True),
@@ -91,7 +91,7 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
     axs[1][1].imshow(complex2rgb(permittivity[0, 0], 1, inverted=True), extent=grid2extent(grid) * 1e6)
     axs[2][1].imshow(complex2rgb(current_density[0], 1, inverted=True), extent=grid2extent(grid) * 1e6)
     axs[0][1].set_title('crystal axis orientation')
-    axs[1][1].set_title('$\chi$')
+    axs[1][1].set_title('$\\chi$')
     axs[2][1].set_title('source')
 
     # Display the medium without the boundaries

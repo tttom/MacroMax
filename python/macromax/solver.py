@@ -509,7 +509,7 @@ class Solution(object):
         if self.magnetic:
             def chi_op(E):
                 """
-                Applies the magnetic :math:`\Chi` operator to the input E-field.
+                Applies the magnetic :math:`\\Chi` operator to the input E-field.
 
                 :param E: an array representing the E to apply the Chi operator to.
 
