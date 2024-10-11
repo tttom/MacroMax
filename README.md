@@ -8,8 +8,7 @@ The material properties are defined on a rectangular grid (1D, 2D, or 3D) for wh
 The method iteratively corrects an estimated solution for the electric field (default: all zero). Its memory
 requirements are on the order of the storage requirements for the material properties and the electric field within the
 calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript
-["Calculating coherent light-wave propagation in large heterogeneous media"](https://doi.org/10.1364/OE.27.011946).
-Automatic leveraging of detected GPU/Cloud is implemented using PyTorch in the Python version of MacroMax (for further details [follow this link](https://arxiv.org/abs/2208.01118)).
+["Calculating coherent light-wave propagation in large heterogeneous media"](https://doi.org/10.1364/OE.27.011946). When the machine learning library PyTorch is detected, the wave equations can also be solved on the cloud or a local GPU, as described in the paper [doi:10.34133/icomputing.0098](https://doi.org/10.34133/icomputing.0098).
 
 The [source code](https://github.com/tttom/MacroMax) is available on [GitHub](https://github.com/tttom/MacroMax) under the
 **[MIT License](https://opensource.org/licenses/MIT): [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)**
