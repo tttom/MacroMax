@@ -12,7 +12,7 @@ The method iteratively corrects an estimated solution for the electric field (de
 requirements are on the order of the storage requirements for the material properties and the electric field within the
 calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript
 ["Calculating coherent light-wave propagation in large heterogeneous media"](https://doi.org/10.1364/OE.27.011946).
-Automatic leveraging of detected GPU/Cloud is implemented using PyTorch (for further details [follow this link](https://arxiv.org/abs/2208.01118)).
+When the machine learning library PyTorch is detected, the wave equations can also be solved on the cloud or a local GPU, as described in the paper [doi:10.34133/icomputing.0098](https://doi.org/10.34133/icomputing.0098).
 
 Examples of usage can be found in [the examples/ sub-folder](examples). The [Complete MacroMax Documentation](https://macromax.readthedocs.io)
 can be found at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
@@ -418,6 +418,8 @@ run the following commands from the `Macromax/python/` directory:
 pip install pytest
 pytest --ignore=tests/test_backend_tensorflow.py
 ```
+
+Some tests are backend specific and will fail if e.g. PyTorch or TensorFlow is not installed; however, this should not affect the other tests.
 
 The benchmark script in the `examples/` folder can be used to compare performance for different problems and architectures.
 Performance issues can be debugged using profilers as `pprofile` and `memory_profiler`, installed with:

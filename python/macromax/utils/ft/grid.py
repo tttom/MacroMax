@@ -4,12 +4,12 @@ from typing import Union, Sequence
 import numpy as np
 
 from macromax.utils.array.vector_to_axis import vector_to_axis
-from numpy.fft import ifftshift
 
 
 class Grid(Sequence):
     """
     A class representing an immutable uniformly-spaced plaid Cartesian grid and its Fourier Transform.
+    Unlike the MutableGrid, objects of this class cannot be changed after creation.
 
     See also :class:`MutableGrid`
     """
@@ -19,27 +19,50 @@ class Grid(Sequence):
                  origin_at_center: Union[bool, Sequence, np.ndarray] = True,
                  center_at_index: Union[bool, Sequence, np.ndarray] = True):
         """
-        Construct an immutable Grid object.
+        Construct an immutable `Grid` object.
+
+        Its values are defined by `shape`, `step`, `center`, and the boolean flags `include_last` and`center_at_index`.
+        If not specified, the values for `shape`, `step`, and `center` center are deduced from the other values,
+        including `first`, `last`, and `extent`. A larger even shape is assumed in case of ambiguity. If all else fails,
+        first the step is assumed to be 1, then the center is assumed to be as close as possible to 0, and finally the
+        shape is assumed to be 1.
+
+        Specific invariants:
+
+            - ```shape * step == extent == last + step - first``` if `include_last`
+            - ```shape * step == extent == last - first``` if `not include_last`
+            - ```center == first + shape // 2 * step``` if `center_at_index`
+            - ```center == first + (shape - 1) / 2 * step``` if `not center_at_index`
+
+        General invariants:
+
+            - ```shape * step == extent == last + step * include_last - first```
+            - ```center == first + (shape // 2 * center_at_index + (shape - 1) / 2 * (1 - center_at_index)) * step```
 
         :param shape: An integer vector array with the shape of the sampling grid.
-        :param step: A vector array with the spacing of the sampling grid.
-        :param extent: The extent of the sampling grid as shape * step
+        :param step: A vector array with the spacing of the sampling grid. This defaults to 1 if no two of first,
+            center, or last are specified.
+        :param extent: The extent of the sampling grid as shape * step = last - first.
         :param first: A vector array with the first element for each dimension.
             The first element is the smallest element if step is positive, and the largest when step is negative.
-        :param center: A vector array with the center element for each dimension. The center position in the grid is
-            rounded to the next integer index unless center_at_index is set to False for that partical axis.
-        :param last: A vector array with the last element for each dimension. Unless include_last is set to True for
-            the associated dimension, all but the last element is returned when calling self[axis].
+        :param center: A vector array with the central value for each dimension. The center value is that at the central
+            index in the grid, rounded up if center_at_index==True, or the average of the surrounding values when False.
+            The center value defaults to 0 if neither first nor last is specified.
+        :param last: A vector array with the last element for each dimension. Note that unless include_last is set to
+            True for the associated dimension, all but the last element is returned when calling self[axis]!
         :param include_last: A boolean vector array indicating whether the returned vectors, self[axis], should include
-            the last element (True) or all-but-the-last (False)
+            the last element (True) or the penultimate element (default == False). When the step size is not specified,
+            it is determined so that the step * (shape - 1) == extent.
         :param ndim: A scalar integer indicating the number of dimensions of the sampling space.
         :param flat: A boolean vector array indicating whether the returned vectors, self[axis], should be
             flattened (True) or returned as an open grid (False)
         :param origin_at_center: A boolean vector array indicating whether the origin should be fft-shifted (True)
             or be ifftshifted to the front (False) of the returned vectors for self[axis].
-        :param center_at_index: A boolean vector array indicating whether the center of the grid should be rounded to an
-            integer index for each dimension. If False and the shape has an even number of elements, the next index is
-            used as the center, (self.shape / 2).astype(int).
+        :param center_at_index: A boolean vector array indicating whether the center of an even dimension is included in
+            the grid. When left as False and the shape has an even number of elements in the corresponding dimension,
+            then the next index is used as the center, (self.shape / 2).astype(int). When set to True and the number of
+            elements in the corresponding dimension is even, then the center value is not included, only its preceding
+            and following elements.
         """
         # Figure out what dimension is required
         if ndim is None:
@@ -69,60 +92,102 @@ class Grid(Sequence):
                                center_at_index)
 
         if shape is None:
-            if step is not None:
-                if extent is None:
-                    # Try to work it out from first, center, or last
-                    if first is not None and last is not None:
-                        extent = last - first
-                    elif first is not None and center is not None:
-                        extent = 2 * (center - first)
-                    elif center is not None and last is not None:
-                        extent = 2 * (last - center)
-                    else:
-                        raise TypeError('Could not determine Grid.shape. Neither shape, nor extent, nor two out of first, center, and last have been specified.')
-                shape = np.round(np.real(self._to_ndim(extent) / self._to_ndim(step))).astype(int)
-            else:
-                if extent is None:
-                    # Try to work it out from first, center, or last
-                    if first is not None and last is not None:
-                        extent = last - first
-                    elif first is not None and center is not None:
-                        extent = 2 * (center - first)
-                    elif center is not None and last is not None:
-                        extent = 2 * (last - center)
-                    else:
-                        raise TypeError('Could not determine Grid.shape. Neither shape, nor step, extent, or two out of first, center, and last have been specified.')
-                step = extent
-                shape = 1
-            shape += include_last
-        else:
-            shape = np.round(shape).astype(int)  # Make sure that the shape is integer
-        # At this point the shape is not None
+            if extent is None:
+                if step is None:
+                    step = 1
+                # step is known
+                if last is None:
+                    if first is None:
+                        if center is None:
+                            center = self._to_ndim(0)
+                        # only center and step are known, assume shape == 1
+                        first = center
+                    # first and step are known
+                    if center is None:
+                        center = (first + 1 / step) % step - step / 2  # Pick the step that is closest to 0
+                    # center, first, and step are known
+                    shape = 2 * (center - first) / step - (1 - center_at_index)  # Round up to even shape in case of center_at_index
+                else:  # last and step are known
+                    if first is None:
+                        if center is None:
+                            center = (last + 1 / step) % step - step / 2  # Pick the step that is closest to 0
+                        # center, last, and step are known
+                        shape = 2 * (last - center) / step + include_last - (1 - center_at_index)  # Round up to even shape if center_at_index
+                    else:  # first, last, and step are known
+                        shape = (last - first) / step + include_last
+                # shape is known
+            else:  # extent is known
+                if step is None:
+                    step = extent
+                # step is known
+                shape = extent / step
+            # shape is known
+        # The shape is known
+        shape = np.ceil(shape).astype(int)  # Make sure that the shape is integer
+
         if step is None:
-            if extent is not None:
-                nb_steps = shape - include_last
-                step = extent / nb_steps
-            else:
-                step = self._to_ndim(1)  # Default step size to 1
-        # At this point the step is not None
+            if extent is None:
+                if last is None:
+                    if first is None:  # Only (potentially) center and shape are known, assume step = 1
+                        step = self._to_ndim(1)
+                    else:
+                        # first and shape are known
+                        if center is None:  # assume step == 1
+                            step = self._to_ndim(1)
+                        else:  # center, first, and shape are known
+                            step = (center - first) / (shape // 2 * center_at_index + (shape - 1) / 2 * (1 - center_at_index))
+                            if (center - first).dtype != step.dtype and np.allclose(step, np.round(step)):
+                                step = step.astype(center.dtype)
+                        # step is known
+                    # step is known
+                else:  # last and shape are known
+                    if first is None:
+                        if center is None:  # assume step == 1
+                            step = self._to_ndim(1)
+                        else:
+                            # center is known
+                            step = (last - center) / (shape - include_last - shape // 2 * center_at_index - (shape - 1) / 2 * (1 - center_at_index))
+                            if (last - center).dtype != step.dtype and np.allclose(step, np.round(step)):
+                                step = step.astype(center.dtype)
+                        # step is known
+                    else:  # first, last, and shape are known
+                        step = (last - first) / (shape - include_last)
+                        if (last - first).dtype != step.dtype and np.allclose(step, np.round(step)):
+                            step = step.astype(first.dtype)
+                    # step is known
+            else:  # extent is known
+                step = extent / shape
+            if np.all(step == step.astype(int)):
+                step = step.astype(int)
+        # step and shape are known
+
         if center is None:
-            if last is not None:
-                nb_steps = shape - include_last
-                first = last - step * nb_steps
-            if first is not None:
-                half_shape = shape / 2
-                half_shape[center_at_index] = np.floor(half_shape[center_at_index])
-                if np.all(center_at_index):
-                    half_shape = half_shape.astype(int)
-                center = first + step * half_shape
-            else:
-                center = self._to_ndim(0)  # Center around 0 by default
-        # At this point the center is not None
+            if first is None:
+                if last is None:
+                    center = self._to_ndim(0)
+                else:  # last is known
+                    center = last - step * (shape - include_last - shape // 2 * center_at_index - (shape - 1) / 2 * (1 - center_at_index))
+                    if (last - step).dtype != center.dtype and np.allclose(center, np.round(center)):
+                        center = center.astype(step.dtype)
+                # center is known
+            else:  # first is known
+                center = first + (shape // 2 * center_at_index + (shape - 1) / 2 * (1 - center_at_index)) * step
+                if (first + step).dtype != center.dtype and np.allclose(center, np.round(center)):
+                    center = center.astype(step.dtype)
+        # center, step, and shape are known now
+
+        # Some sanity checks
+        if extent is not None and np.any(np.ceil(extent / step) != shape):
+            raise ValueError(f"Extent {extent} and step {step} do not match with shape {shape}.")
+        if last is not None and first is not None and np.any(shape * step != last + step * include_last - first):
+            raise ValueError(f"First={first} and last={last} (include_last={include_last}) do not correspond to a step {step} and shape {shape}.")
+        if center is not None and first is not None and np.any(center != first + (shape // 2 * center_at_index + (shape - 1) / 2 * (1 - center_at_index)) * step):
+            raise ValueError(f"First={first} and center={center} do not correspond to a step {step} and shape {shape} (center_at_index={center_at_index}).")
 
         if np.any(shape < 1):
             raise AttributeError(f'shape = {shape}. All input ranges should have at least one element.')
 
-        self._shape = shape.astype(int)
+        self._shape = shape
         dtype = (step[0] + center[0]).dtype if self.ndim > 0 else float
         self._step = step.astype(dtype)
         self._center = center.astype(dtype)
@@ -142,7 +207,7 @@ class Grid(Sequence):
         """
         # Convert slices to range vectors. This won't work with infinite slices
         ranges = [(np.arange(rng.start, rng.stop, rng.step) if isinstance(rng, slice) else rng) for rng in ranges]
-        ranges = [np.array([rng] if np.isscalar(rng) else rng) for rng in ranges]  # Treat a scalar a singleton vector
+        ranges = [np.array([rng] if np.isscalar(rng) else rng) for rng in ranges]  # Treat a scalar as a singleton vector
         if any(_.size < 1 for _ in ranges):
             raise AttributeError('All input ranges should have at least one element.')
         ranges = [(rng.swapaxes(0, axis).reshape(rng.shape[axis], -1)[:, 0] if rng.ndim > 1 else rng)
@@ -158,7 +223,7 @@ class Grid(Sequence):
         last = np.array([rng[-1] for rng in ranges])  # last when fftshifted, center- otherwise
         # The last value is included!
 
-        # If it is not monotonous it is ifftshifted
+        # If it is not monotonous, it is ifftshifted
         origin_at_center = np.abs(last - first) >= np.abs(before_center - after_center)
         # Figure out what is the step size and the center element
         extent_m1 = origin_at_center * (last - first) + (1 - origin_at_center) * (before_center - after_center)
@@ -375,7 +440,7 @@ class Grid(Sequence):
     # Arithmetic methods
     #
     def __add__(self, term) -> Grid:
-        """ Add a (scalar) offset to the Grid coordinates. """
+        """ Add a scalar or vector offset to the Grid coordinates. """
         d = self.__dict__
         new_center = self.center + np.asarray(term)
         if not self.multidimensional:
@@ -471,8 +536,10 @@ class Grid(Sequence):
             if sh > 1:  # Define the center as 0 to avoid trouble with * np.inf when this is a singleton dimension.
                 rng = rng * st
             rng = rng + c
+            if not self.__center_at_index[axis] and (sh % 2 == 0):
+                rng = rng + st / 2
             if not self._origin_at_center[axis]:
-                rng = ifftshift(rng)
+                rng = np.fft.ifftshift(rng)  # Not loading the whole fft library just for this!
             if not self.flat[axis]:
                 rng = vector_to_axis(rng, axis=axis, ndim=self.ndim)
 
@@ -521,9 +588,9 @@ class Grid(Sequence):
     def __eq__(self, other: Grid) -> bool:
         """ Compares two Grid objects. """
         return type(self) == type(other) and np.all(self.shape == other.shape) and np.all(self.step == other.step) \
-               and np.all(self.center == other.center) and np.all(self.flat == other.flat) \
-               and np.all(self.center_at_index == other.center_at_index) \
-               and np.all(self.origin_at_center == other.origin_at_center) and self.dtype == other.dtype
+            and np.all(self.center == other.center) and np.all(self.flat == other.flat) \
+            and np.all(self.center_at_index == other.center_at_index) \
+            and np.all(self.origin_at_center == other.origin_at_center) and self.dtype == other.dtype
 
     def __hash__(self) -> int:
         return hash(repr(self))

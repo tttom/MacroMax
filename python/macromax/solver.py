@@ -7,7 +7,6 @@ import numpy as np
 import scipy.constants as const
 import scipy.optimize
 from typing import Union, Sequence, Callable, Optional
-from numbers import Real, Complex
 import logging
 
 from . import backend
@@ -16,11 +15,11 @@ from macromax.bound import Bound, Electric, Magnetic, PeriodicBound
 
 log = logging.getLogger(__name__)
 
-array_like = Union[Complex, Sequence, np.ndarray]
+array_like = Union[complex, Sequence, np.ndarray]
 
 
 def solve(grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = None,
-          wavenumber: Optional[Real] = 1.0, angular_frequency: Optional[Real] = None, vacuum_wavelength: Optional[Real] = None,
+          wavenumber: Optional[float] = 1.0, angular_frequency: Optional[float] = None, vacuum_wavelength: Optional[float] = None,
           current_density: array_like = None, source_distribution: array_like = None,
           epsilon: array_like = None, xi: array_like = 0.0, zeta: array_like = 0.0, mu: array_like = 1.0,
           refractive_index: array_like = None,
@@ -78,7 +77,7 @@ def solve(grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = N
 
 class Solution(object):
     def __init__(self, grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = None,
-                 wavenumber: Optional[Real] = 1.0, angular_frequency: Optional[Real] = None, vacuum_wavelength: Optional[Real] = None,
+                 wavenumber: Optional[float] = 1.0, angular_frequency: Optional[float] = None, vacuum_wavelength: Optional[float] = None,
                  current_density: array_like = None, source_distribution: array_like = None,
                  epsilon: array_like = None, xi: array_like = 0.0, zeta: array_like = 0.0, mu: array_like = 1.0,
                  refractive_index: array_like = None,
@@ -222,8 +221,6 @@ class Solution(object):
             epsilon = func2arr(epsilon).astype(dtype)
             epsilon = self.__BE.astype(epsilon)
 
-
-
         # Apply the boundary properties before the iteration
         if isinstance(self.__bound, Electric):
             bound_chi_epsilon = self.__BE.astype(self.__bound.electric_susceptibility)
@@ -302,10 +299,10 @@ class Solution(object):
         def largest_singularvalue(a):
             return (largest_eigenvalue(self.__BE.mul(self.__BE.adjoint(a), a))) ** 0.5
 
-        # Do a quick check to see if the the media has no gain
+        # Do a quick check to see if the media has no gain
         max_allowed_gain = np.sqrt(self.__BE.eps)
 
-        def has_gain(a):
+        def has_gain(a) -> bool:
             gain_condition = self.__BE.real(
                 self.__BE.mat3_eigh(-0.5j * (a - self.__BE.adjoint(a)))) < - max_allowed_gain
             result = self.__BE.any(gain_condition)
@@ -314,7 +311,13 @@ class Solution(object):
             self.__BE.clear_cache()
             return result
 
-        if has_gain(epsilon) or has_gain(xi) or has_gain(zeta) or has_gain(mu):
+        def has_loss(a) -> bool:
+            return has_gain(-a)
+
+        transpose = (has_gain(epsilon) or has_gain(xi) or has_gain(zeta) or has_gain(mu)
+                     ) and not (has_loss(epsilon) or has_loss(xi) or has_loss(zeta) or has_loss(mu))
+
+        if not transpose and (has_gain(epsilon) or has_gain(xi) or has_gain(zeta) or has_gain(mu)):
             def max_gain(a):
                 return self.__BE.amax(-self.__BE.real(self.__BE.mat3_eigh(-0.5j * (a - self.__BE.adjoint(a)))))
 
@@ -440,6 +443,8 @@ class Solution(object):
                                                             maxiter=100, maxfun=100)[:2]
 
             alpha = alpha_real[0] + 1.0j * min_value
+            if transpose:
+                alpha = alpha.conj()
 
             del alpha_real
         self.__BE.clear_cache()
@@ -509,7 +514,7 @@ class Solution(object):
         if self.magnetic:
             def chi_op(E):
                 """
-                Applies the magnetic :math:`\Chi` operator to the input E-field.
+                Applies the magnetic :math:`\\Chi` operator to the input E-field.
 
                 :param E: an array representing the E to apply the Chi operator to.
 
@@ -625,7 +630,7 @@ class Solution(object):
         return self.__BE.numpy_dtype
 
     @property
-    def wavenumber(self) -> Real:
+    def wavenumber(self) -> float:
         """
         The vacuum wavenumber, :math:`k_0`, used in the calculation.
 
@@ -634,7 +639,7 @@ class Solution(object):
         return self.__wavenumber
 
     @property
-    def angular_frequency(self) -> Real:
+    def angular_frequency(self) -> float:
         r"""
         The angular frequency, :math:`\omega`, used in the calculation.
 
@@ -643,7 +648,7 @@ class Solution(object):
         return self.__wavenumber * const.c
 
     @property
-    def wavelength(self) -> Real:
+    def wavelength(self) -> float:
         r"""
         The vacuum wavelength, :math:`\lambda_0`, used in the calculation.
 
@@ -912,7 +917,7 @@ class Solution(object):
         self.__iteration = it
 
     @property
-    def previous_update_norm(self) -> Real:
+    def previous_update_norm(self) -> float:
         """
         The L2-norm of the last update, the difference between current and previous E-field.
 
@@ -921,7 +926,7 @@ class Solution(object):
         return float(self.__previous_update_norm / (self.wavenumber ** 2))
 
     @property
-    def residue(self) -> Real:
+    def residue(self) -> float:
         """
         Returns the current relative residue of the inverse problem :math:`E = H^{-1}S`.
         The relative residue is return as the l2-norm fraction :math:`||E - H^{-1}S|| / ||E||`, where H represents the
@@ -971,14 +976,14 @@ class Solution(object):
             # log.debug(f'The norm of the field update has changed by a factor {relative_update_norm:0.3f}.')
 
             # Check if the iteration is diverging
-            if relative_update_norm < 1.0:
+            if relative_update_norm < 1:
                 # Update solution
                 self.__field_array += d_field              # X[G(XE + s) - E] + E
                 # Keep update norm for next iteration's convergence check
                 self.__previous_update_norm = current_update_norm
                 # log.debug(f'Updated field in iteration {self.iteration}.')
             else:
-                log.warning(f'The field update is scaled by {relative_update_norm:0.3f} >= 1 in iteration {self.iteration}.')
+                log.warning(f'The field update is scaled by {relative_update_norm:0.3f} >= 1 by {relative_update_norm - 1.0:0.3e} in iteration {self.iteration}.\nThis may be due to numerical accuracy or the presence of gain in the material.')
                 alpha_imag_current = self.__alpha.imag
                 alpha_new = self.__alpha.real + 1.50j * self.__alpha.imag
                 log.info(f'Increasing the imaginary part of alpha from {alpha_imag_current:0.3g} to {alpha_new.imag:0.3g}.')

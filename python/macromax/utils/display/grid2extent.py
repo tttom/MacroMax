@@ -5,6 +5,7 @@ from macromax.utils.ft import Grid
 
 log = logging.getLogger(__name__)
 
+
 def grid2extent(*args, origin_lower: bool = False):
     """
     Utility function to determine extent values for matplotlib.pyploy.imshow
