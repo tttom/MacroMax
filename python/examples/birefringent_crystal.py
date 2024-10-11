@@ -53,8 +53,8 @@ def show_birefringence():
     fig, axs = plt.subplots(3, 2, frameon=False, figsize=(12, 9))
 
     for ax in axs.ravel():
-        ax.set_xlabel('y [$\mu$m]')
-        ax.set_ylabel('x [$\mu$m]')
+        ax.set_xlabel('y [$\\mu$m]')
+        ax.set_ylabel('x [$\\mu$m]')
         ax.set_aspect('equal')
 
     images = [axs[dim_idx][0].imshow(complex2rgb(np.zeros(data_shape), 1),

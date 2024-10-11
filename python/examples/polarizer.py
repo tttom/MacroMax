@@ -57,19 +57,19 @@ def show_polarizer(center_polarizer=True):
         abs_line.append(field_ax.plot(x_range * 1e6, x_range * 0, color=[0, 0, 0])[0])
         real_line.append(field_ax.plot(x_range * 1e6, x_range * 0, color=[0, 0.7, 0])[0])
         imag_line.append(field_ax.plot(x_range * 1e6, x_range * 0, color=[1, 0, 0])[0])
-        field_ax.set_xlabel("x  [$\mu$m]")
+        field_ax.set_xlabel("x  [$\\mu$m]")
         field_ax.set_ylabel("$I_" + 'xyz'[plot_idx] + "$, $E_" + 'xyz'[plot_idx] + "$  [a.u.]")
 
         ax_m = axs[plot_idx][1]
         ax_m.plot(x_range[-1] * 2e6, 0, color=[0, 0, 0], label='I')  # Add a dummy line outside the FOV for the legend
         ax_m.plot(x_range[-1] * 2e6, 0, color=[0, 0.7, 0], label='$E_{real}$')
         ax_m.plot(x_range[-1] * 2e6, 0, color=[1, 0, 0], label='$E_{imag}$')
-        ax_m.plot(x_range * 1e6, permittivity[plot_idx, plot_idx].real, color=[0, 0, 1], label='$\epsilon_{real}$')
-        ax_m.plot(x_range * 1e6, permittivity[plot_idx, plot_idx].imag, color=[0, 0.5, 0.5], label='$\epsilon_{imag}$')
+        ax_m.plot(x_range * 1e6, permittivity[plot_idx, plot_idx].real, color=[0, 0, 1], label='$\\epsilon_{real}$')
+        ax_m.plot(x_range * 1e6, permittivity[plot_idx, plot_idx].imag, color=[0, 0.5, 0.5], label='$\\epsilon_{imag}$')
         # ax_m.plot(x_range * 1e6, permeability[plot_idx, plot_idx].real, color=[0.5, 0.25, 0], label='$\mu_{real}$')
         # ax_m.plot(x_range * 1e6, permeability[plot_idx, plot_idx].imag, color=[0.5, 1, 0], label='$\mu_{imag}$')
-        ax_m.set_xlabel('x  [$\mu$m]')
-        ax_m.set_ylabel('$\epsilon$, $\mu$')
+        ax_m.set_xlabel('x  [$\\mu$m]')
+        ax_m.set_ylabel('$\\epsilon$, $\\mu$')
         ax_m.set_xlim(x_range[[0, -1]] * 1e6)
         ax_m.legend(loc='upper right')
 

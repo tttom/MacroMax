@@ -93,7 +93,7 @@ array_like = Union[np.ndarray, torch.Tensor]
 
 display_progress = True  # Enable / disable output figures
 
-device = 'cuda' if torch.has_cuda and torch.cuda.is_available() else 'cpu'
+device = 'cuda' if torch.backends.cuda.is_built() and torch.cuda.is_available() else 'cpu'
 dtype = torch.complex128  # complex64  often sufficient
 
 torch.manual_seed(0)  # Fix for reproducibility
@@ -466,12 +466,12 @@ if __name__ == '__main__':
     if display_progress:
         fig, axs = plt.subplots(1, 2, figsize=(16, 6))
         for _, plot in enumerate([axs[0].plot, axs[1].loglog]):
-            plot(prec_training_errors, color='#ff0000', linewidth=1, linestyle='--', label='Prec. training $\epsilon_j$')
-            plot(prec_inference_errors, color='#006000', linewidth=1, linestyle='--', label='Prec. inference $\epsilon_E$')
-            plot(true_training_errors, color='#ff0000', linewidth=2, linestyle=':', label='True training $\epsilon_j$')
-            plot(true_inference_errors, color='#006000', linewidth=2, linestyle=':', label='True inference $\epsilon_j$')
-            plot(true_input_training_errors, color='#ff0000', linewidth=3, linestyle='-', label='True input training $\epsilon_E$')
-            plot(true_input_inference_errors, color='#006000', linewidth=3, linestyle='-', label='True input inference $\epsilon_E$')
+            plot(prec_training_errors, color='#ff0000', linewidth=1, linestyle='--', label='Prec. training $\\epsilon_j$')
+            plot(prec_inference_errors, color='#006000', linewidth=1, linestyle='--', label='Prec. inference $\\epsilon_E$')
+            plot(true_training_errors, color='#ff0000', linewidth=2, linestyle=':', label='True training $\\epsilon_j$')
+            plot(true_inference_errors, color='#006000', linewidth=2, linestyle=':', label='True inference $\\epsilon_j$')
+            plot(true_input_training_errors, color='#ff0000', linewidth=3, linestyle='-', label='True input training $\\epsilon_E$')
+            plot(true_input_inference_errors, color='#006000', linewidth=3, linestyle='-', label='True input inference $\\epsilon_E$')
             axs[_].set(xlabel='iteration', ylabel='relative error', title='convergence',
                        xlim=[1, len(prec_training_errors)], ylim=[0 if _ == 0 else 1e-6, 1])
             axs[_].legend()

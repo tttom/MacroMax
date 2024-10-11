@@ -16,6 +16,7 @@ try:
     from examples import log
 except ImportError:
     from macromax import log  # Fallback in case this script is not started as part of the examples package.
+macromax.log.level = -1
 
 
 def calculate_and_display(vectorial=True):

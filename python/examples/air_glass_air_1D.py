@@ -71,8 +71,8 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     if impedance_matched:
         ax[1].plot(x_range * 1e6, permeability[0, 0].real, color=[0.5, 0.25, 0], label='$\\mu_{real}$')
         ax[1].plot(x_range * 1e6, permeability[0, 0].imag, color=[0.5, 1, 0], label='$\\mu_{imag}$')
-    ax[1].set_xlabel('x  [$\mu$m]')
-    ax[1].set_ylabel('$\epsilon$, $\mu$')
+    ax[1].set_xlabel('x  [$\\mu$m]')
+    ax[1].set_ylabel('$\\epsilon$, $\\mu$')
     ax[1].set_xlim(x_range[[0, -1]] * 1e6)
     ax[1].legend(loc='upper right')
 
