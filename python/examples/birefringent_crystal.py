@@ -9,6 +9,7 @@ import numpy as np
 import time
 
 import macromax
+import macromax.bound
 from macromax.utils.ft import Grid
 from macromax.utils.display import complex2rgb, grid2extent
 try:

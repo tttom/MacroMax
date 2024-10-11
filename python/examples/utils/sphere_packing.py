@@ -150,7 +150,7 @@ def rasterize(grid, spheres) -> np.ndarray:
         img[inside] += 1
 
     log.info(f'Done rasterizing {len(spheres)} spheres.')
-    return img
+    return img > 0
 
 
 def pack_and_rasterize(grid, radius_mean: float = 1.0, radius_std: float = 0.0) -> np.ndarray:

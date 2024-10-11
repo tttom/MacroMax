@@ -12,7 +12,7 @@ The method iteratively corrects an estimated solution for the electric field (de
 requirements are on the order of the storage requirements for the material properties and the electric field within the
 calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript
 ["Calculating coherent light-wave propagation in large heterogeneous media"](https://doi.org/10.1364/OE.27.011946).
-Automatic leveraging of detected GPU/Cloud is implemented using PyTorch (for further details [follow this link](https://arxiv.org/abs/2208.01118)).
+When the machine learning library PyTorch is detected, the wave equations can also be solved on the cloud or a local GPU, as described in the paper [doi:10.34133/icomputing.0098](https://doi.org/10.34133/icomputing.0098).
 
 Examples of usage can be found in [the examples/ sub-folder](examples). The [Complete MacroMax Documentation](https://macromax.readthedocs.io)
 can be found at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
@@ -41,7 +41,7 @@ The examples require ````matplotlib```` for displaying the results.
 In the creation of this package for distribution, the ````pypandoc```` package is used for translating this document to
 other formats. This is only necessary for software development.
 
-The code has been tested on Python 3.7 and 3.10, though it is expected to work on versions 3.6 and above.
+The code has been tested on Python 3.11 and 3.12, though it is expected to work on versions 3.9 and above.
 
 ### Installing
 Installing the ````macromax```` package and its mandatory dependencies is as straightforward as running the following command in a terminal:
@@ -69,8 +69,10 @@ The calculation time can be reduced by several orders of magnitude using the PyT
 ````sh
 !pip install macromax
 ````
+For more details, check out the [Google Colab deployment example](examples/Introduction%20to%20MacroMax.ipynb).
+
 Local GPUs can also be used provided that PyTorch has a compatible implementation. At the time of writing, these includes NVidia's CUDA-enabled GPU as well AMD's ROCm-enabled GPUs (on Linux). Prior to installing the PyTorch module following the [PyTorch Guide](https://pytorch.org/), install the appropriate  [CUDA](https://www.nvidia.co.uk/Download/index.aspx?lang=en-uk) or [ROCm drivers](https://docs.amd.com/) for your GPU.
-Note that for PyTorch to work correctly, Nvidia drivers need to be up to date and match the installed CUDA version. At the time of writing, for CUDA version 11.6, PyTorch can be installed as follows using pip:
+Note that for PyTorch to work correctly, Nvidia drivers need to be up-to-date and match the installed CUDA version. At the time of writing, for CUDA version 11.6, PyTorch can be installed as follows using pip:
 ````sh
 pip install torch --extra-index-url https://download.pytorch.org/whl/cu116
 ````
@@ -416,6 +418,8 @@ run the following commands from the `Macromax/python/` directory:
 pip install pytest
 pytest --ignore=tests/test_backend_tensorflow.py
 ```
+
+Some tests are backend specific and will fail if e.g. PyTorch or TensorFlow is not installed; however, this should not affect the other tests.
 
 The benchmark script in the `examples/` folder can be used to compare performance for different problems and architectures.
 Performance issues can be debugged using profilers as `pprofile` and `memory_profiler`, installed with:

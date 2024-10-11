@@ -1,7 +1,7 @@
 import unittest
 import numpy.testing as npt
 
-from macromax.utils.ft import Grid, MutableGrid
+from macromax.utils.ft.grid import Grid, MutableGrid
 
 import numpy as np
 
@@ -10,9 +10,13 @@ class TestGrid(unittest.TestCase):
     def test_grid_no_shape(self):
         npt.assert_array_equal(Grid(extent=10, step=1), np.arange(-5, 5),
                                err_msg='Grid failed to calculate correct shape.')
-        npt.assert_array_equal(Grid(extent=10, step=2), np.arange(-4, 5, 2),
+        npt.assert_array_equal(Grid(extent=11, step=1), np.arange(-5, 6),
+                               err_msg='Grid failed to calculate correct shape.')
+        npt.assert_array_equal(Grid(extent=10, step=2), np.arange(-4, 6, 2),
                                err_msg='Grid failed to calculate correct shape or centering.')
-        npt.assert_array_equal(Grid(extent=10, step=3), np.arange(-3, 5, 3),
+        npt.assert_array_equal(Grid(extent=11, step=2), np.arange(-6, 5, 2),
+                               err_msg='Grid failed to calculate correct shape or centering.')
+        npt.assert_array_equal(Grid(extent=10, step=3), np.arange(-6, 4, 3),
                                err_msg='Grid failed to calculate correct shape or centering.')
         npt.assert_array_equal(Grid(extent=11, step=3), np.arange(-6, 5.5, 3),
                                err_msg='Grid failed to calculate correct shape or centering.')
@@ -108,7 +112,21 @@ class TestGrid(unittest.TestCase):
                                err_msg='Grid failed for odd length vector with offsets.')
 
     def test_grid_last(self):
+        npt.assert_array_equal(Grid(4, last=2), np.array([-2, -1, 0, 1]),
+                               err_msg='Grid failed for even length vector.')
+        npt.assert_array_equal(Grid(5, last=3), np.array([-2, -1, 0, 1, 2]),
+                               err_msg='Grid failed for odd length vector.')
+        npt.assert_array_equal(Grid(4, last=4), np.array([0, 1, 2, 3]),
+                               err_msg='Grid failed for even length vector with offsets.')
+        npt.assert_array_equal(Grid(5, last=5), np.array([0, 1, 2, 3, 4]),
+                               err_msg='Grid failed for odd length vector with offsets.')
+
+    def test_grid_last_included(self):
         npt.assert_array_equal(Grid(1, last=0, include_last=True), np.array([0]),
+                               err_msg='Grid failed for single-element vector.')
+        npt.assert_array_equal(Grid(1, last=1, include_last=True), np.array([1]),
+                               err_msg='Grid failed for single-element vector.')
+        npt.assert_array_equal(Grid(1, last=5, include_last=True), np.array([5]),
                                err_msg='Grid failed for single-element vector.')
         npt.assert_array_equal(Grid(4, last=1, include_last=True), np.array([-2, -1, 0, 1]),
                                err_msg='Grid failed for even length vector.')
@@ -131,16 +149,78 @@ class TestGrid(unittest.TestCase):
         npt.assert_array_equal(Grid(5, last=5), np.array([0, 1, 2, 3, 4]),
                                err_msg='Grid failed for odd length vector with offsets.')
 
+    def test_grid_first_last(self):
+        npt.assert_array_equal(Grid(1, first=0, last=1), np.array([0]),
+                               err_msg='Grid failed without specification of first and last only.')
+        # npt.assert_array_equal(Grid(1, first=0, last=5), np.array([0]),
+        #                        err_msg='Grid failed without specification of first and last only.')
+        npt.assert_array_equal(Grid(1, first=5, last=6), np.array([5]),
+                               err_msg='Grid failed without specification of first and last only.')
+        npt.assert_array_equal(Grid(1, first=5, last=10), np.array([5]),
+                               err_msg='Grid failed without specification of first and last only.')
+        npt.assert_array_equal(Grid(5, first=5, last=10), np.array([5, 6, 7, 8, 9]),
+                               err_msg='Grid failed without specification of first and last only.')
+
+    def test_grid_first_last_included(self):
+        npt.assert_array_equal(Grid(2, first=0, last=1, include_last=True), np.array([0, 1]),
+                               err_msg='Grid failed without specification of first and last only.')
+        npt.assert_array_equal(Grid(2, first=0, last=10, include_last=True), np.array([0, 10]),
+                               err_msg='Grid failed without specification of first and last only.')
+        npt.assert_array_equal(Grid(2, first=5, last=10, include_last=True), np.array([5, 10]),
+                               err_msg='Grid failed without specification of first and last only.')
+        npt.assert_array_equal(Grid(6, first=5, last=10, include_last=True), np.array([5, 6, 7, 8, 9, 10]),
+                               err_msg='Grid failed without specification of first and last only.')
+
+    def test_grid_first_last_conflict(self):
+        with npt.assert_raises(ValueError):
+            Grid(1, first=0, last=1, include_last=True)
+        with npt.assert_raises(ValueError):
+            Grid(1, first=0, last=5, include_last=True)
+        with npt.assert_raises(ValueError):
+            Grid(1, first=5, last=6, include_last=True)
+        with npt.assert_raises(ValueError):
+            Grid(1, first=5, last=10, include_last=True)
+
+    def test_center_at_index(self):
+        npt.assert_array_equal(Grid(5, center=0, center_at_index=True), [-2, -1, 0, 1, 2])
+        npt.assert_array_equal(Grid(5, center=0, center_at_index=False), [-2, -1, 0, 1, 2])
+        npt.assert_array_equal(Grid(4, center=0, center_at_index=True), [-2, -1, 0, 1])
+        npt.assert_array_equal(Grid(4, center=0, center_at_index=False), [-1.5, -0.5, 0.5, 1.5])
+        npt.assert_array_equal(Grid(5, 2, center=0, center_at_index=True), [-4, -2, 0, 2, 4])
+        npt.assert_array_equal(Grid(5, 2, center=0, center_at_index=False), [-4, -2, 0, 2, 4])
+        npt.assert_array_equal(Grid(4, 2, center=0, center_at_index=True), [-4, -2, 0, 2])
+        npt.assert_array_equal(Grid(4, 2, center=0, center_at_index=False), [-3, -1, 1, 3])
+        npt.assert_array_equal(Grid(5, 0.5, center=0, center_at_index=True), [-1.0, -0.5, 0.0, 0.5, 1.0])
+        npt.assert_array_equal(Grid(5, 0.5, center=0, center_at_index=False), [-1.0, -0.5, 0.0, 0.5, 1.0])
+        npt.assert_array_equal(Grid(4, 0.5, center=0, center_at_index=True), [-1.0, -0.5, 0.0, 0.5])
+        npt.assert_array_equal(Grid(4, 0.5, center=0, center_at_index=False), [-0.75, -0.25, 0.25, 0.75])
+        npt.assert_array_equal(Grid(5, center_at_index=True), [-2, -1, 0, 1, 2])
+        npt.assert_array_equal(Grid(5, center_at_index=False), [-2, -1, 0, 1, 2])
+        npt.assert_array_equal(Grid(4, center_at_index=True), [-2, -1, 0, 1])
+        npt.assert_array_equal(Grid(4, center_at_index=False), [-1.5, -0.5, 0.5, 1.5])
+        npt.assert_array_equal(Grid(5, 2, center_at_index=True), [-4, -2, 0, 2, 4])
+        npt.assert_array_equal(Grid(5, 2, center_at_index=False), [-4, -2, 0, 2, 4])
+        npt.assert_array_equal(Grid(4, 2, center_at_index=True), [-4, -2, 0, 2])
+        npt.assert_array_equal(Grid(4, 2, center_at_index=False), [-3, -1, 1, 3])
+        npt.assert_array_equal(Grid(5, 0.5, center_at_index=True), [-1.0, -0.5, 0.0, 0.5, 1.0])
+        npt.assert_array_equal(Grid(5, 0.5, center_at_index=False), [-1.0, -0.5, 0.0, 0.5, 1.0])
+        npt.assert_array_equal(Grid(4, 0.5, center_at_index=True), [-1.0, -0.5, 0.0, 0.5])
+        npt.assert_array_equal(Grid(4, 0.5, center_at_index=False), [-0.75, -0.25, 0.25, 0.75])
+        npt.assert_array_equal(Grid(5, first=0, center_at_index=True), [0, 1, 2, 3, 4])
+        npt.assert_array_equal(Grid(5, first=0, center_at_index=False), [0, 1, 2, 3, 4])
+        npt.assert_array_equal(Grid(4, first=0, center_at_index=True), [0, 1, 2, 3])
+        npt.assert_array_equal(Grid(4, first=0, center_at_index=False), [0, 1, 2, 3])
+
     def test_grid_dtype(self):
         g = Grid(shape=(2, 3), first=(4, 5))
         npt.assert_array_equal(g[0], np.array([[4], [5]]),
                                err_msg='Grid range 0 incorrect.')
         npt.assert_equal(g[0].dtype == int, True,
-                         err_msg='Grid did not maintain integerness of arguments.')
+                         err_msg=f'{g} did not maintain integerness of arguments.')
         npt.assert_array_equal(g[1], np.array([[5, 6, 7]]),
                                err_msg='Grid range 1 incorrect.')
         npt.assert_equal(g[1].dtype == int, True,
-                         err_msg='Grid did not maintain integerness of arguments.')
+                         err_msg=f'{g} did not maintain integerness of arguments.')
 
     def test_grid_frequency_single(self):
         npt.assert_array_equal(Grid(5).f, np.array([0, 1/5, 2/5, -2/5, -1/5]))
