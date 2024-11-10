@@ -387,11 +387,11 @@ class TestSolution(unittest.TestCase):
         npt.assert_almost_equal(np.linalg.norm(front.ravel()), 0.0002582, decimal=5,
                                 err_msg='Input field not as expected.')
 
-        npt.assert_equal(solution.E.dtype == np.complex64, True, err_msg='solution.E.dtype not correct')
-        npt.assert_equal(solution.B.dtype == np.complex64, True, err_msg='solution.B.dtype not correct')
-        npt.assert_equal(solution.D.dtype == np.complex64, True, err_msg='solution.D.dtype not correct')
-        npt.assert_equal(solution.H.dtype == np.complex64, True, err_msg='solution.H.dtype not correct')
-        npt.assert_equal(solution.S.dtype == np.float32, True, err_msg='solution.S.dtype not correct')
+        npt.assert_equal(solution.E.dtype, np.complex64, err_msg='solution.E.dtype not correct')
+        npt.assert_equal(solution.B.dtype, np.complex64, err_msg='solution.B.dtype not correct')
+        npt.assert_equal(solution.D.dtype, np.complex64, err_msg='solution.D.dtype not correct')
+        npt.assert_equal(solution.H.dtype, np.complex64, err_msg='solution.H.dtype not correct')
+        npt.assert_equal(solution.S.dtype, np.float32, err_msg='solution.S.dtype not correct')
         # npt.assert_equal(solution.dtype == np.complex64, True, err_msg='dtype not correctly set')  # todo: backend dependent
 
 

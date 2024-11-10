@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import numpy as np
-from typing import Union, Sequence, Callable, Optional
+import logging
+from math import prod
 from numbers import Complex, Real
+from typing import Union, Sequence, Callable, Optional
+
+import numpy as np
 import scipy.constants as const
 from scipy.sparse.linalg import LinearOperator
-import logging
 
 from . import Solution
 from .utils import ft
@@ -96,6 +98,7 @@ class CachingMatrix(object):
 
 class Matrix(LinearOperator):
     """A class to represent rectangular or square matrices that can be multiplied from the left or right, and pseudo-inverted."""
+
     def __init__(self, array: Optional[array_like] = None, shape: Optional[Sequence[int]] = None, dtype=np.complex128):
         """
         Constructs a matrix from a rectangular numpy.ndarray, array-like object, or a function or method that returns one.
@@ -169,6 +172,25 @@ class Matrix(LinearOperator):
                 vec[_] = 0
             return full_array.T
 
+    def __array_ufunc__(self, ufunc, method, *args, **kwargs):
+        """Pass through point-wise Numpy operations on the matrix values."""
+        return getattr(ufunc, method)(self.__array__(), *args[1:], **kwargs)
+
+    def __array_function__(self, func, types, args, kwargs):
+        """Apply Numpy functions to the matrix values."""
+        def convert_to_numpy(arg):
+            if isinstance(arg, np.ndarray):
+                return arg
+            if isinstance(arg, Matrix):
+                return arg.__array__()
+            if isinstance(arg, Sequence):
+                return [convert_to_numpy(_) for _ in arg]
+            return arg
+
+        return func(*(convert_to_numpy(_) for _ in args),
+                    **{convert_to_numpy(k): convert_to_numpy(v) for k, v in kwargs.items()},
+                    )
+
     def _matvec(self, right: array_like) -> np.ndarray:
         """
         Multiply this matrix with a vector or matrix: `S @ right`
@@ -226,6 +248,10 @@ class SquareMatrix(Matrix):
     @property
     def side(self) -> int:
         return self.shape[0]
+
+    @property
+    def size(self) -> int:
+        return prod(self.shape)
 
 
 class LiteralScatteringMatrix(SquareMatrix):
@@ -425,7 +451,7 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         propagating = np.ones(1, dtype=bool)
         k_abs = self.__solution.wavenumber  # The maximum absolute value of the remaining k-vector components for these to be propagating. Start with k0.
         k_grid = self.grid.k.as_origin_at_center
-        tol = np.sqrt(np.finfo(dtype).eps)
+        tol = np.sqrt(np.finfo(k_grid[0].dtype if dtype is None else dtype).eps)
         for k in k_grid[range(1, self.grid.ndim)]:  # fftshifted k-space coordinate
             propagating = propagating & (np.abs(k) < k_abs - tol)  # only modes propagating into the material
             k_abs = np.sqrt(np.maximum(k_abs**2 - k**2, 0.0))
@@ -916,11 +942,11 @@ class DepositionMatrix(Matrix, CachingMatrix):
                                             )
         if output_operator is None:
             output_operator = LinearOperator(shape=(scattering_matrix.shape[0], (1 + 2 * scattering_matrix.vectorial) * scattering_matrix.grid.size),
-                                            matvec=lambda _: scattering_matrix.detfield2detvec(
-                                                _.reshape([1 + 2 * scattering_matrix.vectorial, *scattering_matrix.grid.shape])
-                                            ),
-                                            dtype=scattering_matrix.dtype
-                                            )
+                                             matvec=lambda _: scattering_matrix.detfield2detvec(
+                                                 _.reshape([1 + 2 * scattering_matrix.vectorial, *scattering_matrix.grid.shape])
+                                             ),
+                                             dtype=scattering_matrix.dtype
+                                             )
         elif isinstance(output_operator, Callable):
             input_size = (1 + 2 * scattering_matrix.vectorial) * scattering_matrix.grid.size
             output_shape = output_operator(np.zeros(input_size)).shape

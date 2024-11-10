@@ -1,23 +1,23 @@
 #
 # Core requirements
 #
-numpy >= 1.15.4
-scipy >= 0.17.1
-
-# Required for display
-matplotlib >= 3.3.2
+numpy >= 2.0.0
+scipy >= 0.19.0
+coloredlogs >= 15.0  # To color-format the log output on the console.
 
 #
 # Optional for efficiency improvements
 #
-# pyFFTW >= 0.12.0
-# mkl-fft >= 1.2.0  # for Intel CPU with Anaconda or Intel-Python: conda create -n idp intelpython3_full python=3; conda activate idp
+# Install PyTorch >= 2.5.1 for your system: https://pytorch.org/get-started/locally/
+# Currently  CPU on Windows and Max, while GPU on Linux
+# !pip install torch
+# Currently GPU on Windows:
+# !pip install torch --index-url https://download.pytorch.org/whl/cu124
+# Currently  CPU on Linux:
+# !pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-# GPU, install PyTorch >= 1.11.0: https://pytorch.org/get-started/locally/
-# torch  # pip install torch --extra-index-url https://download.pytorch.org/whl/cu117
-
-# Optional for display
-# coloredlogs >= 15.0  # To color-format the log output on the console.
+# Required for examples
+# matplotlib >= 3.9.2
 
 #
 # Software Development

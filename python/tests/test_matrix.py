@@ -4,10 +4,13 @@ import numpy.testing as npt
 import numpy as np
 import scipy.sparse.linalg as sla
 
+from tests import log
 from macromax.utils import ft
 from macromax.utils.ft import Grid
 from macromax.bound import LinearBound
 from macromax import matrix
+
+log = log.getChild(__name__)
 
 
 class TestMatrix(unittest.TestCase):
@@ -15,12 +18,12 @@ class TestMatrix(unittest.TestCase):
         self.wavelength = 500e-9
         self.k0 = 2 * np.pi / self.wavelength
         self.grids = (
-                      # Grid([256, 128], self.wavelength/4),
-                      Grid([256, 7], self.wavelength/4),  # Avoid standing waves that travel parallel to the slab by making wavelength not fit an integer number of times.
-                      Grid([256, 5, 3], self.wavelength/4),
-                      Grid([256, 8], [self.wavelength/4, self.wavelength/5]),
-                      Grid([256], self.wavelength/4),
-                      )
+            # Grid([256, 128], self.wavelength/4),
+            Grid([256, 7], self.wavelength/4),  # Avoid standing waves that travel parallel to the slab by making wavelength not fit an integer number of times.
+            Grid([256, 5, 3], self.wavelength/4),
+            Grid([256, 8], [self.wavelength/4, self.wavelength/5]),
+            Grid([256], self.wavelength/4),
+        )
 
         # Define bounds for each grid
         self.bounds = []
@@ -228,11 +231,12 @@ class TestMatrix(unittest.TestCase):
             for grid, bound in zip(self.grids, self.bounds):
                 m = matrix.ScatteringMatrix(grid, vectorial=vectorial, vacuum_wavelength=self.wavelength, bound=bound)
                 expected = np.eye(*m.shape)
-                vec = np.zeros(m.shape[1])
-                det_field = m.srcvec2detfield(vec)
-                detvec = m.detfield2detvec(det_field)
-                npt.assert_array_almost_equal(np.abs(m), expected, decimal=2,
-                                              err_msg=f'Absolute value of empty space {desc} scattering matrix not correct for {grid}.')
+                # vec = np.zeros(m.shape[1])
+                # det_field = m.srcvec2detfield(vec)
+                # detvec = m.detfield2detvec(det_field)
+                npt.assert_array_almost_equal(
+                    np.abs(m), expected, decimal=2,
+                    err_msg=f'Absolute value of empty space {desc} scattering matrix not correct for {grid}.')
                 npt.assert_array_almost_equal(m, expected, decimal=2,
                                               err_msg=f'Empty space {desc} scattering matrix not correct for {grid}.')
 
@@ -302,14 +306,15 @@ class TestMatrix(unittest.TestCase):
                 n[grid.shape[0]//2] = 1.5
                 n[grid.shape[0]//2 + 2] = 1.5
                 m = matrix.ScatteringMatrix(grid, vectorial=vectorial, vacuum_wavelength=self.wavelength, refractive_index=n, bound=bound)
-                print(f'Calculating scattering matrix for {desc} and its transmission and reflection quadrants...')
+                log.info(f'Calculating scattering matrix for {desc} and its transmission and reflection quadrants...')
                 m_ft = m.forward_transmission
                 m_fr = m.front_reflection
                 m_br = m.back_reflection
                 m_bt = m.backward_transmission
-                npt.assert_array_equal(m, np.vstack([np.hstack([m_ft, m_br]), np.hstack([m_fr, m_bt])]), err_msg='The Quadrant matrices do not combine to the scattering matrix of a thin film.')
-                print(f'Calculating inverse problem with the forward transmission matrix for {desc}...')
-                target_vec = np.zeros(m_ft.shape[0], dtype=complex)
+                npt.assert_array_equal(m, np.vstack([np.hstack([m_ft, m_br]), np.hstack([m_fr, m_bt])]),
+                                       err_msg='The Quadrant matrices do not combine to the scattering matrix of a thin film.')
+                log.info(f'Calculating inverse problem with the forward transmission matrix for {desc}...')
+                target_vec = np.zeros(m_ft.shape[0], dtype=np.complex128)
                 target_mode_index = 0
                 target_vec[target_mode_index] = 0.5 + 0.5j
                 source_vec  = matrix.inv(m_ft, 1e-6) @ target_vec  # relatively slow for small problems like this
@@ -334,30 +339,30 @@ class TestMatrix(unittest.TestCase):
                 n = np.ones(grid.shape)  # set background refractive index to 1
                 n[grid.shape[0]//2 + np.arange(layer_shape[0]) - layer_shape[0]//2] = material_n[grid.shape[0]//2 + np.arange(layer_shape[0]) - layer_shape[0]//2]
                 m = matrix.ScatteringMatrix(grid, vectorial=vectorial, vacuum_wavelength=self.wavelength, refractive_index=n, bound=bound)
-                print(f'Calculating a random scattering matrix for {desc} and its transmission and reflection quadrants...')
+                log.info(f'Calculating a random scattering matrix for {desc} and its transmission and reflection quadrants...')
                 m_ft = m.forward_transmission
                 m_fr = m.front_reflection
                 m_br = m.back_reflection
                 m_bt = m.backward_transmission
                 npt.assert_array_equal(m, np.vstack([np.hstack([m_ft, m_br]), np.hstack([m_fr, m_bt])]),
                                        err_msg=f'{desc}: The Quadrant matrices do not combine to the scattering matrix of a random scatterer.')
-                print(f'Calculating inverse problem with a random forward transmission matrix for {desc}...')
+                log.info(f'Calculating inverse problem with a random forward transmission matrix for {desc}...')
                 target_vec = np.zeros(m_ft.shape[0])
                 target_vec[target_mode_index] = 1.0
                 source_vec = matrix.inv(m_ft, 1e-6) @ target_vec
                 # source_vec, info  = sla.cgs(m_ft, target_vec, atol=1e-9, maxiter=2*m_ft.shape[1])  # relatively slow for small problems like this
                 # if info != 0:
                 #     if info > 0:
-                #         print(f'scipy.sparse.linalg.cgs did not converge in {info} iterations.')
+                #         log.info(f'scipy.sparse.linalg.cgs did not converge in {info} iterations.')
                 #     else:
-                #         print(f'scipy.sparse.linalg.cgs exited with error {info}.')
+                #         log.info(f'scipy.sparse.linalg.cgs exited with error {info}.')
                 npt.assert_array_almost_equal(m_ft @ source_vec, target_vec, decimal=3,
                                               err_msg=f'{desc}: Solving the inverse problem on the forward transmission matrix did not work as expected for a random scatterer.')
-                print(f'Calculating the maximally transparent eigenchannel of a random forward transmission matrix for {desc}...')
+                log.info(f'Calculating the maximally transparent eigenchannel of a random forward transmission matrix for {desc}...')
                 eigenvalues, eigenvectors = np.linalg.eig(m_ft)
                 eigenvalue, eigenvector = sorted(zip(eigenvalues, eigenvectors.transpose()), key=lambda _: np.abs(_[0]))[-1]  # Pick the one with the highest transmission for testing
                 npt.assert_array_almost_equal(m_ft @ eigenvector, eigenvalue * eigenvector, decimal=3,
-                                        err_msg=f'{desc}: Eigentransmission transparency test failed.')
+                                              err_msg=f'{desc}: Eigentransmission transparency test failed.')
                 # Perfect open and closed channels do not exist for small systems!
                 # # u, s, vh = np.linalg.svd(m_ft)
                 # u, s, vh = sla.svds(m_ft, k=1, ncv=None, tol=1e-6, which='SM', v0=None, maxiter=100)

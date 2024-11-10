@@ -26,7 +26,7 @@ log = logging.getLogger(__name__)
 
 __all__ = ['config', 'load', 'BackEnd', 'array_like', 'tensor_type']
 
-DType = Union[Type[np.float_], Type[np.single]]
+DType = Union[Type[np.float64], Type[np.single]]
 
 __config_list = None
 
@@ -125,7 +125,7 @@ class BackEnd(ABC):
     @property
     def eps(self) -> float:
         """The precision of the data type (self.dtype) of this back-end."""
-        return np.finfo(self.hardware_dtype).eps
+        return np.finfo(self.hardware_dtype).eps.item()
 
     @abstractmethod
     def allocate_array(self, shape: array_like = None, dtype: Optional[DType] = None,
@@ -946,11 +946,14 @@ def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) ->
         else:
             config_list = __config_list
 
-    config_list += [{'type': 'torch', 'device': 'cuda'},
-                    # {'type': 'tensorflow', 'device': 'tpu'},
-                    # {'type': 'tensorflow', 'device': 'gpu'},
-                    # {'type': 'opencl_vulkan', 'device': 'gpu'},
-                    {'type': 'numpy'}]  # always use numpy as a backup plan
+    config_list += [
+        {'type': 'torch', 'device': 'cuda'},
+        {'type': 'torch', 'device': 'cpu'},
+        # {'type': 'tensorflow', 'device': 'tpu'},
+        # {'type': 'tensorflow', 'device': 'gpu'},
+        # {'type': 'opencl_vulkan', 'device': 'gpu'},
+        {'type': 'numpy'},
+    ]  # always use numpy as a backup plan
 
     for c in config_list:
         config_type = c.get('type', 'unknown').lower()
