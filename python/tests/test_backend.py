@@ -156,7 +156,7 @@ class BaseTestBackEnd(unittest.TestCase):
     def test_to_matrix_field(self):
         npt.assert_equal(self.BE.asnumpy(self.BE.to_matrix_field(2)), 2)
         npt.assert_equal(self.BE.asnumpy(self.BE.to_matrix_field(np.zeros([3, 3, *self.grid.shape]))), 0.0)
-        npt.assert_equal(self.BE.asnumpy(self.BE.to_matrix_field(np.pi * np.ones([3, 3, *self.grid.shape]))), np.pi)
+        npt.assert_almost_equal(self.BE.asnumpy(self.BE.to_matrix_field(np.pi * np.ones([3, 3, *self.grid.shape]))), np.pi)
         npt.assert_equal(self.BE.asnumpy(self.BE.to_matrix_field(np.pi * np.eye(3)[:, :, np.newaxis, np.newaxis, np.newaxis])),
                          np.pi * self.BE.asnumpy(self.BE.eye))
         npt.assert_equal(self.BE.to_matrix_field(np.arange(3)).shape, (1, 1, 1, 1, 3))

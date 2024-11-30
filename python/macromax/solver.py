@@ -91,20 +91,19 @@ class Solution(object):
             in a plaid grid of sample points for the material and solution. In the one-dimensional case, a simple increasing
             Sequence of uniformly-spaced numbers may be provided as an alternative. The length of the ranges determines the
             data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
-            specified as `numpy.ndarray`s.
+            specified as :py:class:`numpy.ndarray`.
         :param vectorial: a boolean indicating if the source and solution are 3-vectors-fields (True) or scalar fields (False).
-            Default: True, when vectorial nor the source is specified.
-            Default: vectorial (True), unless the source field is scalar (False if first dimension is a singleton dimension).
+            Default, True when vectorial nor the source is specified. False if the source is specified and scalar.
         :param wavenumber: the wavenumber in vacuum = 2pi / vacuum_wavelength.
             The wavelength in the same units as used for the other inputs/outputs.
         :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
         :param vacuum_wavelength: alternative argument to the wavenumber = 2 pi / vacuum_wavelength
         :param current_density: (optional, instead of source_distribution) An array or function that returns
-            the (vectorial) current density input distribution, J. The current density has units of :math:`A m^-2`.
+            the (vectorial) current density input distribution, J. The current density has units of :math:`A m^{-2}`.
         :param source_distribution: (optional, instead of current_density) An array or function that returns
             the (vectorial) source input wave distribution. The source values relate to the current density, J,
-            as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
-            :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
+            as  `1j * angular_frequency * scipy.constants.mu_0 * J` and has units of
+            :math:`rad s^{-1} H m^{-1} A m^{-2} = rad V m^{-3}`.
             More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
             not rely on the vacuum permeability constant, :math:`mu_0`.
         :param epsilon: an array or function that returns the (tensor) epsilon that represents the permittivity at the
@@ -454,12 +453,12 @@ class Solution(object):
 
         log.debug('Preparing pre-conditioned operators...')
         self.__alpha = alpha
-        self.__chiEH = chiEH_beta * (1.0j / self.__alpha.imag / self.__beta)
+        self.__chiEH = self.__BE.mul(chiEH_beta, 1.0j / self.__alpha.imag / self.__beta)
         del chiEH_beta
-        self.__chiHE = chiHE_beta * (1.0j / self.__alpha.imag / self.__beta)
+        self.__chiHE = self.__BE.mul(chiHE_beta, 1.0j / self.__alpha.imag / self.__beta)
         del chiHE_beta
-        self.__chiHH = calc_chiHH(self.__beta) * (1.0j / self.__alpha.imag)
-        self.__chiEE_base = epsilon_xi_mu_inv_zeta * (1.0j / self.__alpha.imag / self.__beta)
+        self.__chiHH = self.__BE.mul(calc_chiHH(self.__beta), 1.0j / self.__alpha.imag)
+        self.__chiEE_base = self.__BE.mul(epsilon_xi_mu_inv_zeta, 1.0j / self.__alpha.imag / self.__beta)
         if self.__chiEE_base.shape[0] == 1:
             self.__chiEE_base -= self.__alpha * 1.0j / self.__alpha.imag
         else:
@@ -512,6 +511,9 @@ class Solution(object):
 
         # Define the Chi operator for magnetic or non-magnetic (potentially anisotropic)
         if self.magnetic:
+            def D(field_E):
+                return self.__BE.curl(field_E)  # includes k0^-1 by the definition of __PO
+
             def chi_op(E):
                 """
                 Applies the magnetic :math:`\\Chi` operator to the input E-field.
@@ -520,9 +522,6 @@ class Solution(object):
 
                 :return: an array with the result E of the same size as E or of the size of its singleton expansion.
                 """
-
-                def D(field_E): return self.__BE.curl(field_E)  # includes k0^-1 by the definition of __PO
-
                 chiE = self.__BE.mul(self.__chiEE_base, E)
                 chiH = self.__BE.mul(self.__chiEH, E)
                 ED = D(E)
@@ -552,7 +551,7 @@ class Solution(object):
 
         if self.__BE.vectorial:
             def g_ft_op(FFt):  # Overwrites input argument! No need to represent the full matrix in memory
-                PiL_FFt = self.__BE.longitudinal_projection_ft(FFt)  # Creates K^2 on-the-fly and still memory intensive
+                PiL_FFt = self.__BE.longitudinal_projection_ft(FFt)  # relatively memory intensive
                 FFt -= PiL_FFt
                 FFt *= g_scalar_ft
                 PiL_FFt *= 1.0j * self.__alpha.imag / self.__alpha
@@ -693,7 +692,7 @@ class Solution(object):
         new_source_dist = self.__BE.to_matrix_field(new_source_dist)
 
         if self.__source_normalized is None:
-            self.__source_normalized = new_source_dist * (1.0j / self.__alpha.imag / self.__beta)
+            self.__source_normalized = self.__BE.mul(new_source_dist, (1.0j / self.__alpha.imag / self.__beta))
         else:
             self.__source_normalized = self.__BE.assign(
                 new_source_dist * (1.0j / self.__alpha.imag / self.__beta), self.__source_normalized)  # Adjust for bias
@@ -729,7 +728,7 @@ class Solution(object):
         The electric field for every point in the sample space (SI units).
 
         :return: A vector array with the first dimension containing Ex, Ey, and Ez,
-        while the following dimensions are the spatial dimensions.
+            while the following dimensions are the spatial dimensions.
         """
         result = self.__field_array[:, 0, ...] / (self.wavenumber ** 2)
         result = self.__BE.asnumpy(result)
@@ -792,11 +791,12 @@ class Solution(object):
             mu_inv = self.__BE.subtract(1.0, self.__chiHH * (-1.0j * self.__alpha.imag)) * self.__beta
 
             # the curl in the following includes factor k0^-1 by the definition of __PO above
-            H = (1.0j / (const.mu_0 * const.c)) * (
-                    - self.__BE.mul(mu_inv, self.__BE.curl(self.__BE.astype(self.E[:, np.newaxis, ...])))
-                    + self.__beta * self.__BE.mul(self.__chiHE * (-1.0j * self.__alpha.imag),
-                                                  self.E[:, np.newaxis, ...])
+            H = self.__BE.astype(1.0j / (const.mu_0 * const.c) * (
+                - self.__BE.mul(mu_inv, self.__BE.curl(self.__BE.astype(self.E[:, np.newaxis, ...])))
+                + self.__beta * self.__BE.mul(self.__chiHE * (-1.0j * self.__alpha.imag),
+                                              self.E[:, np.newaxis, ...])
             )
+                                 )
         else:
             mu_inv = (1.0 - self.__BE.first(self.__chiHH) * (-1.0j * self.__alpha.imag)) * self.__BE.astype(self.__beta)
             mu_H = (-1.0j / (const.mu_0 * const.c)) * self.__BE.curl(

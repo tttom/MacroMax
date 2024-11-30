@@ -12,17 +12,17 @@ The method iteratively corrects an estimated solution for the electric field (de
 requirements are on the order of the storage requirements for the material properties and the electric field within the
 calculation volume. Full details can be found in the [open-access](https://doi.org/10.1364/OE.27.011946) manuscript
 ["Calculating coherent light-wave propagation in large heterogeneous media"](https://doi.org/10.1364/OE.27.011946).
-When the machine learning library PyTorch is detected, the wave equations can also be solved on the cloud or a local GPU, as described in the paper [doi:10.34133/icomputing.0098](https://doi.org/10.34133/icomputing.0098).
+When the machine learning library PyTorch is detected, the wave equations can also be solved on the cloud or a local GPU, as described in the paper [doi:10.34133/icomputing.0098](https://spj.science.org/doi/10.34133/icomputing.0098).
 
 Examples of usage can be found in [the examples/ sub-folder](examples). The [Complete MacroMax Documentation](https://macromax.readthedocs.io)
 can be found at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
 All [source code](https://github.com/corilim/MacroMax) is available on [GitHub](https://github.com/corilim/MacroMax) under the
-**[MIT License](https://opensource.org/licenses/MIT): [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)**
+**[MIT License](https://opensource.org/license/MIT): [https://opensource.org/license/MIT](https://opensource.org/licenses/MIT)**
 
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/macromax)](https://www.python.org/downloads)
 [![PyPI - License](https://img.shields.io/pypi/l/macromax)](https://opensource.org/licenses/MIT)
 [![PyPI](https://img.shields.io/pypi/v/macromax?label=version&color=808000)](https://github.com/corilim/MacroMax/tree/master/python)
-[![PyPI - Status](https://img.shields.io/pypi/status/macromax)](https://pypi.org/project/macromax/tree/master/python)
+[![PyPI - Status](https://img.shields.io/pypi/status/macromax)](https://pypi.org/project/macromax/)
 [![PyPI - Wheel](https://img.shields.io/pypi/wheel/macromax?label=python%20wheel)](https://pypi.org/project/macromax/#files)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/macromax)](https://pypi.org/project/macromax/)
 [![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/corilim/MacroMax)](https://github.com/corilim/MacroMax)
@@ -59,7 +59,7 @@ pip install macromax pyFFTW
 On some systems the [pyFFTW](https://pypi.org/project/pyFFTW/) Python package requires the separate installation of the [FFTW library](http://www.fftw.org/download.html); however, it is easy to install it using Anaconda with the commands:
 ```conda install fftw```, or on Debian-based systems with ```sudo apt-get install fftw```.
 
-Alternatively, the [mkl-fft](https://github.com/IntelPython/mkl_fft) package is available for Intel(R) CPUs, though it may require compilation or relying on the [Anaconda](https://www.anaconda.com/) or [Intel Python](https://software.intel.com/content/www/us/en/develop/tools/distribution-for-python.html) distributions:
+Alternatively, the [mkl-fft](https://github.com/IntelPython/mkl_fft) package is available for Intel(R) CPUs, though it may require compilation or relying on the [Anaconda](https://www.anaconda.com/) or [Intel Python](https://www.intel.com/content/www/us/en/developer/tools/oneapi/distribution-for-python.html) distributions:
 ````sh
 conda install -c intel intelpython
 ````
@@ -69,7 +69,7 @@ The calculation time can be reduced by several orders of magnitude using the PyT
 ````sh
 !pip install macromax
 ````
-For more details, check out the [Google Colab deployment example](examples/Introduction%20to%20MacroMax.ipynb).
+For more details, check out the [Google Colab deployment example](https://github.com/corilim/MacroMax/tree/master/python/examples/Introduction%20to%20MacroMax.ipynb).
 
 Local GPUs can also be used provided that PyTorch has a compatible implementation. At the time of writing, these includes NVidia's CUDA-enabled GPU as well AMD's ROCm-enabled GPUs (on Linux). Prior to installing the PyTorch module following the [PyTorch Guide](https://pytorch.org/), install the appropriate  [CUDA](https://www.nvidia.co.uk/Download/index.aspx?lang=en-uk) or [ROCm drivers](https://docs.amd.com/) for your GPU.
 Note that for PyTorch to work correctly, Nvidia drivers need to be up-to-date and match the installed CUDA version. At the time of writing, for CUDA version 11.6, PyTorch can be installed as follows using pip:
@@ -117,10 +117,10 @@ The basic calculation procedure consists of the following steps:
 
 The ````macromax```` package must be imported to be able to use the ````solve```` function. The package also contains several utility functions that may help in defining the property and source distributions.
 
-Examples can be found in [the examples package in the examples/ folder](examples). Ensure that the entire `examples/` folder
+Examples can be found in [the examples package in the examples/ folder](https://github.com/corilim/MacroMax/tree/master/python/examples/). Ensure that the entire `examples/` folder
 is downloaded, including the `__init__.py` file with general definitions. Run the examples from the parent folder using e.g. `python -m examples.air_glass_air_1D`.
 
-The complete functionality is described in the [Library Reference Documentation](https://macromax.readthedocs.io) at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
+The complete functionality is described in the [Library Reference Documentation](https://macromax.readthedocs.io/en/latest/) at [https://macromax.readthedocs.io](https://macromax.readthedocs.io/en/latest/).
 
 
 ### Loading the Python 3 package
@@ -244,7 +244,7 @@ The solution object also keeps track of the iteration itself. It has the followi
 * ````solution.residue````: The relative magnitude of the correction during the previous iteration.
 and it can be used as a Python iterator.
 
-Further information can be found in the [examples](https://github.com/corilim/MacroMax/python/examples/) and the [signatures of each function and class](https://github.com/corilim/MacroMax/python/macromax/).
+Further information can be found in the [examples](https://github.com/corilim/MacroMax/tree/master/python/examples/) and the [signatures of each function and class](https://github.com/corilim/MacroMax/tree/master/python/macromax/).
 
 
 ### Complete Example
@@ -384,29 +384,29 @@ Since the copying-overheads may quickly become a bottleneck, it is important
 to consider the memory requirements for the problem you want to solve.
 
 
-## Development
+## Contributing
 The [Library API Documentation](https://macromax.readthedocs.io) can be found at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
 ### Source code organization
 The source code is organized as follows:
-* [/](.) (root): Module description and distribution files.
-* [macromax/](macromax/): The iterative solver.
-    * [macromax/utils/](macromax/utils/): Helper functionality used in the solver and to use the solver.
-* [examples/](examples/): Examples of how the solver can be used.
-* [tests/](tests/): Automated unit tests of the solver's functionality. Use this after making modifications to the solver and extend it if new functionality is added.
+* [/](https://github.com/corilim/MacroMax/tree/master/python/) (root): Module description and distribution files.
+* [macromax/](https://github.com/corilim/MacroMax/tree/master/python/macromax/): The iterative solver.
+    * [macromax/utils/](https://github.com/corilim/MacroMax/tree/master/python/macromax/utils/): Helper functionality used in the solver and to use the solver.
+* [examples/](https://github.com/corilim/MacroMax/tree/master/python/examples/): Examples of how the solver can be used.
+* [tests/](https://github.com/corilim/MacroMax/tree/master/python/tests/): Automated unit tests of the solver's functionality. Use this after making modifications to the solver and extend it if new functionality is added.
 
 The library functions are contained in ````macromax/````:
-* [solver](macromax/solver.py): Defines the ````solve(...)```` function and the ````Solution```` class.
-* [backend](macromax/backend/numpy.py): Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
-* [utils/](macromax/utils/): Defines utility functions that can be used to prepare and interpret function arguments.
+* [solver](https://github.com/corilim/MacroMax/tree/master/python/macromax/solver.py): Defines the ````solve(...)```` function and the ````Solution```` class.
+* [backend](https://github.com/corilim/MacroMax/tree/master/python/macromax/backend/numpy.py): Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
+* [utils/](https://github.com/corilim/MacroMax/tree/master/python/macromax/utils/): Defines utility functions that can be used to prepare and interpret function arguments.
 
-The included examples in the [examples/](examples/) folder are:
-* [notebook_example.ipynb](examples/notebook_example.ipynb): An iPython notebook demonstrating basic usage of the library.
-* [air_glass_air_1D.py](examples/air_glass_air_1D.py): Calculation of the back reflection from an air-glass interface (one-dimensional calculation)
-* [air_glass_air_2D.py](examples/air_glass_air_2D.py): Calculation of the refraction and reflection of light hitting a glass window at an angle (two-dimensional calculation)
-* [birefringent_crystal.py](examples/birefringent_crystal.py): Demonstration of how an anisotropic permittivity can split a diagonally polarized Gaussian beam into ordinary and extraordinary beams.
-* [polarizer.py](examples/polarizer.py): Calculation of light wave traversing a set of two and a set of three polarizers as a demonstration of anisotropic absorption (non-Hermitian permittivity)
-* [rutile.py](examples/rutile.py): Scattering from disordered collection of birefringent rutile (TiO2) particles.
-* [benchmark.py](examples/benchmark.py): Timing of a simple two-dimensional calculation for comparison between versions.
+The included examples in the [examples/](https://github.com/corilim/MacroMax/tree/master/python/examples/) folder are:
+* [notebook_example.ipynb](https://github.com/corilim/MacroMax/tree/master/python/examples/notebook_example.ipynb): An iPython notebook demonstrating basic usage of the library.
+* [air_glass_air_1D.py](https://github.com/corilim/MacroMax/tree/master/python/examples/air_glass_air_1D.py): Calculation of the back reflection from an air-glass interface (one-dimensional calculation)
+* [air_glass_air_2D.py](https://github.com/corilim/MacroMax/tree/master/python/examples/air_glass_air_2D.py): Calculation of the refraction and reflection of light hitting a glass window at an angle (two-dimensional calculation)
+* [birefringent_crystal.py](https://github.com/corilim/MacroMax/tree/master/python/examples/birefringent_crystal.py): Demonstration of how an anisotropic permittivity can split a diagonally polarized Gaussian beam into ordinary and extraordinary beams.
+* [polarizer.py](https://github.com/corilim/MacroMax/tree/master/python/examples/polarizer.py): Calculation of light wave traversing a set of two and a set of three polarizers as a demonstration of anisotropic absorption (non-Hermitian permittivity)
+* [rutile.py](https://github.com/corilim/MacroMax/tree/master/python/examples/rutile.py): Scattering from disordered collection of birefringent rutile (TiO2) particles.
+* [benchmark.py](https://github.com/corilim/MacroMax/tree/master/python/examples/benchmark.py): Timing of a simple two-dimensional calculation for comparison between versions.
 
 ### Testing
 Unit tests are contained in ````macromax/tests````. The ````BackEnd```` class in ````backend.py```` is well covered and
@@ -431,18 +431,21 @@ pip install pprofile memory_profiler
 The `make` scripts in the `docs/` subdirectory automatically generate the documentation.
 This uses Sphinx and extensions that can be installed with
 ````sh
-pip install sphinx==5.3.0 sphinx_autodoc_typehints sphinxcontrib_mermaid sphinx-rtd-theme recommonmark
+pip install sphinx sphinx_autodoc_typehints sphinxcontrib_mermaid sphinx-rtd-theme recommonmark m2r2 docutils == 0.20.1
 ````
+Run `make linkcheck` to check for any dead web-links, and `make html` to check for errors in the generation of the
+documentation.
+
 Examples of use can be found in the `examples/` and `tests/` folders. The former is more didactic, while the latter is more complete.
 
 ### Building and Distributing
 The [source code](https://github.com/corilim/MacroMax) consists of pure Python 3, hence only packaging is required for distribution.
 A package is generated by ````setup.py````, which relies on the ````m2r2```` package to translate `.md` files to `.rst` format:
 ````sh
-pip install m2r2==0.3.2  # for compatibility with sphinx-rtd-theme, which requires an older version of docutils.
+pip install docutils == 0.20.1  # for compatibility with sphinx-rtd-theme, which requires an older version of docutils.
 ````
 
-To prepare a package for distribution, increase the `__version__` number in [macromax/\_\_init\_\_.py](macromax/__init__.py), and run:
+To prepare a package for distribution, increase the `__version__` number in [macromax/\_\_init\_\_.py](https://github.com/corilim/MacroMax/tree/master/python/macromax/__init__.py), and run:
 
 ```sh
 pip install build --upgrade

@@ -29,7 +29,7 @@ from numpy.fft import fftshift, ifftshift
 
 try:
     from mkl_fft import *
-    log.debug("Using mkl_fft for Fast Fourier transforms.")
+    log.debug('Using mkl_fft for Fast Fourier transforms.')
 except (ModuleNotFoundError, TypeError):
     try:
         import pyfftw
@@ -45,8 +45,9 @@ except (ModuleNotFoundError, TypeError):
             log.info('Python multiprocessing module not found, using default number of threads')
     except (ModuleNotFoundError, TypeError):
         try:
-            from scipy.fftpack import *
-            log.info("Using scipy.fftpack Fast Fourier transforms instead of mkl_fft or pyfftw.")
+            from scipy.fft import *
+            log.info('Using scipy.fftpack Fast Fourier transforms instead of mkl_fft or pyfftw.')
         except ModuleNotFoundError:
             from numpy.fft import *
-            log.info("Using numpy.fft Fast Fourier transforms instead of scipy.fftpack, mkl_fft, or pyfftw.")
+            log.info('Using numpy.fft Fast Fourier transforms instead of scipy.fftpack, mkl_fft, or pyfftw.')
+

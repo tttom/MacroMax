@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-import numpy as np
-from typing import Union, Sequence, Callable, Optional
+import logging
+from math import prod
 from numbers import Complex, Real
+from typing import Union, Sequence, Callable, Optional
+
+import numpy as np
 import scipy.constants as const
 from scipy.sparse.linalg import LinearOperator
-import logging
 
 from . import Solution
 from .utils import ft
@@ -47,10 +49,10 @@ class CachingMatrix(object):
                out: Optional[array_like] = None) -> np.ndarray:
         """
         Retrieve a cached value or calculate it using the specified function as necessary.
-        Usage: ``left = self._cache(right, calc_left)``
+        Usage: `left = self._cache(right, calc_left)`
 
         :param right: The argument value.
-        :param value_function: The function with the argument ``right``, returning a vector of values
+        :param value_function: The function with the argument `right`, returning a vector of values
         :param out: The optional destination array.
 
         :return: The result of value_function(right), potentially retrieved from the cache.
@@ -96,6 +98,7 @@ class CachingMatrix(object):
 
 class Matrix(LinearOperator):
     """A class to represent rectangular or square matrices that can be multiplied from the left or right, and pseudo-inverted."""
+
     def __init__(self, array: Optional[array_like] = None, shape: Optional[Sequence[int]] = None, dtype=np.complex128):
         """
         Constructs a matrix from a rectangular numpy.ndarray, array-like object, or a function or method that returns one.
@@ -120,7 +123,7 @@ class Matrix(LinearOperator):
 
         :param item: The integer row index, a slice, an np.newaxis, or a tuple thereof.
 
-        :return: An ``numpy.ndarray`` of shape ``(1, self.shape[1])`` and dtype ``self.dtype`` with the row elements.
+        :return: An :py:class:`numpy.ndarray` of shape `(1, self.shape[1])` and dtype `self.dtype` with the row elements.
         """
         if not isinstance(item, tuple):
             item = (item, slice(None))
@@ -169,6 +172,25 @@ class Matrix(LinearOperator):
                 vec[_] = 0
             return full_array.T
 
+    def __array_ufunc__(self, ufunc, method, *args, **kwargs):
+        """Pass through point-wise Numpy operations on the matrix values."""
+        return getattr(ufunc, method)(self.__array__(), *args[1:], **kwargs)
+
+    def __array_function__(self, func, types, args, kwargs):
+        """Apply Numpy functions to the matrix values."""
+        def convert_to_numpy(arg):
+            if isinstance(arg, np.ndarray):
+                return arg
+            if isinstance(arg, Matrix):
+                return arg.__array__()
+            if isinstance(arg, Sequence):
+                return [convert_to_numpy(_) for _ in arg]
+            return arg
+
+        return func(*(convert_to_numpy(_) for _ in args),
+                    **{convert_to_numpy(k): convert_to_numpy(v) for k, v in kwargs.items()},
+                    )
+
     def _matvec(self, right: array_like) -> np.ndarray:
         """
         Multiply this matrix with a vector or matrix: `S @ right`
@@ -198,7 +220,7 @@ class Matrix(LinearOperator):
 
         :param noise_level: (optional) argument to regularize the inversion of a (near-)singular matrix.
 
-        :return: An nd-array with the inverted matrix so that ``self @ self.inv`` approximates the identity.
+        :return: An nd-array with the inverted matrix so that `self @ self.inv` approximates the identity.
         """
         return inv(self, noise_level=noise_level)
 
@@ -227,6 +249,10 @@ class SquareMatrix(Matrix):
     def side(self) -> int:
         return self.shape[0]
 
+    @property
+    def size(self) -> int:
+        return prod(self.shape)
+
 
 class LiteralScatteringMatrix(SquareMatrix):
     """A class to represent scattering matrices constructed from an array of complex numbers."""
@@ -244,17 +270,17 @@ class LiteralScatteringMatrix(SquareMatrix):
     def transfer(self, noise_level: float = 0.0) -> np.ndarray:
         """
         Calculates the transfer matrix, relating one side of the scatterer to the other side (top, bottom). Each side
-        can have incoming and outgoing waves. This is in contrast to the scattering matrix, ``self.__array__``, which
+        can have incoming and outgoing waves. This is in contrast to the scattering matrix, `self.__array__`, which
         relates incoming waves from both sides to outgoing waves from both sides. One can be calculated from the other
-        using the ``matrix.convert()`` function, though this calculation may be ill-conditioned (sensitive to noise).
-        Therefore, the optional argument ``noise_level`` should be used to indicate the root-mean-square expectation
+        using the :py:func:`matrix.convert` function, though this calculation may be ill-conditioned (sensitive to noise).
+        Therefore, the optional argument `noise_level` should be used to indicate the root-mean-square expectation
         value of the measurement error. This avoids divisions by near-zero values and obtains a best estimate using
         Tikhonov regularization.
 
         :param noise_level: (optional) argument to regularize the inversion of a (near) singular backwards transmission matrix.
 
         :return: An nd-array with the transfer matrix relating top-to-bottom instead of in-to-out. This can be converted
-            back into a scattering matrix using the ``matrix.convert()`` function.
+            back into a scattering matrix using the :py:func:`matrix.convert` function.
 
         The first half of the vector inputs and outputs to the scattering and transfer matrices represent fields
         propagating forward along the positive propagation axis (0) and the second half represents fields propagating
@@ -291,7 +317,7 @@ class LiteralScatteringMatrix(SquareMatrix):
         Select the forward-transmitted quarter of the scattering matrix.
         It indicates how the light coming from negative infinity is transmitted to positive infinity.
 
-        :return: The forward-transmission matrix of shape ``self.shape // 2``.
+        :return: The forward-transmission matrix of shape `self.shape // 2`.
         """
         return ForwardTransmissionMatrix(self)
 
@@ -301,7 +327,7 @@ class LiteralScatteringMatrix(SquareMatrix):
         Select the quarter of the scattering matrix corresponding to the light that is reflected of the front.
         It indicates how the light coming from negative infinity is back reflected to negative infinity.
 
-        :return: The front-reflection matrix of shape ``self.shape // 2``.
+        :return: The front-reflection matrix of shape `self.shape // 2`.
         """
         return FrontReflectionMatrix(self)
 
@@ -311,7 +337,7 @@ class LiteralScatteringMatrix(SquareMatrix):
         Select the quarter of the scattering matrix corresponding to the light that is reflected of the back.
         It indicates how the light coming from positive infinity is back reflected to positive infinity.
 
-        :return: The back-reflection matrix of shape ``self.shape // 2``.
+        :return: The back-reflection matrix of shape `self.shape // 2`.
         """
         return BackReflectionMatrix(self)
 
@@ -321,7 +347,7 @@ class LiteralScatteringMatrix(SquareMatrix):
         Select the backward-transmitted quarter of the scattering matrix.
         It indicates how the light coming from positive infinity is transmitted to negative infinity.
 
-        :return: The backward-transmission matrix of shape ``self.shape // 2``.
+        :return: The backward-transmission matrix of shape `self.shape // 2`.
         """
         return BackwardTransmissionMatrix(self)
 
@@ -367,20 +393,20 @@ class ScatteringMatrix(LiteralScatteringMatrix):
 
         :meth:`srcvec2source` super-position of free-space plane waves at the source planes at the front and back (fast)
 
-        :meth:`source2detfield` calculate the field in the whole volume using the ``solver.Solution`` object (slow)
+        :meth:`source2detfield` calculate the field in the whole volume using the :py:class:`solver.Solution` object (slow)
 
         :meth:`detfield2detvec` vector corresponding to the detected field at the detection planes (fast). The fields
             at those planes should only contain the outward propagating waves. Hence, inwards propagating waves should
             be subtracted before using this method!
 
         :meth:`srcvec2detfield` calculate the field in the whole volume and convert it to a detection vector (slow)
-            The latter is used in the matrix multiplication method: ``matmul``, @
+            The latter is used in the matrix multiplication method: `matmul`, @
 
         :param grid: A Grid object or a Sequence of vectors with uniformly increasing values that indicate the positions
             in a plaid grid of sample points for the material and solution. In the one-dimensional case, a simple increasing
             Sequence of uniformly-spaced numbers may be provided as an alternative. The length of the ranges determines the
             data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
-            specified as ndarrays.
+            specified as :py:class:`numpy.ndarray`.
         :param vectorial: a boolean indicating if the source and solution are 3-vectors-fields (True) or scalar fields (False).
         :param wavenumber: the wavenumber in vacuum = 2 pi / vacuum_wavelength.
             The wavelength in the same units as used for the other inputs/outputs.
@@ -425,7 +451,7 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         propagating = np.ones(1, dtype=bool)
         k_abs = self.__solution.wavenumber  # The maximum absolute value of the remaining k-vector components for these to be propagating. Start with k0.
         k_grid = self.grid.k.as_origin_at_center
-        tol = np.sqrt(np.finfo(dtype).eps)
+        tol = np.sqrt(np.finfo(k_grid[0].dtype if dtype is None else dtype).eps)
         for k in k_grid[range(1, self.grid.ndim)]:  # fftshifted k-space coordinate
             propagating = propagating & (np.abs(k) < k_abs - tol)  # only modes propagating into the material
             k_abs = np.sqrt(np.maximum(k_abs**2 - k**2, 0.0))
@@ -505,16 +531,16 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         at the sample origin). Incident waves at an angle will result in higher amplitudes to compensate for the reduction
         in propagation along the propagation axis through the entrance plane.
 
-        Used in ``ScatteringMatrix.srcvec2source`` to calculate the source field distribution before entering the scatterer.
+        Used in :py:func:`ScatteringMatrix.srcvec2source` to calculate the source field distribution before entering the scatterer.
 
-        Used in ``ScatteringMatrix.__matmul__`` to distinguish incoming from back-scattered light.
+        Used in :py:func:`ScatteringMatrix.__matmul__` to distinguish incoming from back-scattered light.
 
         :param input_vector: A source vector or array of shape [2, M, P], where the first axis indicates the side (front, back),
             the second axis indicates the propagation mode (direction, top-bottom-left-right), and the final axis indicates
             the polarization (1 for scalar, 2 for polarized: V-H).
 
-        :return: An nd-array with the field on the calculation grid. Its shape is (1, *self.grid.shape) for scalar
-        calculations and (3, *self.grid.shape) for vectorial calculations with polarization.
+        :return: An nd-array with the field on the calculation grid. Its shape is `(1, *self.grid.shape)` for scalar
+            calculations and `(3, *self.grid.shape)` for vectorial calculations with polarization.
         """
         # Convert vector to an nd-array
         nb_sides = 2
@@ -587,14 +613,14 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         Converts a source vector into an (N+1)D-array with the source field at the front and back of the scatterer.
         The source field is such that it produces E-fields of unit intensity for unit vector inputs.
 
-        Used in ``self.vector2field()`` and ``self.__matmul__()``.
+        Used in `self.vector2field()` and `self.__matmul__()`.
 
-        :param input_vector: A source vector with ``self.shape[1]`` elements.
+        :param input_vector: A source vector with `self.shape[1]` elements.
             One value per side, per independent polarization (2), and per mode (inwards propagating k-vectors only).
 
         :param out: (optional) numpy array to store the result.
 
-        :return: The field distribution as an array of shape [nb_pol, *self.grid], where nb_pol = 3 for a vectorial
+        :return: The field distribution as an array of shape `[nb_pol, *self.grid]`, where nb_pol = 3 for a vectorial
             calculation and 1 for a scalar calculation.
         """
         # Reshape input for convenience
@@ -627,8 +653,8 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         :param source: The source field distribution in the whole space.
         :param out: (optional) numpy array to store the result (shape: self.grid.shape, dtype: self.dtype).
 
-        :return: The field distribution as an array of shape [nb_pol, *self.grid], where nb_pol = 3 for a vectorial
-            calculation and 1 for a scalar calculation.
+        :return: The field distribution as an array of shape `[nb_pol, *self.grid]`, where `nb_pol = 3` for
+            a vectorial calculation and 1 for a scalar calculation.
         """
         self.__solution.source_distribution = source
         self.__solution.E = 0  # reset every calculation
@@ -645,12 +671,12 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         """
         Calculates the (N+1)D-input-field distribution throughout the scatterer for a given input source vector.
 
-        Used in ``self.__matmul__()`` and external code.
+        Used in `self.__matmul__()` and external code.
 
-        :param input_vector: A source vector with ``self.shape[1]`` elements.
+        :param input_vector: A source vector with `self.shape[1]` elements.
         :param out: (optional) numpy array to store the result.
 
-        :return: The field distribution as an array of shape [nb_pol, *self.grid], where nb_pol = 3 for a vectorial
+        :return: The field distribution as an array of shape `[nb_pol, *self.grid]`, where nb_pol = 3 for a vectorial
             calculation and 1 for a scalar calculation.
         """
         return self.source2detfield(self.srcvec2source(input_vector), out=out)
@@ -662,7 +688,7 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         sample origin). The fields at those planes should only contain the outward propagating waves. Hence, inwards
         propagating waves should be subtracted before using this method!
 
-        This is used in ``self.__matmul__()``.
+        This is used in `self.__matmul__()`.
 
         :param field: The detected field in all space (of which only the detection space is used).
 
@@ -794,7 +820,7 @@ class ScatteringMatrix(LiteralScatteringMatrix):
 
     def __setitem__(self, key, value):
         """
-        Updating this matrix is not possible. Use a ``Matrix`` object instead.
+        Updating this matrix is not possible. Use a :py:class:`Matrix` object instead.
 
         :param key: Index or slice.
         :param value: The new value.
@@ -802,7 +828,7 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         raise KeyError('The values of this ScatteringMatrix are calculated from the scattering and cannot be changed directly. Use a Matrix object instead.')
 
     def __array__(self, out: array_like = None):
-        """Lazily calculates the scattering matrix as a regular :class:`numpy.ndarray`"""
+        """Lazily calculates the scattering matrix as a regular :class:`numpy.ndarray`."""
         # Allocate space for result if needed
         if out is None:
             out = np.empty(self.shape, dtype=self.dtype)
@@ -916,11 +942,11 @@ class DepositionMatrix(Matrix, CachingMatrix):
                                             )
         if output_operator is None:
             output_operator = LinearOperator(shape=(scattering_matrix.shape[0], (1 + 2 * scattering_matrix.vectorial) * scattering_matrix.grid.size),
-                                            matvec=lambda _: scattering_matrix.detfield2detvec(
-                                                _.reshape([1 + 2 * scattering_matrix.vectorial, *scattering_matrix.grid.shape])
-                                            ),
-                                            dtype=scattering_matrix.dtype
-                                            )
+                                             matvec=lambda _: scattering_matrix.detfield2detvec(
+                                                 _.reshape([1 + 2 * scattering_matrix.vectorial, *scattering_matrix.grid.shape])
+                                             ),
+                                             dtype=scattering_matrix.dtype
+                                             )
         elif isinstance(output_operator, Callable):
             input_size = (1 + 2 * scattering_matrix.vectorial) * scattering_matrix.grid.size
             output_shape = output_operator(np.zeros(input_size)).shape
@@ -995,6 +1021,7 @@ def convert(s: array_like, noise_level: float = 0.0) -> np.ndarray:
     Transfer matrix equation (top -> bottom):
         [po] = [A - B inv(D) C,  B inv(D)] [pi],
         [ni] = [  -   inv(D) C     inv(D)] [no],
+
     where inv(D) is the (regularized) inverse of D.
 
     The first half of the vector inputs and outputs to the scattering and transfer matrices represent fields
