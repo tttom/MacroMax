@@ -878,7 +878,7 @@ def config(*args: Sequence[Dict], **kwargs: str):
     Configure a specific back-end, overriding the automatic detection.
     E.g. use `from macromax import backend` followed by:
 
-    ::
+    .. code-block:: python
 
         backend.config(type='numpy')
         backend.config(dict(type='numpy'))
@@ -888,15 +888,17 @@ def config(*args: Sequence[Dict], **kwargs: str):
         backend.config(dict(type='torch', device='cuda'))
         backend.config([dict(type='torch', device='cuda'), dict(type='numpy')])
 
-    Default back-ends can be specified in the file `backend_config.json` in the current folder.
+    Default back-ends can be specified in the file ``backend_config.json`` in the current folder.
     This configuration file should contain a list of potential back-ends in [JSON format](https://en.wikipedia.org/wiki/JSON), e.g.
-    ```json
-    [
-        {"type": "torch", "device": "cuda"},
-        {"type": "numpy"},
-        {"type": "torch", "device": "cpu"}
-    ]
-    ```
+
+    .. code-block:: json
+
+        [
+            {"type": "torch", "device": "cuda"},
+            {"type": "numpy"},
+            {"type": "torch", "device": "cpu"},
+        ]
+
     The first back-end that loads correctly will be used.
 
     :param args: A dictionary or a sequence of dictionaries with at least the 'type' key. Key-word arguments are
@@ -912,20 +914,23 @@ def config(*args: Sequence[Dict], **kwargs: str):
 
 def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) -> BackEnd:
     """
-    Load the default or the backend specified using backend.config().
-    This configuration file should contain a list of potential back-ends in [JSON format](https://en.wikipedia.org/wiki/JSON), e.g.
-    ```json
-    [
-        {"type": "torch", "device": "cuda"},
-        {"type": "numpy"},
-        {"type": "torch", "device": "cpu"}
-    ]
-    ```
+    Load the default or the backend specified using ``backend.config()``.
+    This configuration file should contain a list of potential back-ends
+    in [JSON format](https://en.wikipedia.org/wiki/JSON), e.g.
+
+    .. code-block:: json
+
+        [
+            {"type": "torch", "device": "cuda"},
+            {"type": "numpy"},
+            {"type": "torch", "device": "cpu"},
+        ]
+
     The first back-end that loads correctly will be used.
 
-    :param nb_pol_dims: The number of polarization dimensions: 1 for scalar, 3 for vectorial calculations.
+    :param nb_pol_dims: The number of polarization dimensions, 1 for scalar, 3 for vectorial calculations.
     :param grid: The uniformly-spaced Cartesian calculation grid as a Grid object.
-    :param dtype: The scalar data type. E.g. np.complex64 or np.complex128.
+    :param dtype: The scalar data type. E.g. ``numpy.complex64`` or ``numpy.complex128``.
     :param config_list: List of alternative backend configurations.
 
     :return: A BackEnd object to start the calculation with.

@@ -26,6 +26,11 @@ coloredlogs >= 15.0  # To color-format the log output on the console.
 # memory_profiler >= 0.58.0
 
 #
-# Deployment
+# Documentation generation
 #
-# m2r2 == 0.3.2
+# sphinx >= 8.1.3
+# sphinx_autodoc_typehints >= 2.5.0
+# sphinxcontrib_mermaid >= 1.0.0
+# sphinx-rtd-theme >= 3.0.2
+# recommonmark >= 0.7.1
+# m2r2 >= 0.3.3

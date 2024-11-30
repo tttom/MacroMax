@@ -1,3 +1,5 @@
+.. image:: _static/total_internal_reflection.png
+
 .. mdinclude:: ../../README.md
 
 .. toctree::
@@ -8,5 +10,3 @@
     modindex
     genindex
     changes
-
-

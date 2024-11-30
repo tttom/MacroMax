@@ -91,20 +91,19 @@ class Solution(object):
             in a plaid grid of sample points for the material and solution. In the one-dimensional case, a simple increasing
             Sequence of uniformly-spaced numbers may be provided as an alternative. The length of the ranges determines the
             data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
-            specified as `numpy.ndarray`s.
+            specified as :py:class:`numpy.ndarray`.
         :param vectorial: a boolean indicating if the source and solution are 3-vectors-fields (True) or scalar fields (False).
-            Default: True, when vectorial nor the source is specified.
-            Default: vectorial (True), unless the source field is scalar (False if first dimension is a singleton dimension).
+            Default, True when vectorial nor the source is specified. False if the source is specified and scalar.
         :param wavenumber: the wavenumber in vacuum = 2pi / vacuum_wavelength.
             The wavelength in the same units as used for the other inputs/outputs.
         :param angular_frequency: alternative argument to the wavenumber = angular_frequency / c
         :param vacuum_wavelength: alternative argument to the wavenumber = 2 pi / vacuum_wavelength
         :param current_density: (optional, instead of source_distribution) An array or function that returns
-            the (vectorial) current density input distribution, J. The current density has units of :math:`A m^-2`.
+            the (vectorial) current density input distribution, J. The current density has units of :math:`A m^{-2}`.
         :param source_distribution: (optional, instead of current_density) An array or function that returns
             the (vectorial) source input wave distribution. The source values relate to the current density, J,
-            as  1j * angular_frequency * scipy.constants.mu_0 * J and has units of
-            :math:`rad s^-1 H m^-1 A m^-2 = rad V m^-3`.
+            as  `1j * angular_frequency * scipy.constants.mu_0 * J` and has units of
+            :math:`rad s^{-1} H m^{-1} A m^{-2} = rad V m^{-3}`.
             More general, non-electro-magnetic wave problems can be solved using the source_distribution, as it does
             not rely on the vacuum permeability constant, :math:`mu_0`.
         :param epsilon: an array or function that returns the (tensor) epsilon that represents the permittivity at the
@@ -729,7 +728,7 @@ class Solution(object):
         The electric field for every point in the sample space (SI units).
 
         :return: A vector array with the first dimension containing Ex, Ey, and Ez,
-        while the following dimensions are the spatial dimensions.
+            while the following dimensions are the spatial dimensions.
         """
         result = self.__field_array[:, 0, ...] / (self.wavenumber ** 2)
         result = self.__BE.asnumpy(result)

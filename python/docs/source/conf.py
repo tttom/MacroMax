@@ -41,10 +41,12 @@ extensions = ['m2r2',  # or m2r
               'sphinx.ext.viewcode',
               'sphinx.ext.autosummary',
               'sphinx.ext.napoleon',  # Used to write beautiful docstrings
+              'sphinx.ext.mathjax',
               'sphinx_autodoc_typehints',  # Used to insert typehints into the final docs
               'sphinxcontrib.mermaid',  # Used to build graphs
               'sphinx.ext.intersphinx',
               'sphinx_rtd_theme',
+              'matplotlib.sphinxext.roles',  # to get mpltype text role for matplotlib
               ]
 
 source_suffix = ['.rst', '.md']
@@ -96,7 +98,6 @@ html_theme_options = {
 }
 html_theme_options = {
     'logo_only': False,
-    'display_version': True,
     'prev_next_buttons_location': 'bottom',
     'style_external_links': False,
     'vcs_pageview_mode': '',
