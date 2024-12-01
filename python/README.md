@@ -14,7 +14,7 @@ calculation volume. Full details can be found in the [open-access](https://doi.o
 ["Calculating coherent light-wave propagation in large heterogeneous media"](https://doi.org/10.1364/OE.27.011946).
 When the machine learning library PyTorch is detected, the wave equations can also be solved on the cloud or a local GPU, as described in the paper [doi:10.34133/icomputing.0098](https://spj.science.org/doi/10.34133/icomputing.0098).
 
-Examples of usage can be found in [the examples/ sub-folder](examples). The [Complete MacroMax Documentation](https://macromax.readthedocs.io)
+Examples of usage can be found in [the examples/ sub-folder](https://github.com/corilim/MacroMax/tree/master/python/examples/). The [Complete MacroMax Documentation](https://macromax.readthedocs.io)
 can be found at [https://macromax.readthedocs.io](https://macromax.readthedocs.io).
 All [source code](https://github.com/corilim/MacroMax) is available on [GitHub](https://github.com/corilim/MacroMax) under the
 [MIT License](https://opensource.org/license/MIT): [https://opensource.org/license/MIT](https://opensource.org/licenses/MIT)

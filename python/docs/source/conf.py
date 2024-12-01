@@ -16,6 +16,8 @@ from datetime import datetime
 
 import sphinx.ext.apidoc
 
+import macromax
+
 
 code_path = pathlib.Path(__file__).parent.parent.absolute()
 sys.path.insert(0, code_path.as_posix())  # To generate documentation locally
@@ -27,6 +29,7 @@ sys.path.insert(0, code_path.parent.as_posix())  # ReadTheDocs seems to require 
 project = 'MacroMax'
 author = 'Tom Vettenburg'
 copyright = f'{datetime.now().year}, {author}'
+version = release = macromax.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -48,6 +51,7 @@ extensions = ['m2r2',  # or m2r
               'sphinxcontrib.mermaid',  # Used to build graphs
               'sphinx.ext.intersphinx',
               'sphinx_rtd_theme',
+              'sphinxcontrib.cairosvgconverter',
               'matplotlib.sphinxext.roles',  # to get mpltype text role for matplotlib
               ]
 
@@ -75,7 +79,9 @@ todo_include_todos = True
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
                        'numpy': ('https://numpy.org/doc/stable/', None),
                        'scipy': ('https://docs.scipy.org/doc/scipy/', None),
+                       'coloredlogs': ('https://coloredlogs.readthedocs.io/en/latest/', None),
                        'matplotlib': ('https://matplotlib.org/stable/', None),
+                       'torch': ('https://pytorch.org/docs/stable/', None),
                        'joblib': ('https://joblib.readthedocs.io/en/latest/', None),
                        }
 
@@ -112,8 +118,6 @@ html_theme_options = {
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-source_suffix = ['.rst', '.md']
-
 autodoc_mock_imports = ['torch', 'tensorflow']
 
 # Building the API Documentation...
@@ -124,7 +128,10 @@ print(f'Building api-doc scaffolding in {apidoc_path}...')
 sphinx.ext.apidoc.main(['-f', '-d', '4', '-M',
                         '-o', f'{apidoc_path}',
                         f"{code_path}/macromax",
-                        f"{code_path}/macromax/utils/ft/ft*",
+                        f"{code_path}/macromax/utils/ft/ft*",  # apidocs fails on ft_implementation for some reason
                         ]
                        )
 
+
+# -- Options for EPUB3 output -------------------------------------------------
+epub_cover = ('_static/total_internal_reflection.png', '')

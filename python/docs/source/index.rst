@@ -6,8 +6,7 @@
     :maxdepth: -1
     :caption: Contents:
 
-    api/macromax
+    api/modules
     modindex
     genindex
     changes
-    api/modules
