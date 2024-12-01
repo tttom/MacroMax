@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Union, Sequence
 import numpy as np
+import warnings
 
-from macromax.utils.array.vector_to_axis import vector_to_axis
+from macromax.utils import dim
 
 
 class Grid(Sequence):
@@ -13,7 +14,7 @@ class Grid(Sequence):
 
     See also :class:`MutableGrid`
     """
-    def __init__(self, shape=None, step=None, extent=None, first=None, center=None, last=None, include_last=False,
+    def __init__(self, shape=None, step=None, *, extent=None, first=None, center=None, last=None, include_last=False,
                  ndim: int = None,
                  flat: Union[bool, Sequence, np.ndarray] = False,
                  origin_at_center: Union[bool, Sequence, np.ndarray] = True,
@@ -29,15 +30,15 @@ class Grid(Sequence):
 
         Specific invariants:
 
-            - `shape * step == extent == last + step - first` if `include_last`
-            - `shape * step == extent == last - first` if `not include_last`
-            - `center == first + shape // 2 * step` if `center_at_index`
-            - `center == first + (shape - 1) / 2 * step` if `not center_at_index`
+            - ```shape * step == extent == last + step - first``` if `include_last`
+            - ```shape * step == extent == last - first``` if `not include_last`
+            - ```center == first + shape // 2 * step``` if `center_at_index`
+            - ```center == first + (shape - 1) / 2 * step``` if `not center_at_index`
 
         General invariants:
 
-            - `shape * step == extent == last + step * include_last - first`
-            - `center == first + (shape // 2 * center_at_index + (shape - 1) / 2 * (1 - center_at_index)) * step`
+            - ```shape * step == extent == last + step * include_last - first```
+            - ```center == first + (shape // 2 * center_at_index + (shape - 1) / 2 * (1 - center_at_index)) * step```
 
         :param shape: An integer vector array with the shape of the sampling grid.
         :param step: A vector array with the spacing of the sampling grid. This defaults to 1 if no two of first,
@@ -88,8 +89,8 @@ class Grid(Sequence):
 
         # Convert all input arguments to vectors of length ndim
         shape, step, extent, first, center, last, flat, origin_at_center, include_last, center_at_index = \
-            self.__all_to_ndim(shape, step, extent, first, center, last, flat, origin_at_center, include_last,
-                               center_at_index)
+            self.__all_to_ndim(shape, step, extent, first, center, last, flat, origin_at_center,
+                               include_last, center_at_index)
 
         if shape is None:
             if extent is None:
@@ -120,10 +121,11 @@ class Grid(Sequence):
                 if step is None:
                     step = extent
                 # step is known
+                extent = np.sign(step) * np.abs(extent)  # Fix sign of extent if it does not agree with that of step
                 shape = extent / step
             # shape is known
         # The shape is known
-        shape = np.ceil(shape).astype(int)  # Make sure that the shape is integer
+        shape = np.maximum(1, np.ceil(shape).astype(int))  # Make sure that the shape is integer and at least 1
 
         if step is None:
             if extent is None:
@@ -151,7 +153,7 @@ class Grid(Sequence):
                                 step = step.astype(center.dtype)
                         # step is known
                     else:  # first, last, and shape are known
-                        step = (last - first) / (shape - include_last)
+                        step = (last - first) / (shape - include_last) if np.all(shape > include_last) else np.ones(1)
                         if (last - first).dtype != step.dtype and np.allclose(step, np.round(step)):
                             step = step.astype(first.dtype)
                     # step is known
@@ -177,15 +179,16 @@ class Grid(Sequence):
         # center, step, and shape are known now
 
         # Some sanity checks
-        if extent is not None and np.any(np.ceil(extent / step) != shape):
-            raise ValueError(f"Extent {extent} and step {step} do not match with shape {shape}.")
+        if extent is not None and not np.allclose(extent / step, shape) and np.any(np.maximum(1, np.ceil(extent / step)) != shape):
+            raise ValueError(f"Extent {extent} and step {step} are not compatible with shape {shape} because extent / step = {extent / step} != {shape} = shape.")
         if last is not None and first is not None and np.any(shape * step != last + step * include_last - first):
             raise ValueError(f"First={first} and last={last} (include_last={include_last}) do not correspond to a step {step} and shape {shape}.")
         if center is not None and first is not None and np.any(center != first + (shape // 2 * center_at_index + (shape - 1) / 2 * (1 - center_at_index)) * step):
             raise ValueError(f"First={first} and center={center} do not correspond to a step {step} and shape {shape} (center_at_index={center_at_index}).")
 
         if np.any(shape < 1):
-            raise AttributeError(f'shape = {shape}. All input ranges should have at least one element.')
+            warnings.warn(f'shape = {shape}. All input ranges should have at least one element.')
+            shape = np.maximum(1, shape)
 
         self._shape = shape
         dtype = (step[0] + center[0]).dtype if self.ndim > 0 else float
@@ -211,7 +214,7 @@ class Grid(Sequence):
         if any(_.size < 1 for _ in ranges):
             raise AttributeError('All input ranges should have at least one element.')
         ranges = [(rng.swapaxes(0, axis).reshape(rng.shape[axis], -1)[:, 0] if rng.ndim > 1 else rng)
-                  for axis, rng in enumerate(ranges)]
+                  for axis, rng in zip(range(-len(ranges), 0), ranges)]
         # Work out some properties about the shape and the size of each dimension
         shape = np.array([rng.size for rng in ranges])
         singleton = shape <= 1
@@ -389,18 +392,17 @@ class Grid(Sequence):
 
     @property
     def first(self) -> np.ndarray:
-        """
-        :return: A vector with the first element of each range
-        """
-        half_shape = self.shape / 2
-        half_shape[self.center_at_index] = np.floor(half_shape[self.center_at_index])
-        if np.all(np.mod(self.shape[np.logical_not(self.center_at_index)], 2) == 0):
-            half_shape = half_shape.astype(int)
-        return self._center - self.step * half_shape
+        """A vector with the first element of each range."""
+        center_is_not_at_index = ~self.center_at_index & (self.shape % 2 == 0)
+        result = self._center - self.step * (self.shape // 2)
+        if np.any(center_is_not_at_index):
+            half_step = self.step // 2 if np.all(self.step % 2 == 0) else self.step / 2
+            result = result + center_is_not_at_index * half_step
+        return result
 
     @property
     def extent(self) -> np.ndarray:
-        """ The spatial extent of the sampling grid. """
+        """ The spatial extent of the sampling grid."""
         return self.shape * self.step
 
     #
@@ -469,6 +471,16 @@ class Grid(Sequence):
         d['step'] = new_step
         d['center'] = new_center
         return Grid(**d)
+
+    def __rmul__(self, factor: Union[int, float, complex, Sequence, np.array]) -> Grid:
+        """
+        Scales all ranges with a factor.
+
+        :param factor: A scalar factor for all dimensions, or a vector of factors, one for each dimension.
+
+        :return: A new scaled Grid object.
+        """
+        return self * factor  # Scalars commute.
 
     def __matmul__(self, other: Grid) -> Grid:
         """
@@ -541,7 +553,7 @@ class Grid(Sequence):
             if not self._origin_at_center[axis]:
                 rng = np.fft.ifftshift(rng)  # Not loading the whole fft library just for this!
             if not self.flat[axis]:
-                rng = vector_to_axis(rng, axis=axis, ndim=self.ndim)
+                rng = dim.to_axis(rng, axis=axis, ndim=self.ndim)
 
             result.append(rng if self.multidimensional else rng[idx])
 
@@ -570,13 +582,18 @@ class Grid(Sequence):
 
     @property
     def immutable(self) -> Grid:
-        """ Return a new immutable Grid object. """
+        """Return a new immutable Grid object. """
         return Grid(**self.__dict__)
 
     @property
     def mutable(self) -> MutableGrid:
-        """:return: A new MutableGrid object. """
+        """Return a new MutableGrid object. """
         return MutableGrid(**self.__dict__)
+
+    def __str__(self) -> str:
+        core_props = self.__dict__.copy()
+        arg_desc = ','.join([f'{k}={str(v)}' for k, v in core_props.items()])
+        return f"{type(self).__name__}({arg_desc:s})"
 
     def __repr__(self) -> str:
         core_props = self.__dict__.copy()
@@ -585,6 +602,9 @@ class Grid(Sequence):
         arg_desc = ','.join([f'{k}={repr(v)}' for k, v in core_props.items()])
         return f"{type(self).__name__}({arg_desc:s})"
 
+    # def __format__(self, format_spec: str = "") -> str:
+    #     return f"{type(self).__name__}({tuple(self.shape)}, ({', '.join(format(_, format_spec) for _ in self.step)}), ({', '.join(format(_, format_spec) for _ in self.center)}))"
+    #
     def __eq__(self, other: Grid) -> bool:
         """ Compares two Grid objects. """
         return type(self) == type(other) and np.all(self.shape == other.shape) and np.all(self.step == other.step) \
@@ -600,7 +620,9 @@ class Grid(Sequence):
     #
     @property
     def multidimensional(self) -> bool:
-        """ Single-dimensional grids behave as Sequences, multi-dimensional behave as a Sequence of vectors. """
+        """Single-dimensional grids behave as Sequences, multi-dimensional behave as a Sequence of vectors.
+        TODO: Remove this feature? It tends to be a source of bugs.
+        """
         return self.__multidimensional
 
     #

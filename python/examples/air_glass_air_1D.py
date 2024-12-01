@@ -41,7 +41,6 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     permittivity = np.eye(nb_pol_dims)[:, :, np.newaxis] * permittivity
     for dim_idx in range(nb_pol_dims):
         permittivity[dim_idx, dim_idx, has_object] += epsilon_material[dim_idx]
-    # permittivity = bandpass_and_remove_gain(permittivity, 2, x_range, wavelength/2)
 
     if impedance_matched:
         # Impedance matched everywhere
@@ -112,7 +111,7 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
 
         return s.residue > 1e-5 and s.iteration < 1e4
 
-    # The actual work is done here:
+        # The actual work is done here:
     start_time = time.perf_counter()
     solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
                               refractive_index=permittivity**0.5, mu=permeability, bound=bound, callback=update_function, dtype=np.complex64
@@ -123,30 +122,6 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     log.info('Displaying final result.')
     display(solution)
     plt.show(block=False)
-
-
-def bandpass_and_remove_gain(v, dims, ranges, periods):
-    """
-    Helper function to smoothen inputs to the scale of the wavelength
-    :param v: the input array.
-    :param dims: the dimension to smoothen
-    :param ranges: the coordinate vectors of the dimensions to smoothen
-    :param periods: the standard deviation(s).
-    :return: The smoothened array.
-    """
-    if np.isscalar(dims):
-        dims = [dims]
-    if np.isscalar(ranges[0]):
-        ranges = [ranges]
-    grid = Grid.from_ranges(*ranges)
-    if np.isscalar(periods):
-        periods = [periods] * len(ranges)
-    v_ft = np.fft.fftn(v, axes=dims)
-    for dim_idx in range(v.ndim - 2):
-        v_ft *= np.exp(-0.5*(np.abs(grid.f[dim_idx]) * periods[dim_idx])**2)
-    v = np.fft.ifftn(v_ft, axes=dims)
-    v[v.imag < 0] = v.real[v.imag < 0]  # remove and gain (may be introduced by rounding errors)
-    return v
 
 
 if __name__ == '__main__':

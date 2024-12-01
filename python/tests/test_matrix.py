@@ -236,7 +236,7 @@ class TestMatrix(unittest.TestCase):
                 # detvec = m.detfield2detvec(det_field)
                 npt.assert_array_almost_equal(
                     np.abs(m), expected, decimal=2,
-                    err_msg=f'Absolute value of empty space {desc} scattering matrix not correct for {grid}.')
+                                              err_msg=f'Absolute value of empty space {desc} scattering matrix not correct for {grid}.')
                 npt.assert_array_almost_equal(m, expected, decimal=2,
                                               err_msg=f'Empty space {desc} scattering matrix not correct for {grid}.')
 

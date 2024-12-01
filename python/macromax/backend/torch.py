@@ -138,7 +138,9 @@ class BackEndTorch(BackEnd):
 
     def copy(self, arr: array_like) -> tensor_type:
         """Makes an independent copy of an ndarray."""
-        return arr.detach().clone()
+        if isinstance(arr, tensor_type):
+            return arr.detach().clone()
+        return self.astype(arr)
 
     def ravel(self, arr: array_like) -> tensor_type:
         """Returns a flattened view of the array."""
@@ -175,15 +177,8 @@ class BackEndTorch(BackEnd):
         return torch.amax(self.astype(arr, dtype=float)).item()
 
     def sort(self, arr: array_like) -> tensor_type:
-        """Sorts array elements along the first (left-most) axis."""
-        # indices = torch.argsort(arr.real, dim=0)
-        # for dim in range(arr.shape[0]):
-        #     arr[dim, :, :] = arr[dim, indices[dim], 0]
-        # TODO: do not move between cpu-numpy-gpu as it is done here
-        arr = arr.to(device='cpu')
-        arr = np.sort(arr, axis=0)
-        arr = self.astype(arr)
-        return arr
+        """Sorts real array elements along the first (left-most) axis."""
+        return torch.sort(torch.view_as_real(arr), dim=0).values[..., 0]
 
     def ft(self, arr: array_like) -> tensor_type:
         """
@@ -320,3 +315,9 @@ class BackEndTorch(BackEnd):
 
     def norm(self, arr: array_like) -> float:
         return float(torch.linalg.norm(torch.view_as_real(arr)))
+
+    def __str__(self) -> str:
+        return f'{self.__class__.__name__}(vectorial={self.vectorial}, {self.grid}, dtype={self.numpy_dtype}, device={self.__device})'
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(vectorial={self.vectorial}, {repr(self.grid)}, dtype={self.numpy_dtype}, device={self.__device})'

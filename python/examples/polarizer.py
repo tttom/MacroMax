@@ -3,9 +3,10 @@
 #
 # Example code showing light propagating through a set of polarizers
 
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 
 import macromax
 try:
@@ -44,9 +45,6 @@ def show_polarizer(center_polarizer=True):
 
     bound = macromax.bound.LinearBound(x_range, thickness=boundary_thickness, max_extinction_coefficient=0.3)
 
-    # No magnetic component
-    permeability = 1.0
-
     # Prepare the display
     fig, axs = plt.subplots(3, 2, frameon=False, figsize=(12, 9))
     abs_line = []
@@ -57,19 +55,17 @@ def show_polarizer(center_polarizer=True):
         abs_line.append(field_ax.plot(x_range * 1e6, x_range * 0, color=[0, 0, 0])[0])
         real_line.append(field_ax.plot(x_range * 1e6, x_range * 0, color=[0, 0.7, 0])[0])
         imag_line.append(field_ax.plot(x_range * 1e6, x_range * 0, color=[1, 0, 0])[0])
-        field_ax.set_xlabel("x  [$\\mu$m]")
-        field_ax.set_ylabel("$I_" + 'xyz'[plot_idx] + "$, $E_" + 'xyz'[plot_idx] + "$  [a.u.]")
+        field_ax.set_xlabel(r'x  [$\mu$m]')
+        field_ax.set_ylabel('$I_' + 'xyz'[plot_idx] + '$, $E_' + 'xyz'[plot_idx] + '$  [a.u.]')
 
         ax_m = axs[plot_idx][1]
         ax_m.plot(x_range[-1] * 2e6, 0, color=[0, 0, 0], label='I')  # Add a dummy line outside the FOV for the legend
         ax_m.plot(x_range[-1] * 2e6, 0, color=[0, 0.7, 0], label='$E_{real}$')
         ax_m.plot(x_range[-1] * 2e6, 0, color=[1, 0, 0], label='$E_{imag}$')
-        ax_m.plot(x_range * 1e6, permittivity[plot_idx, plot_idx].real, color=[0, 0, 1], label='$\\epsilon_{real}$')
-        ax_m.plot(x_range * 1e6, permittivity[plot_idx, plot_idx].imag, color=[0, 0.5, 0.5], label='$\\epsilon_{imag}$')
-        # ax_m.plot(x_range * 1e6, permeability[plot_idx, plot_idx].real, color=[0.5, 0.25, 0], label='$\mu_{real}$')
-        # ax_m.plot(x_range * 1e6, permeability[plot_idx, plot_idx].imag, color=[0.5, 1, 0], label='$\mu_{imag}$')
-        ax_m.set_xlabel('x  [$\\mu$m]')
-        ax_m.set_ylabel('$\\epsilon$, $\\mu$')
+        ax_m.plot(x_range * 1e6, permittivity[plot_idx, plot_idx].real, color=[0, 0, 1], label=r'$\epsilon_{real}$')
+        ax_m.plot(x_range * 1e6, permittivity[plot_idx, plot_idx].imag, color=[0, 0.5, 0.5], label=r'$\epsilon_{imag}$')
+        ax_m.set_xlabel(r'x  [$\mu$m]')
+        ax_m.set_ylabel(r'$\epsilon$, $\mu$')
         ax_m.set_xlim(x_range[[0, -1]] * 1e6)
         ax_m.legend(loc='upper right')
 
@@ -80,8 +76,8 @@ def show_polarizer(center_polarizer=True):
     #
     def display(s):
         E = s.E
-        log.info("Total power: %0.3g", np.linalg.norm(E) ** 2)
-        log.info("Displaying it %0.0f: error %0.1f%%" % (s.iteration, 100 * s.residue))
+        log.info(f'Total power: {np.linalg.norm(E) ** 2:0.3g}')
+        log.info(f'Displaying it {s.iteration}: update = {s.residue * 100:0.1f}%')
 
         for plot_idx in range(3):
             ax = axs[plot_idx][0]
@@ -94,7 +90,7 @@ def show_polarizer(center_polarizer=True):
             if np.amax(np.abs(field_to_display)) > np.finfo(field_to_display.dtype).eps:
                 ax.set_ylim(np.array((-1, 1)) * np.maximum(np.amax(np.abs(field_to_display)),
                                                            np.amax(abs(field_to_display) ** 2 / max_val_to_display)) * 1.05)
-            figure_title = "$E_" + 'xyz'[plot_idx] + "$ Iteration %d, " % s.iteration
+            figure_title = '$E_' + 'xyz'[plot_idx] + f'$ Iteration {s.iteration}, '
             ax.set_title(figure_title)
 
         plt.draw()
@@ -105,15 +101,15 @@ def show_polarizer(center_polarizer=True):
     #
     def update_function(s):
         if np.mod(s.iteration, 100) == 0:
-            log.info("Iteration %0.0f: rms error %0.1f%%" % (s.iteration, 100 * s.residue))
+            log.info(f'Iteration {s.iteration}: update = {s.residue * 100:0.1f}%')
         if np.mod(s.iteration, 100) == 0:
             display(s)
 
-        return s.residue > 1e-5 and s.iteration < 1e4
+        return s.iteration < 1e4 and s.residue > 1e-4
 
-    # The actual work is done here:
+        # The actual work is done here:
     solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, mu=permeability, bound=bound, callback=update_function
+                              epsilon=permittivity, bound=bound, callback=update_function
                               )
 
     # Show final result

@@ -96,13 +96,13 @@ def pack(grid: Grid, radius_mean: float = 1.0, radius_std: float = 0.0, seed: Op
     spheres = [Sphere(radius=radius, position=grid.first + radius + rng.uniform(0.0, 1.0, [1, grid.ndim]) * (layer_extent - 2 * radius))]
 
     # Create a new sphere for the first iteration
-    new_sphere = Sphere(radius = rng.normal(radius_mean, radius_std))
+    new_sphere = Sphere(radius=rng.normal(radius_mean, radius_std))
     while min(_.fails for _ in spheres) < 2 * (5 ** (grid.ndim - 1)):
         # Pick a random radius
         # new_sphere.radius = rng.normal(radius_mean, radius_std)
         # Pick a potential neighbor
         # log.info('Picking a potential neighbor.')
-        contact_sphere = min(spheres, key = lambda _: _.fails)
+        contact_sphere = min(spheres, key=lambda _: _.fails)
         for trial_idx in range(2 * (5 ** (grid.ndim - 1))):
             # Place sphere at random position but touching this sphere
             random_direction = rng.normal(0.0, 1.0, grid.ndim)

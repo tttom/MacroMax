@@ -16,7 +16,7 @@ try:
     from examples import log
 except ImportError:
     from macromax import log  # Fallback in case this script is not started as part of the examples package.
-from examples.utils.sphere_packing import pack, pack_and_rasterize, draw_spheres
+from examples.utils.sphere_packing import pack
 
 
 def calculate_and_display_scattering(vectorial=True, anisotropic=True):
@@ -40,7 +40,7 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
     grid = Grid(np.array([128, 256]) * scale, wavelength / 16)
     incident_angle = 0 * np.pi / 180
 
-    log.info('Calculating fields over a %0.1fum x %0.1fum area...' % tuple(grid.extent * 1e6))
+    log.info('Calculating fields over a %0.1fμm x %0.1fμm area...' % tuple(grid.extent * 1e6))
 
     def rot_Z(a): return np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
     incident_k = rot_Z(incident_angle) * k0 @ np.array([0, 1, 0])
@@ -75,8 +75,8 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
 
     fig, axs = plt.subplots(3, 2, frameon=False, figsize=(12, 9), sharex='all', sharey='all')
     for ax in axs.ravel():
-        ax.set_xlabel('y [$\\mu$m]')
-        ax.set_ylabel('x [$\\mu$m]')
+        ax.set_xlabel(r'y [$\mu$m]')
+        ax.set_ylabel(r'x [$\mu$m]')
         ax.set_aspect('equal')
 
     images = [axs[dim_idx][0].imshow(complex2rgb(np.zeros(grid.shape), 1, inverted=True),
@@ -91,7 +91,7 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
     axs[1][1].imshow(complex2rgb(permittivity[0, 0], 1, inverted=True), extent=grid2extent(grid) * 1e6)
     axs[2][1].imshow(complex2rgb(current_density[0], 1, inverted=True), extent=grid2extent(grid) * 1e6)
     axs[0][1].set_title('crystal axis orientation')
-    axs[1][1].set_title('$\\chi$')
+    axs[1][1].set_title(r'$\chi$')
     axs[2][1].set_title('source')
 
     # Display the medium without the boundaries
@@ -107,11 +107,11 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
     # Display the current solution
     #
     def display(s):
-        log.info('Displaying iteration %d: error %0.1f%%' % (s.iteration, 100 * s.residue))
+        log.info(f'Displaying iteration {s.iteration}: update = {s.residue * 100:0.1f}%.')
         nb_dims = s.E.shape[0]
         for dim_idx in range(nb_dims):
             images[dim_idx].set_data(complex2rgb(s.E[dim_idx], 1, inverted=True))
-            figure_title = '$E_' + 'xyz'[dim_idx] + "$ it %d: rms error %0.1f%% " % (s.iteration, 100 * s.residue)
+            figure_title = '$E_' + 'xyz'[dim_idx] + f'$ it {s.iteration}: update = {s.residue * 100:0.1f}%'
             add_circles_to_axes(axs[dim_idx][0])
             axs[dim_idx][0].set_title(figure_title)
 
@@ -130,11 +130,11 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
         residues.append(s.residue)
 
         if np.mod(s.iteration, 10) == 0:
-            log.info("Iteration %0.0f: rms error %0.3f%%" % (s.iteration, 100 * s.residue))
-        if np.mod(s.iteration, 10) == 1:
+            log.info(f'Iteration {s.iteration}: relative residue = {s.residue * 100:0.1f}%, residue = {s.residue * 100:0.1f}%')
+        if np.mod(s.iteration, 100) == 0:
             display(s)
 
-        return s.residue > 1e-3 and s.iteration < 1e4
+        return s.residue > 1e-4 and s.iteration < 1e4
 
     #
     # Calculate the field produced by the current density source.
@@ -191,11 +191,11 @@ def generate_birefringent_random_layer(grid, layer_thickness, radius_mean, radiu
     rng = np.random.RandomState(seed=random_seed)  # Make sure that this is exactly reproducible
 
     if birefringent:
-        log.info('Generating layer of randomly placed, sized and oriented rutile (TiO2) particles...')
+        log.info(f'Generating a {layer_thickness / 1e-3:0.3f}μm-thick layer of randomly placed, sized and oriented rutile (TiO2) particles...')
     else:
-        log.info('Generating layer of randomly placed and sized particles...')
+        log.info(f'Generating a {layer_thickness / 1e-3:0.3f}μm-thick layer of randomly placed and sized particles...')
 
-    layer_grid = Grid(extent=[*grid.extent[:normal_dim], layer_thickness, *grid.extent[normal_dim+1:]], center_at_index=False)
+    layer_grid = Grid(2, extent=(*grid.extent[:normal_dim], layer_thickness, *grid.extent[normal_dim+1:]))
     spheres = pack(layer_grid, radius_mean=radius_mean, radius_std=radius_std, seed=random_seed)  # Make sure that this is exactly reproducible
     grain_radius = np.asarray([_.radius for _ in spheres])
     grain_position = np.asarray([_.position for _ in spheres])
@@ -261,9 +261,9 @@ def generate_birefringent_random_layer(grid, layer_thickness, radius_mean, radiu
 
 if __name__ == '__main__':
     start_time = time.perf_counter()
-    # times, residues, forward_poynting_vector = calculate_and_display_scattering(vectorial=False)  # calc time small 2.9s, large: 23.5s (320 MB)
+    times, residues, forward_poynting_vector = calculate_and_display_scattering(vectorial=False)  # calc time small 2.9s, large: 23.5s (320 MB)
     times, residues, forward_poynting_vector = calculate_and_display_scattering(anisotropic=False)  # calc time small 11.2s, large: 96.1 (480MB)
-    # times, residues, forward_poynting_vector = calculate_and_display_scattering(anisotropic=True)  # calc time small 55.9s, large: 198.8s (740MB)
+    times, residues, forward_poynting_vector = calculate_and_display_scattering(anisotropic=True)  # calc time small 55.9s, large: 198.8s (740MB)
     log.info(f'Total time: {time.perf_counter() - start_time:0.3f}s.')
 
     # Display how the method converged

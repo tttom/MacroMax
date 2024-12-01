@@ -18,8 +18,10 @@ class TestGrid(unittest.TestCase):
                                err_msg='Grid failed to calculate correct shape or centering.')
         npt.assert_array_equal(Grid(extent=10, step=3), np.arange(-6, 4, 3),
                                err_msg='Grid failed to calculate correct shape or centering.')
-        npt.assert_array_equal(Grid(extent=11, step=3), np.arange(-6, 5.5, 3),
+        npt.assert_array_equal(Grid(extent=11, step=3), np.arange(-6, 6, 3),
                                err_msg='Grid failed to calculate correct shape or centering.')
+        npt.assert_array_equal(Grid(extent=11, step=-3), np.arange(6, -6, -3),
+                               err_msg='Grid failed to calculate correct shape or centering for negative step.')
         npt.assert_array_equal(Grid(extent=12, step=3), np.arange(-6, 6, 3),
                                err_msg='Grid failed to calculate correct shape or centering.')
         npt.assert_array_equal(Grid(first=-5, last=5, step=1), np.arange(-5, 5),
@@ -60,6 +62,8 @@ class TestGrid(unittest.TestCase):
     def test_extent(self):
         npt.assert_equal(Grid(256, 0.125) == Grid(step=0.125, extent=32), True)
         npt.assert_equal(Grid([256, 128], 0.125) == Grid(step=0.125, extent=[32, 16]), True)
+        npt.assert_equal(Grid(extent=[32, 16]) == Grid(shape=[1, 1], extent=[32, 16]), True,
+                         err_msg=f"Grid specified with just the extent failed.")
 
     def test_arithmetic_neg(self):
         npt.assert_equal(-Grid(10, 0.5), Grid(10, -0.5))
@@ -210,6 +214,14 @@ class TestGrid(unittest.TestCase):
         npt.assert_array_equal(Grid(5, first=0, center_at_index=False), [0, 1, 2, 3, 4])
         npt.assert_array_equal(Grid(4, first=0, center_at_index=True), [0, 1, 2, 3])
         npt.assert_array_equal(Grid(4, first=0, center_at_index=False), [0, 1, 2, 3])
+        npt.assert_equal(Grid(4, first=0, center_at_index=False).first, 0)
+        npt.assert_equal(Grid(4, first=0, center_at_index=True).first, 0)
+        npt.assert_equal(Grid(5, first=0, center_at_index=False).first, 0)
+        npt.assert_equal(Grid(5, first=0, center_at_index=True).first, 0)
+        npt.assert_equal(Grid(4, first=-2, center_at_index=False).first, -2)
+        npt.assert_equal(Grid(4, first=-2, center_at_index=True).first, -2)
+        npt.assert_equal(Grid(5, first=-2, center_at_index=False).first, -2)
+        npt.assert_equal(Grid(5, first=-2, center_at_index=True).first, -2)
 
     def test_grid_dtype(self):
         g = Grid(shape=(2, 3), first=(4, 5))

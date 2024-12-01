@@ -24,6 +24,9 @@ build_path = docs_path / 'build/html/index.html'
 log.info(f'Documentation landing page: {build_path}')
 
 # Show the generated documentation
-import webbrowser
-log.info(f'Opening documentation at {build_path}...')
-webbrowser.open(str(build_path))
+try:
+    import webbrowser
+    log.info(f'Opening documentation at {build_path}...')
+    webbrowser.open(str(build_path))
+except (ImportError, ModuleNotFoundError):
+    log.info(f'Documentation ready, peruse at {build_path}')

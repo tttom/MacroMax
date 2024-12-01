@@ -53,8 +53,8 @@ def show_birefringence():
     fig, axs = plt.subplots(3, 2, frameon=False, figsize=(12, 9))
 
     for ax in axs.ravel():
-        ax.set_xlabel('y [$\\mu$m]')
-        ax.set_ylabel('x [$\\mu$m]')
+        ax.set_xlabel(r'y [$\mu$m]')
+        ax.set_ylabel(r'x [$\mu$m]')
         ax.set_aspect('equal')
 
     images = [axs[dim_idx][0].imshow(complex2rgb(np.zeros(data_shape), 1),
@@ -64,7 +64,7 @@ def show_birefringence():
                      extent=grid2extent(grid, origin_lower=True) * 1e6, origin='lower')
     axs[2][1].imshow(complex2rgb(current_density[0], 1),
                      extent=grid2extent(grid, origin_lower=True) * 1e6, origin='lower')
-    axs[0][1].set_title('$\chi$')
+    axs[0][1].set_title(r'$\chi$')
     axs[1][1].axis('off')
     axs[2][1].set_title('source and S')
     Y, X = np.broadcast_arrays(*grid)
@@ -102,18 +102,18 @@ def show_birefringence():
     #
     def update_function(s):
         if np.mod(s.iteration, 10) == 0:
-            log.info("Iteration %0.0f: rms error %0.1f%%" % (s.iteration, 100 * s.residue))
+            log.info(f'Iteration {s.iteration}: update = {s.residue * 100:0.1f}%.')
         if np.mod(s.iteration, 10) == 0:
             display(s)
 
         return s.residue > 1e-3 and s.iteration < 1e4
 
-    # The actual work is done here:
+        # The actual work is done here:
     start_time = time.perf_counter()
     solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
                               epsilon=permittivity, bound=bound, callback=update_function, dtype=np.complex64
                               )
-    log.info("Calculation time: %0.3fs." % (time.perf_counter() - start_time))
+    log.info(f'Calculation time: {time.perf_counter() - start_time:0.3f}s.')
 
     # Show final result
     log.info('Displaying final result.')
@@ -121,7 +121,7 @@ def show_birefringence():
     plt.show(block=True)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     start_time = time.perf_counter()
     show_birefringence()
-    log.info("Total time: %0.3fs." % (time.perf_counter() - start_time))
+    log.info(f'Total time: {time.perf_counter() - start_time:0.3f}s.')

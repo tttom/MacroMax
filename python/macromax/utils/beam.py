@@ -6,7 +6,7 @@ from numbers import Complex, Real
 import functools
 from inspect import signature
 
-from . import ft
+from macromax.utils import ft
 from macromax.utils.ft.grid import Grid
 
 

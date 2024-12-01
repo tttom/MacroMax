@@ -20,13 +20,13 @@ import json
 import logging
 
 from macromax.utils.ft import Grid
-from macromax.utils.array import vector_to_axis
+from macromax.utils import dim
 
 log = logging.getLogger(__name__)
 
 __all__ = ['config', 'load', 'BackEnd', 'array_like', 'tensor_type']
 
-DType = Union[Type[np.float64], Type[np.single]]
+DType = Type[np.floating] | Type[np.single]
 
 __config_list = None
 
@@ -104,7 +104,7 @@ class BackEnd(ABC):
         :param arr: An object that is, or can be converted to, an ndarray.
         :param dtype: (optional) scalar data type of the returned array elements
 
-        :return: torch.Tensor type
+        :return: an array of the type of this BackEnd
         """
         if dtype is None:
             dtype = self.hardware_dtype
@@ -125,7 +125,7 @@ class BackEnd(ABC):
     @property
     def eps(self) -> float:
         """The precision of the data type (self.dtype) of this back-end."""
-        return np.finfo(self.hardware_dtype).eps.item()
+        return np.finfo(self.hardware_dtype).eps
 
     @abstractmethod
     def allocate_array(self, shape: array_like = None, dtype: Optional[DType] = None,
@@ -156,11 +156,11 @@ class BackEnd(ABC):
         arr = self.to_matrix_field(arr)  # TODO potential dtype missmatch
         if not np.isscalar(arr) and \
             (np.any(arr.shape[-self.grid.ndim:] != self.grid.shape)
-                    or arr.shape[-self.grid.ndim-2] != 1 + 2 * self.vectorial):
-                arr = np.tile(arr, np.asarray([1 + 2 * self.vectorial, 1, *self.grid.shape]) // arr.shape)
+             or arr.shape[-self.grid.ndim-2] != 1 + 2 * self.vectorial):
+            arr = np.tile(arr, np.asarray([1 + 2 * self.vectorial, 1, *self.grid.shape]) // arr.shape)
         out = self.assign_exact(arr, out)
         return out
-        
+
     def assign_exact(self, arr: array_like, out: tensor_type) -> tensor_type:
         """
         Assign the values of one array to those of another.
@@ -223,12 +223,12 @@ class BackEnd(ABC):
         """Returns True if all elements in arr are close to other."""
         return np.allclose(arr, other)
 
-    def amax(self, arr: array_like) -> float:
+    def amax(self, arr: array_like) -> tensor_type:
         """Returns the maximum of the flattened array."""
         return np.amax(arr)
 
     def sort(self, arr: array_like) -> tensor_type:
-        """Sorts array elements along the first (left-most) axis."""
+        """Sorts real array elements along the first (left-most) axis."""
         return np.sort(arr, axis=0)
 
     @abstractmethod
@@ -323,7 +323,7 @@ class BackEnd(ABC):
         Tests if A represents a scalar field (as opposed to a vector field).
 
         :param arr: The ndarray to be tested.
-        
+
         :return: A boolean indicating whether A represents a scalar field (True) or not (False).
         """
         return np.isscalar(arr) or arr.ndim == 0 or (arr.shape[0] == 1 and (arr.ndim == 1 or arr.shape[1] == 1))
@@ -333,7 +333,7 @@ class BackEnd(ABC):
         Tests if A represents a vector field.
 
         :param arr: The ndarray to be tested.
-        
+
         :return: A boolean indicating whether A represents a vector field (True) or not (False).
         """
         return arr.ndim == self.__total_dims - 1
@@ -343,7 +343,7 @@ class BackEnd(ABC):
         Checks if an ndarray is a matrix as defined by this parallel_ops_column object.
 
         :param arr: The matrix to be tested.
-        
+
         :return: boolean value, indicating if A is a matrix.
         """
         return arr.ndim == self.__total_dims
@@ -355,7 +355,7 @@ class BackEnd(ABC):
     def to_matrix_field(self, arr: array_like) -> np.ndarray:
         """
         Converts the input to an array of the full number of dimensions: len(self.matrix_shape) + len(self.grid.shape), and dtype.
-        The size of each dimensions must match that of that set for the :class:`BackEnd` or be 1 (assumes broadcasting).
+        The size of each dimension must match that of that set for the :class:`BackEnd` or be 1 (assumes broadcasting).
         For electric fields in 3-space, self.matrix_shape == (N, N) == (3, 3)
         The first (left-most) dimensions of the output are either
 
@@ -430,7 +430,7 @@ class BackEnd(ABC):
         if self.is_scalar(left_factor) or self.is_scalar(right_factor):
             if out is not None:
                 result = out
-                result *= left_factor  # Scalars are assumed to be proportional to the identity matrix
+                result *= left_factor  # Scalars are interpreted as proportional to the identity matrix
             else:
                 result = left_factor * right_factor
         else:
@@ -629,7 +629,8 @@ class BackEnd(ABC):
             self.__longitudinal_projection = self.allocate_array(shape=data_shape)
 
         # (K x K) . xFt == K x (K . xFt)
-        self.__longitudinal_projection[:] = self.k[0] * field_array_ft[0, 0]  # overwrite with new data
+        self.__longitudinal_projection[:] = field_array_ft[0, 0]  # overwrite with new data
+        self.__longitudinal_projection *= self.k[0]
         # Project on k vectors
         for in_axis in range(1, nb_data_dims):
             self.__longitudinal_projection += self.k[in_axis] * field_array_ft[in_axis, 0]
@@ -836,7 +837,7 @@ class BackEnd(ABC):
             # Combine the different calculations for B
             B = complex_root * (A_significant * B_complex_roots + (~A_significant) * B_complex_roots_origin) \
                 + (~complex_root) * (-AB_all_real_roots)
-            complex_triangle = self.astype(vector_to_axis(np.exp(2j * const.pi * np.array([-1, 0, 1]) / 3), 0, output_shape.size))
+            complex_triangle = self.astype(dim.to_axis(np.exp(2j * const.pi * np.array([-1, 0, 1]) / 3), 0, output_shape.size))
             X = A[np.newaxis] * complex_triangle + B[np.newaxis] * self.conj(complex_triangle)
             X -= a[np.newaxis]
 
@@ -870,7 +871,13 @@ class BackEnd(ABC):
 
     def norm(self, arr: array_like) -> float:
         """Returns the l2-norm of a vectorized array."""
-        return np.linalg.norm(arr.ravel())
+        return np.linalg.norm(arr.ravel()).item()
+
+    def __str__(self) -> str:
+        return f'{self.__class__.__name__}(vectorial={self.vectorial}, {self.grid}, dtype={self.numpy_dtype})'
+
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(vectorial={self.vectorial}, {repr(self.grid)}, dtype={self.numpy_dtype})'
 
 
 def config(*args: Sequence[Dict], **kwargs: str):
@@ -895,8 +902,8 @@ def config(*args: Sequence[Dict], **kwargs: str):
 
         [
             {"type": "torch", "device": "cuda"},
-            {"type": "numpy"},
             {"type": "torch", "device": "cpu"},
+            {"type": "numpy"},
         ]
 
     The first back-end that loads correctly will be used.
@@ -914,7 +921,7 @@ def config(*args: Sequence[Dict], **kwargs: str):
 
 def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) -> BackEnd:
     """
-    Load the default or the backend specified using ``backend.config()``.
+    Load the default or the backend specified using :py:func:`backend.config`.
     This configuration file should contain a list of potential back-ends
     in [JSON format](https://en.wikipedia.org/wiki/JSON), e.g.
 
@@ -923,14 +930,14 @@ def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) ->
         [
             {"type": "torch", "device": "cuda"},
             {"type": "numpy"},
-            {"type": "torch", "device": "cpu"},
+            {"type": "torch", "device": "cpu"}
         ]
 
-    The first back-end that loads correctly will be used.
+    The first back-end that loads without error will be used.
 
-    :param nb_pol_dims: The number of polarization dimensions, 1 for scalar, 3 for vectorial calculations.
+    :param nb_pol_dims: The number of polarization dimensions: 1 for scalar, 3 for vectorial calculations.
     :param grid: The uniformly-spaced Cartesian calculation grid as a Grid object.
-    :param dtype: The scalar data type. E.g. ``numpy.complex64`` or ``numpy.complex128``.
+    :param dtype: The scalar data type. E.g. :py:class:`numpy.complex64` or :py:class:`numpy.complex128`.
     :param config_list: List of alternative backend configurations.
 
     :return: A BackEnd object to start the calculation with.
@@ -957,8 +964,8 @@ def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) ->
         # {'type': 'tensorflow', 'device': 'tpu'},
         # {'type': 'tensorflow', 'device': 'gpu'},
         # {'type': 'opencl_vulkan', 'device': 'gpu'},
-        {'type': 'numpy'},
-    ]  # always use numpy as a backup plan
+        {'type': 'numpy'},  # always have numpy as fall-back
+    ]
 
     for c in config_list:
         config_type = c.get('type', 'unknown').lower()
@@ -968,7 +975,7 @@ def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) ->
                 device = device.lower()
             if config_type == 'torch':
                 import torch
-                gpu_available = torch.cuda.is_available()
+                gpu_available = torch.cuda.is_available() and torch.cuda.device_count() > 0
                 if device is not None:
                     if device.startswith('gpu'):
                         device = 'cuda' + device[3:]
@@ -977,7 +984,9 @@ def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) ->
                     want_cuda = False
                 log.info(f'PyTorch version {torch.__version__} ' + ('with' if gpu_available else 'but no') + ' GPU detected.')
                 if want_cuda and not gpu_available:
-                    raise ImportError('PyTorch installed but no CUDA GPU found!')
+                    if torch.cuda.is_available():
+                        raise ImportError(f'PyTorch version {torch.__version__} installed but no CUDA GPU found.')
+                    raise ImportError(f'PyTorch version {torch.__version__} installed but could not use CUDA. This could be due to: (1) a non-cuda PyTorch version, (2) no CUDA driver, (3) a CUDA driver that does not match the version of PyTorch.')
                 try:
                     import torch.fft
                     fftn_available = True

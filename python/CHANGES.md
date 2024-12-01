@@ -3,6 +3,9 @@
 ## Release series 0.2 - PyTorch integration
 
 ### Version 0.2.2
+* Refactoring of the utils submodule
+* Switched to use pyproject.toml for the package configuration.
+* Updated dependencies and requirements
 * Documentation improvements
 
 ### Version 0.2.1

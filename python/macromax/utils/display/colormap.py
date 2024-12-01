@@ -13,12 +13,15 @@ class InterpolatedColorMap(LinearSegmentedColormap):
 
     .. code-block:: python
 
-        cmap = colormap.InterpolatedColorMap('hsv', [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 1, 1), (0, 0, 1), (1, 0, 1), (1, 0, 0), (1, 1, 1)])
+        cmap = colormap.InterpolatedColorMap(
+            'hsv',
+            [(0, 0, 0), (1, 0, 0), (1, 1, 0), (0, 1, 0), (0, 1, 1), (0, 0, 1), (1, 0, 1), (1, 0, 0), (1, 1, 1)],
+        )
         cmap = colormap.InterpolatedColorMap(
             'rainbow',
             [(0, 0, 0), (1, 0, 0), (0.75, 0.75, 0), (0, 1, 0), (0, 0.75, 0.75), (0, 0, 1), (0.75, 0, 0.75), (1, 1, 1)],
             points=[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 1],
-            )
+        )
 
         fig, ax = subplots(1, 1)
         ax.imshow(intensity_array, cmap=cmap)

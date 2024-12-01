@@ -97,7 +97,7 @@ if __name__ == '__main__':
     log.info(f'MacroMax version {macromax.__version__}')
     #
     measure(dtype=dtype, vectorial=False, ndim=ndim, nb_trials=nb_trials)
-    # measure(dtype=dtype, vectorial=True, ndim=ndim, nb_trials=nb_trials)
-    # measure(dtype=dtype, birefringent=True, ndim=ndim, nb_trials=nb_trials)
-    # measure(dtype=dtype, magnetic=True, ndim=ndim, nb_trials=nb_trials)
-    # measure(dtype=dtype, magnetic=True, birefringent=True, ndim=ndim, nb_trials=nb_trials)
+    measure(dtype=dtype, vectorial=True, ndim=ndim, nb_trials=nb_trials)
+    measure(dtype=dtype, birefringent=True, ndim=ndim, nb_trials=nb_trials)
+    measure(dtype=dtype, magnetic=True, ndim=ndim, nb_trials=nb_trials)
+    measure(dtype=dtype, magnetic=True, birefringent=True, ndim=ndim, nb_trials=nb_trials)

@@ -1,8 +1,10 @@
 """The module providing the pure-python NumPy back-end implementation."""
-import numpy as np
+import os
 from typing import Union
 from numbers import Complex
 import logging
+
+import numpy as np
 
 from macromax.utils import ft
 from macromax.backend.__init__ import BackEnd, array_like
@@ -18,7 +20,7 @@ class BackEndNumpy(BackEnd):
     where the first two dimensions are those of the matrix, and the final dimensions are the coordinates over
     which the operations are parallelized and the Fourier transforms are applied.
     """
-    def __init__(self, nb_dims: int, grid: ft.Grid, hardware_dtype = np.complex128):
+    def __init__(self, nb_dims: int, grid: ft.Grid, hardware_dtype=np.complex128):
         """
         Construct object to handle parallel operations on square matrices of nb_rows x nb_rows elements.
         The matrices refer to points in space on a uniform plaid grid.
@@ -29,6 +31,18 @@ class BackEndNumpy(BackEnd):
         """
         super().__init__(nb_dims, grid, hardware_dtype)
 
+        if (nb_threads := os.cpu_count()) is not None:
+            for _ in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS'):
+                os.environ[_] = str(nb_threads)
+            try:
+                import mkl
+                mkl.set_num_threads(nb_threads)
+            except (ImportError, TypeError):
+                pass
+            log.info(f'Set maximum number of threads to {nb_threads}.')
+        else:
+            nb_threads = 1
+
         try:
             import pyfftw
 
@@ -38,14 +52,6 @@ class BackEndNumpy(BackEnd):
             # ftflags = ('FFTW_DESTROY_INPUT', 'FFTW_PATIENT', )
             # ftflags = ('FFTW_DESTROY_INPUT', 'FFTW_MEASURE', )
             # ftflags = ('FFTW_DESTROY_INPUT', 'FFTW_EXHAUSTIVE', ) # very slow, little gain in general
-
-            try:
-                import multiprocessing
-                nb_threads = multiprocessing.cpu_count()
-                log.debug(f'Detected {nb_threads} CPUs, using up to {nb_threads} threads.')
-            except ModuleNotFoundError:
-                nb_threads = 1
-                log.info('Module multiprocessing not found, assuming default number of threads for Fast Fourier Transform.')
 
             self.__empty_word_aligned = \
                 lambda shape, dtype: pyfftw.empty_aligned(shape=shape, dtype=dtype, n=pyfftw.simd_alignment, order='C')
@@ -66,11 +72,9 @@ class BackEndNumpy(BackEnd):
                     if np.all(E.shape == fft_vec_object.input_shape):
                         fft_vec_object(E, self.array_ft_output)
                         return self.array_ft_output
-                    else:
-                        log.info('Fourier Transform: Array shape not standard, falling back to default interface.')
-                        return ft.fftn(E, axes=self.ft_axes)
-                else:
-                    return E.copy()
+                    log.info('Fourier Transform: Array shape not standard, falling back to default interface.')
+                    return ft.fftn(E, axes=self.ft_axes)
+                return E.copy()
 
             # Redefine the default method
             def ifft_impl(E):
@@ -80,11 +84,9 @@ class BackEndNumpy(BackEnd):
                     if np.all(E.shape == ifft_vec_object.input_shape):
                         ifft_vec_object(E, self.array_ift_output)
                         return self.array_ift_output
-                    else:
-                        log.info('Inverse Fourier Transform: Array shape not standard, falling back to default interface.')
-                        return ft.ifftn(E, axes=self.ft_axes)
-                else:
-                    return E.copy()
+                    log.info('Inverse Fourier Transform: Array shape not standard, falling back to default interface.')
+                    return ft.ifftn(E, axes=self.ft_axes)
+                return E.copy()
         except ModuleNotFoundError:
             log.debug('Module pyfftw not imported, using stock FFT.')
             self.__empty_word_aligned = lambda shape, dtype: np.empty(shape=shape, dtype=dtype, order='C')

@@ -37,44 +37,48 @@ All [source code](https://github.com/corilim/MacroMax) is available on [GitHub](
 This library requires Python 3 with the ````numpy```` and ````scipy```` packages for the main calculations. These modules will be automatically installed.
 The modules ````multiprocessing````, ````torch````,  ````pyfftw````, and ````mkl-fft```` (Intel(R) CPU specific) can significantly speed up the calculations.
 
-The examples require ````matplotlib```` for displaying the results.
-In the creation of this package for distribution, the ````pypandoc```` package is used for translating this document to
-other formats. This is only necessary for software development.
-
-The code has been tested on Python 3.11 and 3.12, though it is expected to work on versions 3.9 and above.
+The examples require ````matplotlib```` for displaying the results. The code has been tested on Python 3.11 and 3.12, though it is expected to work on versions 3.10 and above.
 
 ### Installing
 Installing the ````macromax```` package and its mandatory dependencies is as straightforward as running the following command in a terminal:
 ````sh
-pip install macromax
+pip install --upgrade macromax
 ````
 While this is sufficient to get started, optional packages are useful to display the results and to speed-up the calculations.
 
 
 #### Optimizing execution speed on a CPU
-The calculation time can be reduced to a fraction by ensuring that you have the fastest libraries installed for your system. In particular the FFTW library can easily halve the calculation time on a CPU:
+The most straightforward way to increase the computation speed is by installing [PyTorch](https://pytorch.org/) for your system.
 ````sh
-pip install macromax pyFFTW
+pip install -U macromax torch
+````
+This will drastically reduce the computation time, both with CPU and GPU.
+
+Alternatively, the calculation time can be reduced to a fraction by ensuring that you have the fastest libraries installed for your system. In particular the FFTW library can easily halve the calculation time on a CPU:
+````sh
+pip install -U macromax pyFFTW
 ````
 On some systems the [pyFFTW](https://pypi.org/project/pyFFTW/) Python package requires the separate installation of the [FFTW library](http://www.fftw.org/download.html); however, it is easy to install it using Anaconda with the commands:
 ```conda install fftw```, or on Debian-based systems with ```sudo apt-get install fftw```.
 
-Alternatively, the [mkl-fft](https://github.com/IntelPython/mkl_fft) package is available for Intel(R) CPUs, though it may require compilation or relying on the [Anaconda](https://www.anaconda.com/) or [Intel Python](https://www.intel.com/content/www/us/en/developer/tools/oneapi/distribution-for-python.html) distributions:
+Another option is the [mkl-fft](https://github.com/IntelPython/mkl_fft) package that is available for Intel(R) CPUs. However, this may require compilation or relying on the [Anaconda](https://www.anaconda.com/) or [Intel Python](https://www.intel.com/content/www/us/en/developer/tools/oneapi/distribution-for-python.html) distributions:
 ````sh
 conda install -c intel intelpython
 ````
 
 #### Leveraging a machine learning framework for GPU and cloud-based calculations
-The calculation time can be reduced by several orders of magnitude using the PyTorch machine learning library. This can be as straightforward as using the appropriate runtime on [Google Colab](https://colab.research.google.com/). The MacroMax library can here be installed by prepending the command with an exclamation mark as follows:
+The calculation time can be reduced by several orders of magnitude using the PyTorch machine learning library. This can 
+be as straightforward as using the appropriate runtime on [Google Colab](https://colab.research.google.com/). The MacroMax library can here be 
+installed by prepending the command with an exclamation mark as follows:
 ````sh
-!pip install macromax
+!pip install --upgrade macromax
 ````
 For more details, check out the [Google Colab deployment example](https://github.com/corilim/MacroMax/tree/master/python/examples/Introduction%20to%20MacroMax.ipynb).
 
 Local GPUs can also be used provided that PyTorch has a compatible implementation. At the time of writing, these includes NVidia's CUDA-enabled GPU as well AMD's ROCm-enabled GPUs (on Linux). Prior to installing the PyTorch module following the [PyTorch Guide](https://pytorch.org/), install the appropriate  [CUDA](https://www.nvidia.co.uk/Download/index.aspx?lang=en-uk) or [ROCm drivers](https://docs.amd.com/) for your GPU.
 Note that for PyTorch to work correctly, Nvidia drivers need to be up-to-date and match the installed CUDA version. At the time of writing, for CUDA version 11.6, PyTorch can be installed as follows using pip:
 ````sh
-pip install torch --extra-index-url https://download.pytorch.org/whl/cu116
+pip install --upgrade torch --extra-index-url https://download.pytorch.org/whl/cu116
 ````
 Specifics for your CUDA version and operating system are listed on [PyTorch Guide](https://pytorch.org/).
 
@@ -83,6 +87,7 @@ The default backend can be set at the start of your code, or by creating a text 
 ````json
 [
   {"type": "torch", "device": "cuda"},
+  {"type": "torch", "device": "cpu"},
   {"type": "numpy"}
 ]
 ````
@@ -94,12 +99,12 @@ Experimental support exists for alternative backend implementations such as [Ten
 The package comes with a submodule containing example code that should run as-is on most desktop installations of Python.
 Some systems may require the installation of the ubiquitous ````matplotlib```` graphics library:
 ````sh
-pip install matplotlib
+pip install -U matplotlib
 ````
 
 The output logs can be colored by installing the coloredlogs packaged:
 ````sh
-pip install coloredlogs
+pip install -U coloredlogs
 ````
 
 Building and distributing the library may require further packages as indicated below.
@@ -415,7 +420,7 @@ specific tests have been written for the ````Solution```` class in ````solver.py
 To run the tests, make sure that the `pytest` package is installed, and
 run the following commands from the `Macromax/python/` directory:
 ```sh
-pip install pytest
+pip install -U pytest
 pytest --ignore=tests/test_backend_tensorflow.py
 ```
 
@@ -424,45 +429,41 @@ Some tests are backend specific and will fail if e.g. PyTorch or TensorFlow is n
 The benchmark script in the `examples/` folder can be used to compare performance for different problems and architectures.
 Performance issues can be debugged using profilers as `pprofile` and `memory_profiler`, installed with:
 ````sh
-pip install pprofile memory_profiler 
+pip install -U pprofile memory_profiler 
 ````
 
 ### Documentation
 The `make` scripts in the `docs/` subdirectory automatically generate the documentation.
 This uses Sphinx and extensions that can be installed with
 ````sh
-pip install sphinx sphinx_autodoc_typehints sphinxcontrib_mermaid sphinx-rtd-theme recommonmark m2r2 docutils == 0.20.1
+pip install -U docutils==0.20.1 Sphinx sphinx_autodoc_typehints sphinxcontrib_mermaid sphinx-rtd-theme recommonmark m2r2
 ````
-Run `make linkcheck` to check for any dead web-links, and `make html` to check for errors in the generation of the
+The version of ``docutils`` needs to be pinned to avoid a bug with m2r2. Run `make linkcheck` to check for any dead web-links, and `make html` to check for errors in the generation of the
 documentation.
 
 Examples of use can be found in the `examples/` and `tests/` folders. The former is more didactic, while the latter is more complete.
 
 ### Building and Distributing
-The [source code](https://github.com/corilim/MacroMax) consists of pure Python 3, hence only packaging is required for distribution.
-A package is generated by ````setup.py````, which relies on the ````m2r2```` package to translate `.md` files to `.rst` format:
-````sh
-pip install docutils == 0.20.1  # for compatibility with sphinx-rtd-theme, which requires an older version of docutils.
-````
+The [source code](https://github.com/corilim/MacroMax) consists of pure Python 3, hence only packaging is required for distribution. A package is generated by ````setup.py````.
 
 To prepare a package for distribution, increase the `__version__` number in [macromax/\_\_init\_\_.py](https://github.com/corilim/MacroMax/tree/master/python/macromax/__init__.py), and run:
 
 ```sh
-pip install build --upgrade
+pip install -U build
 python -m build -nsw
-pip install . --upgrade
+pip install -U .
 ```
-The second line installs the newly-forged `macromax` package for testing.
+The final line installs the newly-forged `macromax` package for testing.
 
 The package can then be uploaded to a test repository as follows:
 ```sh
-pip install twine --upgrade
+pip install -U twine
 twine upload -r testpypi dist/*
 ```
 
 Installing from the test repository is done as follows:
 ```sh
-pip install -i https://test.pypi.org/simple/ macromax --upgrade
+pip install -U --extra-index-url https://test.pypi.org/simple/ macromax
 ```
 
 To facilitate importing the code, IntelliJ IDEA/PyCharm project files can be found in ```MacroMax/python/```: ```MacroMax/python/python.iml``` and the folder ```MacroMax/python/.idea```.

@@ -2,7 +2,7 @@ import unittest
 import numpy.testing as npt
 import numpy as np
 
-from macromax.utils.display.hsv import hsv2rgb, rgb2hsv
+from macromax.utils.display import hsv2rgb, rgb2hsv
 
 
 class TestHsv2Rgb(unittest.TestCase):

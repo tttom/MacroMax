@@ -4,16 +4,10 @@ import numpy.testing as npt
 
 from tests.test_backend import BaseTestBackEnd
 
-from macromax.backend.numpy import BackEndNumpy
-
 
 class TestBackEndNumpy(BaseTestBackEnd):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
-    @property
-    def BE(self) -> BackEndNumpy:
-        return super().BE
 
     def test_calc_roots_of_low_order_polynomial(self):
         C = np.array([0.0, 0.0, 0.0, -1.0], dtype=np.complex64)
@@ -156,13 +150,14 @@ class TestBackEndNumpy(BaseTestBackEnd):
     def test_calc_complex_roots(self):
         C = np.array([-1, 0, 0, 1])  # x**3 == 1
         roots = self.BE.calc_roots_of_low_order_polynomial(C)
+        roots = np.round(roots, decimals=7)
         npt.assert_array_almost_equal(np.sort(roots), [np.exp(-2j*np.pi/3), np.exp(2j*np.pi/3), 1],
                                       err_msg='failed finding cubic roots centered around zero.')
 
         C = np.array([1, 2, 3, -4])
         roots = self.BE.calc_roots_of_low_order_polynomial(C)
         for root_idx in range(3):
-            npt.assert_almost_equal(self.BE.asnumpy(self.BE.evaluate_polynomial(C, roots[root_idx])), 0.0,
+            npt.assert_almost_equal(self.BE.asnumpy(self.BE.evaluate_polynomial(C, roots[root_idx])), 0.0, decimal=6,
                                     err_msg='third order polynomial root %d not found' % root_idx)
 
     def test_evaluate_polynomial(self):

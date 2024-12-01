@@ -1,5 +1,5 @@
 """
-The `ft` module provides direct access to `numpy.fft`, `scipy.fftpack`, `pyfftw`, or `mkl_fft`, depending on availability.
+The `ft` module provides direct access to `numpy.fft`, `pyfftw`, or `mkl_fft`, depending on availability.
 The back-end that is deemed most efficient is automatically imported. Independently of the back-end, the `ft` module provides at least the following functions:
 
 - `ft.fft(a: array_like, axis: int)`: The 1-dimensional fast Fourier transform.
@@ -20,34 +20,38 @@ With the exception of `ft.fft()` and `ft.ifft()`, all functions take the `axes` 
 Note that axis indices should be unique and non-negative. **Negative or repeated axis indices are not compatible with all back-end implementations!**
 """
 import logging
-
-__all__ = ['fftshift', 'ifftshift', 'fft', 'ifft', 'fftn', 'ifftn']
-
-log = logging.getLogger(__name__)
+import os
 
 from numpy.fft import fftshift, ifftshift
 
+from macromax.utils.ft import log
+
+__all__ = ['fftshift', 'ifftshift', 'fft', 'ifft', 'fftn', 'ifftn']
+
+log = log.getChild(__name__)
+
+if (nb_threads := os.cpu_count()) is not None:
+    for _ in ('OPENBLAS_NUM_THREADS', 'OMP_NUM_THREADS', 'MKL_NUM_THREADS'):
+        os.environ[_] = str(nb_threads)
+    try:
+        import mkl
+        mkl.set_num_threads(nb_threads)
+    except (ImportError, TypeError):
+        pass
+    log.info(f'Set maximum number of threads to {nb_threads}.')
+
 try:
     from mkl_fft import *
-    log.debug('Using mkl_fft for Fast Fourier transforms.')
+    log.info('Using mkl_fft for Fast Fourier transforms.')
 except (ModuleNotFoundError, TypeError):
     try:
         import pyfftw
         from pyfftw.interfaces.scipy_fft import *
         pyfftw.interfaces.cache.enable()
         pyfftw.interfaces.cache.set_keepalive_time(60.0)
-        try:
-            import multiprocessing
-            nb_threads = multiprocessing.cpu_count()
-            log.debug(f'Using pyfftw with {nb_threads} threads for Fast Fourier transform.')
+        if nb_threads is not None:
             pyfftw.config.NUM_THREADS = nb_threads
-        except ModuleNotFoundError:
-            log.info('Python multiprocessing module not found, using default number of threads')
+        log.info('Using FFTW for Fast Fourier transforms instead of mkl_fft.')
     except (ModuleNotFoundError, TypeError):
-        try:
-            from scipy.fft import *
-            log.info('Using scipy.fftpack Fast Fourier transforms instead of mkl_fft or pyfftw.')
-        except ModuleNotFoundError:
-            from numpy.fft import *
-            log.info('Using numpy.fft Fast Fourier transforms instead of scipy.fftpack, mkl_fft, or pyfftw.')
-
+        from numpy.fft import *
+        log.info('Using numpy.fft Fast Fourier transforms instead of mkl_fft or pyfftw.')

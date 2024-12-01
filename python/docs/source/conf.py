@@ -10,12 +10,14 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-from datetime import datetime
-from pathlib import Path
-import sphinx.ext.apidoc
+import pathlib
 import sys
+from datetime import datetime
 
-code_path = Path(__file__).parent.parent.absolute()
+import sphinx.ext.apidoc
+
+
+code_path = pathlib.Path(__file__).parent.parent.absolute()
 sys.path.insert(0, code_path.as_posix())  # To generate documentation locally
 sys.path.insert(0, code_path.parent.as_posix())  # ReadTheDocs seems to require the repository root instead
 
@@ -119,7 +121,7 @@ source_suffix = ['.rst', '.md']
 autodoc_mock_imports = ['torch', 'tensorflow']
 
 # Building the API Documentation...
-code_path = Path(__file__).parent.parent.parent.resolve()
+code_path = pathlib.Path(__file__).parent.parent.parent.resolve()
 docs_path = code_path / 'docs'
 apidoc_path = docs_path / 'source/api'  # a temporary directory
 print(f'Building api-doc scaffolding in {apidoc_path}...')

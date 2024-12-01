@@ -1,7 +1,6 @@
 import unittest
 import numpy.testing as npt
 
-from macromax.backend import BackEnd
 from macromax.backend.numpy import BackEndNumpy
 from macromax import Grid
 import numpy as np
@@ -12,15 +11,13 @@ class BaseTestBackEnd(unittest.TestCase):
     def __init__(self, *args, dtype=np.complex64, hardware_dtype=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.__nb_pol_dims: int = 3
-        # self.__grid: Grid = Grid([5, 10, 20], 100e-9)
         self.__grid: Grid = Grid([5, 10, 20], 100e-9)
         self.__wavenumber: float = 10e6
         if hardware_dtype is None:
             hardware_dtype = dtype
         self.__dtype = dtype
         self.__hardware_dtype = hardware_dtype
-        
-        self.__backend = None
+        self.BE = BackEndNumpy(self.nb_pol_dims, self.grid * self.wavenumber, hardware_dtype=self.dtype)
 
     @property
     def nb_pol_dims(self) -> int:
@@ -41,12 +38,6 @@ class BaseTestBackEnd(unittest.TestCase):
     @property
     def hardware_dtype(self):
         return self.__hardware_dtype
-
-    @property
-    def BE(self) -> BackEnd:
-        if self.__backend is None:
-            self.__backend = BackEndNumpy(self.nb_pol_dims, self.grid * self.wavenumber, hardware_dtype=self.dtype)
-        return self.__backend
 
     def setUp(self):
         self.__backend = None  # reset
@@ -85,10 +76,10 @@ class BaseTestBackEnd(unittest.TestCase):
         arr = self.BE.allocate_array()  # TODO complex64
         arr = self.BE.real(arr)
         arr = self.BE.assign(1.0, arr)  # TODO assign an array of 1s to arr which is complex
-        npt.assert_equal(self.BE.amax(arr), 1.0)
+        npt.assert_array_equal(self.BE.amax(arr), 1.0)
         sh = [1 + 2 * self.BE.vectorial, *self.BE.grid.shape]
         arr = self.BE.assign(np.arange(np.prod(sh)).reshape(sh), arr)
-        npt.assert_equal(self.BE.amax(arr), np.prod(sh) - 1)
+        npt.assert_array_equal(self.BE.amax(arr), np.prod(sh) - 1)
 
     def test_sort(self):
         sample_tensor = [[[4, 10, 26],
@@ -102,7 +93,7 @@ class BaseTestBackEnd(unittest.TestCase):
                           [21, 25, 14]]]
         reference = np.sort(sample_tensor, axis=0)
         result = self.BE.asnumpy(self.BE.sort(self.BE.astype(sample_tensor)))
-        npt.assert_array_equal(result, reference, err_msg='tensor sorted incorrectly')
+        npt.assert_array_equal(result, reference, err_msg=f'tensor {reference} sorted incorrectly as {result}')
 
     def test_dtype(self):
         npt.assert_equal(self.BE.hardware_dtype is self.hardware_dtype, True,
@@ -125,7 +116,7 @@ class BaseTestBackEnd(unittest.TestCase):
 
     def test_allocate_array(self):
         arr = self.BE.allocate_array()
-        npt.assert_equal(arr.shape, self.BE.array_ft_input.shape, 'Allocated array incorrect.')
+        npt.assert_array_equal(arr.shape, self.BE.array_ft_input.shape, 'Allocated array incorrect.')
 
     def test_eye(self):
         result = self.BE.eye
@@ -156,31 +147,34 @@ class BaseTestBackEnd(unittest.TestCase):
     def test_to_matrix_field(self):
         npt.assert_equal(self.BE.asnumpy(self.BE.to_matrix_field(2)), 2)
         npt.assert_equal(self.BE.asnumpy(self.BE.to_matrix_field(np.zeros([3, 3, *self.grid.shape]))), 0.0)
-        npt.assert_almost_equal(self.BE.asnumpy(self.BE.to_matrix_field(np.pi * np.ones([3, 3, *self.grid.shape]))), np.pi)
+        npt.assert_array_almost_equal(
+            self.BE.asnumpy(self.BE.to_matrix_field(np.pi * np.ones([3, 3, *self.grid.shape]))),
+            np.pi
+        )
         npt.assert_equal(self.BE.asnumpy(self.BE.to_matrix_field(np.pi * np.eye(3)[:, :, np.newaxis, np.newaxis, np.newaxis])),
                          np.pi * self.BE.asnumpy(self.BE.eye))
-        npt.assert_equal(self.BE.to_matrix_field(np.arange(3)).shape, (1, 1, 1, 1, 3))
+        npt.assert_array_equal(self.BE.to_matrix_field(np.arange(3)).shape, (1, 1, 1, 1, 3))
         A = self.BE.to_matrix_field(np.tile(np.arange(3)[:, np.newaxis, np.newaxis, np.newaxis], [1, *self.grid.shape]))
         npt.assert_equal(A.ndim, 5)
-        npt.assert_equal(A.shape[:2], (3, 1))
+        npt.assert_array_equal(A.shape[:2], (3, 1))
 
     def test_ft(self):
         A = np.zeros([3, 3, *self.grid.shape], dtype=float)
         A[:, :, 0, 0, 0] = 1
         A = self.BE.astype(A)
         npt.assert_almost_equal(self.BE.asnumpy(self.BE.ft(A)), np.ones([3, 3, *self.grid.shape]), decimal=14)
-        B_np = np.arange(9 * np.prod(self.grid.shape)).reshape((3, 3, *self.grid.shape)).astype(self.dtype)
-        B = self.BE.astype(B_np)
+        B_np = np.arange(9 * np.prod(self.grid.shape)).reshape((3, 3, *self.grid.shape))
+        B = self.BE.astype(B_np.copy())
         npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.ift(self.BE.ft(B))), B_np, decimal=3,
                                       err_msg='Fourier Transform did not work as expected.')
 
     def test_ift(self):
         A = np.zeros([3, 3, *self.grid.shape], dtype=float)
         A[:, :, 0, 0, 0] = 1
-        A = self.BE.astype(A)
+        A = self.BE.astype(A.copy())
         npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.ift(A)), np.ones([3, 3, *self.grid.shape]) / np.prod(self.grid.shape))
         B = np.arange(9 * np.prod(self.grid.shape)).reshape((3, 3, *self.grid.shape)).astype(self.dtype)
-        B = self.BE.astype(B)
+        B = self.BE.copy(B)
         npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.ft(self.BE.ift(B))), self.BE.asnumpy(B), decimal=3,
                                       err_msg='Inverse Fourier Transform did not work as expected.')
 

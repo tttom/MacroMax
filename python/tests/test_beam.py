@@ -2,7 +2,7 @@ import unittest
 import numpy.testing as npt
 
 from macromax.utils.beam import Beam, BeamSection
-from macromax.utils.array import add_dims_on_right
+from macromax.utils import dim
 from macromax.utils import ft
 from macromax.utils.ft import Grid
 
@@ -33,7 +33,7 @@ class TestBeamSection(unittest.TestCase):
                 field = np.ones(grid.shape)
                 vectorial = np.asarray(polarization).size > 1
                 if vectorial:
-                    field = add_dims_on_right(polarization, 3) * field
+                    field = dim.add(polarization, right=3) * field
                 field_ft = ft.fftn(ft.ifftshift(field, axes=ft_axes), axes=ft_axes % field.ndim) if grid.ndim > 0 else field
                 beam_section = BeamSection(grid, vacuum_wavelength=self.vacuum_wavelength, background_permittivity=self.epsilon0, field_ft=field_ft)
                 while field.ndim < 3 + 1:  # Check if singleton dimension added automatically
@@ -62,7 +62,7 @@ class TestBeamSection(unittest.TestCase):
                 field = np.ones(grid.shape)
                 vectorial = np.asarray(polarization).size > 1
                 if vectorial:
-                    field = add_dims_on_right(polarization, 3) * field
+                    field = dim.add(polarization, right=3) * field
                 field_ft = ft.fftn(ft.ifftshift(field, axes=ft_axes), axes=ft_axes % field.ndim) if grid.ndim > 0 else field
                 beam_section = BeamSection(grid, vacuum_wavelength=self.vacuum_wavelength,
                                            background_permittivity=self.epsilon0, field=field)
@@ -99,7 +99,7 @@ class TestBeamSection(unittest.TestCase):
                     vectorial = np.asarray(polarization).size > 1
                     if not vectorial or np.asarray(field).ndim == grid.ndim:  # If vectorial, only consider correctly-dimensioned inputs
                         if vectorial:
-                            field = add_dims_on_right(polarization, 3) * field
+                            field = dim.add(polarization, right=3) * field
                         beam_section = BeamSection(grid, vacuum_wavelength=self.vacuum_wavelength, background_permittivity=self.epsilon0, field=field)
                         field = np.asarray(field)
                         while field.ndim < 1 + grid.ndim:  # Correct the number of dimensions
@@ -133,7 +133,7 @@ class TestBeamSection(unittest.TestCase):
                 field = np.ones(grid.shape)
                 vectorial = np.asarray(polarization).size > 1
                 if vectorial:
-                    field = add_dims_on_right(polarization, 3) * field
+                    field = dim.add(polarization, right=3) * field
                 field_ft = ft.fftn(ft.ifftshift(field, axes=ft_axes), axes=ft_axes % field.ndim) if grid.ndim > 0 else field
                 beam_section = BeamSection(grid, vacuum_wavelength=self.vacuum_wavelength, background_permittivity=self.epsilon0, field_ft=field_ft)
                 while field.ndim < 3 + 1:  # Check if singleton dimension added automatically
@@ -159,7 +159,7 @@ class TestBeamSection(unittest.TestCase):
                 field = np.ones(grid.shape)
                 vectorial = np.asarray(polarization).size > 1
                 if vectorial:
-                    field = add_dims_on_right(polarization, 3) * field
+                    field = dim.add(polarization, right=3) * field
                 field_ft = ft.fftn(ft.ifftshift(field, axes=ft_axes), axes=ft_axes % field.ndim) if grid.ndim > 0 else field
                 beam_section = BeamSection(grid, vacuum_wavelength= self.vacuum_wavelength, background_permittivity=self.epsilon0, field_ft=field_ft)
                 while field.ndim < 3 + 1:  # Check if singleton dimension added automatically
@@ -209,7 +209,7 @@ class TestBeamSection(unittest.TestCase):
                                     order = [0, 2, 1]
                                     rot = rot[order, order]
                                 rotated_polarization = (rot @ polarization[:, np.newaxis])[:, 0]
-                                field = add_dims_on_right(rotated_polarization, 3 + 1) * field
+                                field = dim.add(rotated_polarization, right=3 + 1) * field
                             shifted_field = np.array(field)
                             for f, ax in zip(section_grid.first, transverse_ft_axes):
                                 if f != 0:
@@ -269,7 +269,7 @@ class TestBeam(unittest.TestCase):
                         polarization = polarization[[1, 0, 2]]
                     elif prop_axis == -1:
                         polarization = polarization[[2, 1, 0]]
-                    field = add_dims_on_right(polarization, 3) * field
+                    field = dim.add(polarization, right=3) * field
                 beam = Beam(grid, vacuum_wavelength=self.vacuum_wavelength, background_permittivity=self.epsilon0,
                             field=field, propagation_axis=prop_axis)
                 propagated_field = beam.field()
@@ -291,7 +291,7 @@ class TestBeam(unittest.TestCase):
                             polarization = polarization[[1, 0, 2]]
                         elif prop_axis == -1:
                             polarization = polarization[[2, 1, 0]]
-                        field = add_dims_on_right(polarization, 3) * field
+                        field = dim.add(polarization, right=3) * field
                     beam = Beam(grid, vacuum_wavelength=self.vacuum_wavelength, background_permittivity=self.epsilon0,
                                 field=field, propagation_axis=prop_axis)
                     propagated_field = beam.field()
