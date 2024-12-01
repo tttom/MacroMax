@@ -498,7 +498,7 @@ class Beam:
         :param refractive_index: (optional) The 3D refractive index distribution as a sequence or iterable.
         :param out: (optional) The output array where to store the result.
 
-        :return: A :py:class:`numpy.ndarray` of which the final four dimensions are polarization, z, y, and x.
+        :return: A ```numpy.ndarray``` of which the final four dimensions are polarization, z, y, and x.
         """
         if out is None:
             out = np.zeros(self.shape, dtype=self.dtype)  # TODO: Use empty and zero-pad as needed for efficiency
