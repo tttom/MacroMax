@@ -16,6 +16,7 @@ sphinx:
 formats:
   - pdf
   - epub
+  - htmlzip
 
 submodules:
   include: all

@@ -51,6 +51,7 @@ extensions = ['m2r2',  # or m2r
               'sphinxcontrib.mermaid',  # Used to build graphs
               'sphinx.ext.intersphinx',
               'sphinx_rtd_theme',
+              'sphinx.ext.imgconverter',
               'sphinxcontrib.cairosvgconverter',
               'matplotlib.sphinxext.roles',  # to get mpltype text role for matplotlib
               ]
