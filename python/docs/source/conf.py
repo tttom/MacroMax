@@ -95,10 +95,6 @@ exclude_patterns = []
 #
 html_theme = 'sphinx_rtd_theme'
 html_theme_options = {
-    'sidebar_collapse': False,
-    'show_powered_by': False,
-}
-html_theme_options = {
     'logo_only': False,
     'prev_next_buttons_location': 'bottom',
     'style_external_links': False,
@@ -127,5 +123,8 @@ apidoc_path = docs_path / 'source/api'  # a temporary directory
 print(f'Building api-doc scaffolding in {apidoc_path}...')
 sphinx.ext.apidoc.main(['-f', '-d', '4', '-M',
                         '-o', f'{apidoc_path}',
-                        f"{code_path / 'macromax'}"]
+                        f"{code_path}/macromax",
+                        f"{code_path}/macromax/utils/ft/ft*",
+                        ]
                        )
+

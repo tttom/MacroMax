@@ -10,3 +10,4 @@
     modindex
     genindex
     changes
+    api/modules

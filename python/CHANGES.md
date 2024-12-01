@@ -6,7 +6,7 @@
 * Refactoring of the utils submodule
 * Switched to use pyproject.toml for the package configuration.
 * Updated dependencies and requirements
-* Documentation improvements
+* Documentation (generation) improvements
 
 ### Version 0.2.1
 * Fixed GPU memory leaks when using PyTorch back-end, thus enabling the solution of larger problems.
@@ -62,9 +62,9 @@ intermediate solution is queried.
 
 
 ### Version 0.0.8
-* Extended unit tests, including the ```utils''' sub-module.
+* Extended unit tests, including the `utils` sub-module.
 * Improved logging.
-* Removed unused ```conductive''' indicator property from solver.
+* Removed unused `conductive` indicator property from solver.
 * Brought naming in line with Python conventions.
 
 ### Version 0.0.6
