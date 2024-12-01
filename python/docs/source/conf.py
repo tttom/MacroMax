@@ -11,12 +11,11 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import pathlib
+import re
 import sys
 from datetime import datetime
 
 import sphinx.ext.apidoc
-
-import macromax
 
 
 code_path = pathlib.Path(__file__).parent.parent.absolute()
@@ -29,8 +28,8 @@ sys.path.insert(0, code_path.parent.as_posix())  # ReadTheDocs seems to require 
 project = 'MacroMax'
 author = 'Tom Vettenburg'
 copyright = f'{datetime.now().year}, {author}'
-version = release = macromax.__version__
-
+version = release = re.search(r'.*version.*=\s[\'"]*([^\'"]*)[\'"]', (code_path.parent.absolute() / 'macromax' / '__init__.py').read_text())[1]
+# TODO: Switch to storing the version in pyproject.toml so that this is cleaner.
 
 # -- General configuration ---------------------------------------------------
 
