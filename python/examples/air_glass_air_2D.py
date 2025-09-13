@@ -28,7 +28,7 @@ def calculate_and_display(vectorial=True):
     #
     oversampling_factor = 1  # increasing should be similar to sinc-interpolation
     wavelength = 500e-9
-    boundary_thickness = 2e-6
+    boundary_thickness = 2e-6  # or use something like ([2e-6], [0]) to get absorbing boundaries in axis 0 and periodic boundaries in the other axis
     beam_diameter = 5e-6
     plate_thickness = 5e-6
     plate_refractive_index = 1.5  # try making this negative (prepare to be patient though and avoid over sampling!)
@@ -75,10 +75,10 @@ def calculate_and_display(vectorial=True):
 
     # Display the medium without the boundaries
     for idx in range(axs.size):
-        axs.ravel()[idx].set_xlim((grid[1].flatten()[0] + boundary_thickness) * 1e6,
-                                  (grid[1].flatten()[-1] - boundary_thickness) * 1e6)
-        axs.ravel()[idx].set_ylim((grid[0].flatten()[0] + boundary_thickness) * 1e6,
-                                  (grid[0].flatten()[-1] - boundary_thickness) * 1e6)
+        # axs.ravel()[idx].set_xlim((grid[1].flatten()[0] + boundary_thickness) * 1e6,
+        #                           (grid[1].flatten()[-1] - boundary_thickness) * 1e6)
+        # axs.ravel()[idx].set_ylim((grid[0].flatten()[0] + boundary_thickness) * 1e6,
+        #                           (grid[0].flatten()[-1] - boundary_thickness) * 1e6)
         axs.ravel()[idx].autoscale(False)
 
     #

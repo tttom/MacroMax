@@ -47,18 +47,20 @@ pip install --upgrade macromax
 While this is sufficient to get started, optional packages are useful to display the results and to speed-up the calculations.
 
 
-#### Optimizing execution speed on a CPU
+#### Maximizing execution speed on a CPU
 The most straightforward way to increase the computation speed is by installing [PyTorch](https://pytorch.org/) for your system.
 ````sh
 pip install -U macromax torch
 ````
-This will drastically reduce the computation time, both with CPU and GPU.
+This will drastically reduce the computation time, both with CPU and GPU. Do make sure to install the correct version of 
+[PyTorch](https://pytorch.org/) that makes full use of your hardware (see below). MacroMax will fall back to using NumPy on your CPU if it cannot find a working PyTorch installation.
 
-Alternatively, the calculation time can be reduced to a fraction by ensuring that you have the fastest libraries installed for your system. In particular the FFTW library can easily halve the calculation time on a CPU:
+Alternatively, the calculation time on the CPU can be improved by ensuring that you have the fastest libraries installed for your system. In particular the FFTW library can easily halve the calculation time on a CPU:
 ````sh
 pip install -U macromax pyFFTW
 ````
-On some systems the [pyFFTW](https://pypi.org/project/pyFFTW/) Python package requires the separate installation of the [FFTW library](http://www.fftw.org/download.html); however, it is easy to install it using Anaconda with the commands:
+On some systems the [pyFFTW](https://pypi.org/project/pyFFTW/) Python package requires the separate installation of the [FFTW library](http://www.fftw.org/download.html); however, 
+it is easy to install it using Anaconda with the commands:
 ```conda install fftw```, or on Debian-based systems with ```sudo apt-get install fftw```.
 
 Another option is the [mkl-fft](https://github.com/IntelPython/mkl_fft) package that is available for Intel(R) CPUs. However, this may require compilation or relying on the [Anaconda](https://www.anaconda.com/) or [Intel Python](https://www.intel.com/content/www/us/en/developer/tools/oneapi/distribution-for-python.html) distributions:
@@ -156,8 +158,7 @@ x_range = 50e-9 * np.arange(1000)
 ```
 
 Ranges for multiple dimensions can be passed to ````solve(...)```` as a tuple of ranges:
-````ranges = (x_range, y_range)````, or the convenience object `Grid` in
-the `macromax.utils.array` sub-package. The latter can be used as follows:
+````ranges = (x_range, y_range)````, though it is often easier to use a `Grid` object. The latter can be used as follows:
 
 ```python
 data_shape = (200, 400)
@@ -175,7 +176,24 @@ When the first two dimensions of a property are found to be both a singleton, i.
 The default permeability `mu` is 1, and the coupling constants are zero by default.
 
 ##### Boundary conditions
-The underlying algorithm assumes [periodic boundary conditions](https://en.wikipedia.org/wiki/Periodic_boundary_conditions).
+Most calculations make some assumption about the electromagnetic field outside the calculation grid. Often the grid is 
+assumed to sitting in an infinitely-large free space. However, the algorithm implicitly uses [periodic boundary conditions](https://en.wikipedia.org/wiki/Periodic_boundary_conditions).
+While periodic boundaries are useful for some situations, infinite free space would require that all waves travel 
+outward from the calculation grid. This can be approximated by adding a boundary layer that gradually absorbs the 
+emanating waves whilst minimizing any potential back reflections. 
+```python
+from macromax.bound import LinearBound
+
+bound = LinearBound(grid, thickness=5e-6)
+```
+The thickness can also be specified as an N-by-2-matrix with the boundaries on all 2N sides of the N-dimensional calculation 
+grid in the order ([top, bottom], [left, right], [front, back]). If you would like one or more of the boundaries to be periodic, 
+just set its thickness to 0. The Matrix class in `macromax.matrix` uses periodic boundaries in the transverse axes to model
+plane waves with an infinite extent.
+The `LinearBound` adds a linearly-increasing extinction coefficient to the default refractive index of 1. 
+At the edges of the  calculation grid, the extinction coefficient increases to 0.25 by default.
+Custom boundary conditions can be implemented by inheriting from one of the `Bound` classes in the `macromax.bound` module.
+
 Alternative boundary conditions can be implemented by surrounding the calculation area with absorbing (or reflective) layers.
 Back reflections can be suppressed by e.g. linearly increasing the imaginary part of the permittivity with depth into a boundary with a thickness of a few wavelengths.
 
@@ -190,8 +208,8 @@ care should be taken so that the source currents constructively interfere
 in the desired direction. I.e. the current density at neighboring voxels should
 have a phase difference matching the k-vector in the background medium.
 Optionally, instead of a current density, the internally-used source distribution may be
-specified directly. It is related to the current density as follows: `S = i omega mu_0 J` with units of rad s^-1 H m^-1 A m^-2 = rad V m^-3,
-where `omega` is the angular frequency, and `mu_0` is the vacuum permeability, mu_0.
+specified directly. It is related to the current density as follows: `S = i omega mu_0 J` with units of rad s⁻¹ H m⁻¹ A m⁻² = rad V m⁻³,
+where `omega` is the angular frequency, and `mu_0` is the vacuum permeability, mu₀.
 
 The source distribution is stored as a complex ndarray with 1+N dimensions.
 The first dimension contains the current 3D direction and amplitude for each voxel. The complex argument indicates the relative phase at each voxel.
@@ -203,28 +221,30 @@ Once the ````macromax```` module is imported, the solution satisfying the macros
 solution = macromax.solve(...)
 ```
 
-The function arguments to ````macromax.solve(...)```` can be the following:
+The function arguments to `macromax.solve(...)` can be the following:
 
-* ````grid|x_range````: A Grid object, a vector (1D), or tuple of vectors (2D, or 3D) indicating the spatial coordinates of the sample points. Each vector must be a uniformly increasing array of coordinates, sufficiently dense to avoid aliasing artefacts.
+* `grid|x_range`: A Grid object, a vector (1D), or tuple of vectors (2D, or 3D) indicating the spatial coordinates of the sample points. Each vector must be a uniformly increasing array of coordinates, sufficiently dense to avoid aliasing artefacts.
 
-* ````vacuum_wavelength|wave_number|anguler_frequency````: The wavelength in vacuum of the coherent illumination in units of meters.
+* `vacuum_wavelength|wave_number|anguler_frequency`: The wavelength in vacuum of the coherent illumination in units of meters.
 
-* ````current_density```` or ````source_distribution````: An ndarray of complex values indicating the source value and direction at each sample point. The source values define the free current density in the sample. The first dimension contains the vector index, the following dimensions contain the spatial dimensions.
+* `current_density` or `source_distribution`: An ndarray of complex values indicating the source value and direction at each sample point. The source values define the free current density in the sample. The first dimension contains the vector index, the following dimensions contain the spatial dimensions.
 If the source distribution is not specified, it is calculated as
 :math:`-i c k0 mu_0 J`, where `i` is the imaginary constant, `c`, `k0`, and `mu_0`, the light-speed, wavenumber, and permeability in
 vacuum. Finally, `J` is the free current density (excluding the movement of bound charges in a dielectric), specified as the input argument current_density.
-These input arguments should be ```numpy.ndarray```s with a shape as specified by the `grid` input argument, or have one extra dimension on the left to indicate the polarization. If polarization is not specified the solution to the _scalar_ wave equation is calculated. However, when polarization is specified the _vectorial_ problem is solved.
-  The returned ```macromax.Solution``` object has the property ```vectorial``` to indicate whether polarization is accounted for or not.    
+These input arguments should be `numpy.ndarray`s with a shape as specified by the `grid` input argument, or have one extra dimension on the left to indicate the polarization. If polarization is not specified the solution to the _scalar_ wave equation is calculated. However, when polarization is specified the _vectorial_ problem is solved.
+  The returned `macromax.Solution` object has the property ```vectorial``` to indicate whether polarization is accounted for or not.    
 
-* ````refractive_index````: A complex ```numpy.ndarray``` of a shape as indicated by the `grid` argument. Each value indicates the refractive at the corresponding spatial grid point. Real values indicate a loss-less material. A positive imaginary part indicates the absorption coefficient, :math:`\kappa`. This input argument is not required if the permittivity, `epsilon` is specified.
+* `refractive_index`: A complex `numpy.ndarray` of a shape as indicated by the `grid` argument. Each value indicates the refractive at the corresponding spatial grid point. Real values indicate a loss-less material. A positive imaginary part indicates the absorption coefficient, :math:`\kappa`. This input argument is not required if the permittivity, `epsilon` is specified.
 
-* ````epsilon````: (optional, default: :math:`n^2`) A complex ```numpy.ndarray``` of a shape as indicated by the `grid` argument for _isotropic_ media, or a shape with two extra dimensions on the left to indicate _anisotropy/birefringence_. The array values indicate the relative permittivity at all sample points in space. The optional two first (left-most) dimensions may contain a 3x3 matrix at each spatial location to indicate the anisotropy/birefringence. By default the 3x3 identity matrix is assumed, scaled by the scalar value of the array without the first two dimensions. Real values indicate loss-less permittivity. This input argument is unit-less, it is relative to the vacuum permittivity.
+* `epsilon`: (optional, default: :math:`n^2`) A complex `numpy.ndarray` of a shape as indicated by the `grid` argument for _isotropic_ media, or a shape with two extra dimensions on the left to indicate _anisotropy/birefringence_. The array values indicate the relative permittivity at all sample points in space. The optional two first (left-most) dimensions may contain a 3x3 matrix at each spatial location to indicate the anisotropy/birefringence. By default the 3x3 identity matrix is assumed, scaled by the scalar value of the array without the first two dimensions. Real values indicate loss-less permittivity. This input argument is unit-less, it is relative to the vacuum permittivity.
 
 Optionally one can also specify magnetic and coupling factors:
 
-* ````mu````: A complex ndarray that defines the 3x3 permeability matrix at all sample points. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
+* `mu`: A complex ndarray that defines the 3x3 permeability matrix at all sample points. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
 
-* ````xi```` and ````zeta````: Complex ndarray that define the 3x3 coupling matrices at all sample points. This may be useful to model chiral materials. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
+* `xi` and `zeta`: Complex ndarray that define the 3x3 coupling matrices at all sample points. This may be useful to model chiral materials. The first two dimensions contain the matrix indices, the following dimensions contain the spatial dimensions.
+
+* `initial_field`: If an initial estimate for the electric-field is known, this can potentially reduce the number of iterations required. This could be useful when calculating the field for a structure that is very similar to a structure for which the field is known. Do bear in mind that small phase shifts can cause significant changes in the field values that can negate the speed advantage.
 
 It is often useful to also specify a callback function that tracks progress. This can be done by defining the ````callback````-argument as a function that takes an intermediate solution as argument. This user-defined callback function can display the intermediate solution and check if the convergence is adequate. The callback function should return ````True```` if more iterations are required, and ````False```` otherwise. E.g.:
 
@@ -260,46 +280,42 @@ simply require the definition of the material and light source in 2D or 3D.
 The first section of the code loads the ````macromax```` library module as well as its ````utils```` submodule. More
 
 ```python
-import macromax
-
 import numpy as np
 import matplotlib.pyplot as plt
+import macromax
+from macromax.bound import LinearBound
+
 # %matplotlib notebook  # Uncomment this line in an iPython Jupyter notebook
 
 #
 # Define the material properties
 #
 wavelength = 500e-9  # [ m ] In SI units as everything else here
-source_polarization = np.array([0, 1, 0])[:, np.newaxis]  # y-polarized
+source_polarization = np.array([0, 1, 0])  # y-polarized
+boundary_thickness = 5e-6  # Set this to 0 to get periodic boundary conditions.
+# The thickness can also be specified as an Nx2 array: ([top, bottom], [left, right], [front, back])
 
 # Set the sampling grid
 nb_samples = 1024
-sample_pitch = wavelength / 10  # [ m ]  # Sub-sample for display
-boundary_thickness = 5e-6  # [ m ]
-x_range = sample_pitch * np.arange(nb_samples) - boundary_thickness  # [ m ]
+sample_pitch = wavelength / 10  # [ m ]  # Oversample just for display
+x_range = sample_pitch * np.arange(nb_samples) - boundary_thickness  # in meters. You can also use macromax.Grid for convenience.
 
-# Define the medium as a spatially-variant permittivity
-# Don't forget absorbing boundary:
-dist_in_boundary = np.maximum(0, np.maximum(-x_range,
-                                            x_range - (x_range[-1] - boundary_thickness)
-                                            ) / boundary_thickness)
-permittivity = 1.0 + 0.25j * dist_in_boundary  # unit-less, relative to vacuum permittivity
-# glass has a refractive index of about 1.5
-permittivity[(x_range >= 20e-6) & (x_range < 30e-6)] += 1.5**2
-permittivity = permittivity[np.newaxis, np.newaxis, ...]  # Define an isotropic material
+# Define the medium as a spatially-variant permittivity. Glass has a refractive index of about 1.51:
+refractive_index = 1 + (1.51 - 1) * ((x_range >= 20e-6) & (x_range < 30e-6))
 
 #
 # Define the illumination source
 #
-# point source at x = 0
-current_density = source_polarization * (np.abs(x_range) < sample_pitch/4)
+# point source at x = 0. Add the polarization vector on the left to do vectorial calculations.
+current_density = source_polarization[:, np.newaxis] * (np.abs(x_range) < sample_pitch/4)
 
 #
 # Solve Maxwell's equations
 #
 # (the actual work is done in this line)
-solution = macromax.solve(x_range, vacuum_wavelength=wavelength,
-                          current_density=current_density, epsilon=permittivity)
+solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
+                          refractive_index=refractive_index, bound=LinearBound(x_range, thickness=boundary_thickness)
+                          )
 
 #
 # Display the results
@@ -309,41 +325,30 @@ fig, ax = plt.subplots(2, 1, frameon=False, figsize=(8, 6))
 x_range = solution.grid[0]  # coordinates
 E = solution.E[1, :]  # Electric field in y
 H = solution.H[2, :]  # Magnetizing field in z
-S = solution.S_forw[0, :]  # Poynting vector in x
+S = solution.S[0, :]  # Poynting vector in x
 f = solution.f[0, :]  # Optical force in x
 # Display the field for the polarization dimension
 field_to_display = E
 max_val_to_display = np.amax(np.abs(field_to_display))
 poynting_normalization = np.amax(np.abs(S)) / max_val_to_display
-ax[0].plot(x_range * 1e6,
-           np.abs(field_to_display) ** 2 / max_val_to_display,
-           color=[0, 0, 0])
-ax[0].plot(x_range * 1e6, np.real(S) / poynting_normalization,
-           color=[1, 0, 1])
-ax[0].plot(x_range * 1e6, np.real(field_to_display),
-           color=[0, 0.7, 0])
-ax[0].plot(x_range * 1e6, np.imag(field_to_display),
-           color=[1, 0, 0])
-figure_title = "Iteration %d, " % solution.iteration
+ax[0].plot(x_range / 1e-6, np.abs(field_to_display) ** 2 / max_val_to_display, color=[0, 0, 0])
+ax[0].plot(x_range / 1e-6, S.real / poynting_normalization, color=[1, 0, 1])
+ax[0].plot(x_range / 1e-6, field_to_display.real, color=[0, 0.7, 0])
+ax[0].plot(x_range / 1e-6, field_to_display.imag, color=[1, 0, 0])
+figure_title = f'Iteration {solution.iteration}, '
 ax[0].set_title(figure_title)
-ax[0].set_xlabel("x  [$\mu$m]")
-ax[0].set_ylabel("I, E  [a.u., V/m]")
+ax[0].set_xlabel(r'x  [$\mu$m]')
+ax[0].set_ylabel('I, E  [a.u., V/m]')
 ax[0].set_xlim(x_range[[0, -1]] * 1e6)
 
-ax[1].plot(x_range[-1] * 2e6, 0,
-           color=[0, 0, 0], label='I')
-ax[1].plot(x_range[-1] * 2e6, 0,
-           color=[1, 0, 1], label='$S_{real}$')
-ax[1].plot(x_range[-1] * 2e6, 0,
-           color=[0, 0.7, 0], label='$E_{real}$')
-ax[1].plot(x_range[-1] * 2e6, 0,
-           color=[1, 0, 0], label='$E_{imag}$')
-ax[1].plot(x_range * 1e6, permittivity[0, 0].real,
-           color=[0, 0, 1], label='$\epsilon_{real}$')
-ax[1].plot(x_range * 1e6, permittivity[0, 0].imag,
-           color=[0, 0.5, 0.5], label='$\epsilon_{imag}$')
-ax[1].set_xlabel('x  [$\mu$m]')
-ax[1].set_ylabel('$\epsilon$')
+ax[1].plot(x_range[-1] * 2e6, 0, color=[0, 0, 0], label='I')
+ax[1].plot(x_range[-1] * 2e6, 0, color=[1, 0, 1], label='$S_{real}$')
+ax[1].plot(x_range[-1] * 2e6, 0, color=[0, 0.7, 0], label='$E_{real}$')
+ax[1].plot(x_range[-1] * 2e6, 0, color=[1, 0, 0], label='$E_{imag}$')
+ax[1].plot(x_range / 1e-6, refractive_index.real, color=[0, 0, 1], label=r'$\epsilon_{real}$')
+ax[1].plot(x_range / 1e-6, refractive_index.imag, color=[0, 0.5, 0.5], label=r'$\epsilon_{imag}$')
+ax[1].set_xlabel(r'x  [$\mu$m]')
+ax[1].set_ylabel(r'$\epsilon$')
 ax[1].set_xlim(x_range[[0, -1]] * 1e6)
 ax[1].legend(loc='upper right')
 
