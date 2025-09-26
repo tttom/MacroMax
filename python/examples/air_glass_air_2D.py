@@ -37,9 +37,10 @@ def calculate_and_display(vectorial=True):
     grid = Grid(np.ones(2) * 128 * oversampling_factor, wavelength / 4 / oversampling_factor)
     incident_angle = 30 * np.pi / 180
 
-    log.info('Calculating fields over a %0.1fum x %0.1fum area...' % tuple(grid.extent * 1e6))
+    log.info(f'Calculating fields over a {"×".join(f"{_:0.1f}" for _ in grid.extent / 1e-6)} μm² area...')
 
-    def rot_Z(a): return np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
+    def rot_Z(a):
+        return np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
     incident_k = rot_Z(incident_angle) * k0 @ np.array([1, 0, 0])
     source_polarization = (rot_Z(incident_angle) @ np.array([0, 1, 1j]) / np.sqrt(2))[:, np.newaxis, np.newaxis]
     current_density = np.exp(1j * (incident_k[0]*grid[0] + incident_k[1]*grid[1]))
@@ -59,8 +60,8 @@ def calculate_and_display(vectorial=True):
     # Prepare the display
     fig, axs = plt.subplots(1 + vectorial, 2, frameon=False, figsize=(12, 9), sharex='all', sharey='all')
     for ax in axs.ravel():
-        ax.set_xlabel('y [$\\mu$m]')
-        ax.set_ylabel('x [$\\mu$m]')
+        ax.set_xlabel(r'y [$\mu$m]')
+        ax.set_ylabel(r'x [$\mu$m]')
         ax.set_aspect('equal')
         rectangle = plt.Rectangle(np.array((grid[1].ravel()[0], -plate_thickness / 2))*1e6,
                                   (grid.extent[1])*1e6, plate_thickness*1e6,
@@ -75,29 +76,30 @@ def calculate_and_display(vectorial=True):
 
     # Display the medium without the boundaries
     for idx in range(axs.size):
-        # axs.ravel()[idx].set_xlim((grid[1].flatten()[0] + boundary_thickness) * 1e6,
-        #                           (grid[1].flatten()[-1] - boundary_thickness) * 1e6)
-        # axs.ravel()[idx].set_ylim((grid[0].flatten()[0] + boundary_thickness) * 1e6,
-        #                           (grid[0].flatten()[-1] - boundary_thickness) * 1e6)
+        axs.ravel()[idx].set_xlim((grid[1].flatten()[0] + boundary_thickness) * 1e6,
+                                  (grid[1].flatten()[-1] - boundary_thickness) * 1e6)
+        axs.ravel()[idx].set_ylim((grid[0].flatten()[0] + boundary_thickness) * 1e6,
+                                  (grid[0].flatten()[-1] - boundary_thickness) * 1e6)
         axs.ravel()[idx].autoscale(False)
 
     #
     # Display the current solution
     #
     def display(s):
-        log.info('Displaying iteration %d: error %0.1f%%' % (s.iteration, 100 * s.residue))
+        log.info(f'Displaying iteration {s.iteration}: error {100 * s.residue:0.1f}%%')
         nb_dims = s.E.shape[0]
         for axis in range(nb_dims):
             images[axis].set_data(complex2rgb(s.E[axis], 1, inverted=True))
-            figure_title = '$E_' + 'xyz'[axis] + "$ it %d: rms error %0.1f%% " % (s.iteration, 100 * s.residue)
+            figure_title = f'$E_{"xyz"[axis]}$ it {s.iteration}: rms error {100 * s.residue:0.1f}%%.'
             # add_rectangle_to_axes(axs.ravel()[dim_idx])
             axs.ravel()[axis].set_title(figure_title)
-        intensity = np.linalg.norm(s.E, axis=0)
+        intensity = np.linalg.norm(s.E, axis=0) ** 2
         intensity /= np.amax(intensity)
-        intensity_rgb = np.concatenate((intensity[:, :, np.newaxis], intensity[:, :, np.newaxis], intensity[:, :, np.newaxis]), axis=2)
-        images[-1].set_data(intensity_rgb)
+        # intensity_rgb = np.repeat((intensity[:, :, np.newaxis], intensity[:, :, np.newaxis], intensity[:, :, np.newaxis]), axis=2)
+        images[-1].set_data(intensity)
         axs.ravel()[-1].set_title('I')
 
+        plt.show(block=False)
         plt.pause(0.001)
 
     #
@@ -112,7 +114,7 @@ def calculate_and_display(vectorial=True):
         residues.append(s.residue)
 
         if np.mod(s.iteration, 10) == 0:
-            log.info("Iteration %0.0f: rms error %0.3f%%" % (s.iteration, 100 * s.residue))
+            log.info(f'Iteration {s.iteration}: rms error {100 * s.residue:0.3f}%%')
             display(s)
 
         return s.residue > 1e-4 and s.iteration < 1e4
@@ -136,7 +138,7 @@ def calculate_and_display(vectorial=True):
     log.info('Saving results to %s...' % output_filepath.as_posix())
     output_path.mkdir(parents=True, exist_ok=True)
     for axis in range(solution.E.shape[0]):
-        plt.imsave(output_filepath.as_posix() + '_E%s.png' % chr(ord('x') + axis), complex2rgb(solution.E[axis], 1, inverted=True),
+        plt.imsave(output_filepath.as_posix() + f'_E{"xyz"[axis]}.png', complex2rgb(solution.E[axis], 1, inverted=True),
                    vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600)
     # Save the figure
     plt.ioff()
