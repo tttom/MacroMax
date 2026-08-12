@@ -1,0 +1,69 @@
+{
+    "cSpell.words": [
+        "allclose",
+        "amax",
+        "asanyarray",
+        "cmap",
+        "edgecolor",
+        "eigvalsh",
+        "enthalphy",
+        "facecolor",
+        "fftn",
+        "figsize",
+        "finfo",
+        "fontproperties",
+        "fontsize",
+        "frameon",
+        "ifftn",
+        "imsave",
+        "imshow",
+        "interp",
+        "ioff",
+        "isscalar",
+        "keepdims",
+        "labelcolor",
+        "labelsize",
+        "linestyle",
+        "macromax",
+        "maxiter",
+        "newaxis",
+        "offsetbox",
+        "orthonormalized",
+        "Orthonormalizes",
+        "pyfftw",
+        "rasterizing",
+        "rtol",
+        "savez",
+        "sharex",
+        "sharey",
+        "sinc",
+        "skimage",
+        "toolkits",
+        "vdot",
+        "vmax",
+        "vmin",
+        "wavenumber",
+        "xlabel",
+        "xlim",
+        "ylabel",
+        "ylim"
+    ],
+    "notebook.formatOnSave.enabled": true,
+        "notebook.codeActionsOnSave": {
+            "notebook.source.fixAll": "explicit",
+            "notebook.source.organizeImports": "explicit"
+    },
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.fixAll.ruff": "explicit",
+            "source.organizeImports.ruff": "explicit"
+        }
+    },
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "ruff.organizeImports": true,
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
+}

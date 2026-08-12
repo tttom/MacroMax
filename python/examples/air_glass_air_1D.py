@@ -9,7 +9,6 @@ import numpy as np
 import time
 
 import macromax
-from macromax import Grid
 try:
     from examples import log
 except ImportError:

@@ -18,10 +18,12 @@ Public attributes:
     :mod:`backend <macromax.backend>`: The sub-package with the back-end specifications.
 
 """
-import sys
-import pathlib
 import logging
+import pathlib
+import sys
+
 import coloredlogs
+
 coloredlogs.enable_ansi_support()
 __field_styles = coloredlogs.DEFAULT_FIELD_STYLES
 __field_styles['msecs'] = __field_styles['asctime']
@@ -37,7 +39,7 @@ __level_styles = coloredlogs.DEFAULT_LEVEL_STYLES.update(
     critical=dict(color=(0, 0, 0), bold=True, background=(255, 255, 0))
 )
 
-__formatter = coloredlogs.ColoredFormatter(f'%(asctime)s|%(name)s-%(levelname)s: %(message)s',
+__formatter = coloredlogs.ColoredFormatter('%(asctime)s|%(name)s-%(levelname)s: %(message)s',
                                            datefmt='%Y-%m-%d %H:%M:%S.%f',
                                            field_styles=__field_styles, level_styles=__level_styles)
 
@@ -68,11 +70,12 @@ except IOError:
 
 
 # Import in main name space
-from .solver import solve, Solution
-from .matrix import ScatteringMatrix
-from .utils.ft.grid import Grid
 import macromax.backend
 
-__version__ = '0.2.2'
+from .matrix import ScatteringMatrix  # Import order is important here!
+from .solver import Solution, solve
+from .utils.ft.grid import Grid
+
+__version__ = '0.2.3'
 
 __all__ = ['__version__', 'solve', 'Solution', 'ScatteringMatrix', 'Grid', 'log', 'backend']

@@ -3,15 +3,17 @@ This module calculates the solution to the wave equations. More specifically, th
 in the :meth:`Solution.__iter__` method of the :class:`Solution` class. The convenience function :func:`solve` is
 provided to construct a :class:`Solution` object and iterate it to convergence using its :meth:`Solution.solve` method.
 """
+import logging
+from typing import Callable, Optional, Sequence, Union
+
 import numpy as np
 import scipy.constants as const
 import scipy.optimize
-from typing import Union, Sequence, Callable, Optional
-import logging
+
+from macromax.bound import Bound, Electric, Magnetic, PeriodicBound
+from macromax.utils.ft.grid import Grid
 
 from . import backend
-from macromax.utils.ft.grid import Grid
-from macromax.bound import Bound, Electric, Magnetic, PeriodicBound
 
 log = logging.getLogger(__name__)
 
@@ -809,6 +811,7 @@ class Solution(object):
     def S(self) -> np.ndarray:
         """
         The time-averaged Poynting vector for every point in space.
+        
         :return: A vector array with the first dimension containing :math:`S_x, S_y, and S_z`,
         while the following dimensions are the spatial dimensions.
         """
@@ -818,6 +821,15 @@ class Solution(object):
         poynting_vector = 0.5 * self.__BE.asnumpy(self.__BE.cross(self.__BE.astype(E), self.__BE.conj(H))).real
 
         return poynting_vector[:, 0, ...]
+    
+    @property
+    def divS(self) -> np.ndarray:
+        """
+        The divergence of the time-averaged Poynting vector for every point in space.
+        
+        :return: An array with the shape of the grid.
+        """
+        return self.__BE.asnumpy(self.__BE.div(self.S[:, np.newaxis])[0, 0])
 
     @property
     def energy_density(self) -> np.ndarray:
@@ -840,7 +852,7 @@ class Solution(object):
     @property
     def stress_tensor(self) -> np.ndarray:
         """
-        Maxwell's stress tensor for every point in space.
+        Maxwell's stress tensor, sigma, for every point in space.
 
         :return: A real and symmetric matrix-array with the stress tensor for every point in space.
             The units are :math:`N / m^2`.

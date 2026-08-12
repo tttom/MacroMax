@@ -20,7 +20,7 @@ macromax.log.level = -1
 
 
 def calculate_and_display(vectorial=True):
-    output_path = pathlib.Path('output').absolute()
+    output_path = pathlib.Path('results').absolute()
     output_filepath = pathlib.PurePath(output_path, 'air_glass_air_2D')
 
     #

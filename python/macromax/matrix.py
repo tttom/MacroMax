@@ -3,16 +3,17 @@ from __future__ import annotations
 import logging
 from math import prod
 from numbers import Complex, Real
-from typing import Union, Sequence, Callable, Optional
+from typing import Callable, Optional, Sequence, Union
 
 import numpy as np
 import scipy.constants as const
 from scipy.sparse.linalg import LinearOperator
 
-from . import Solution
-from .utils import ft
-from macromax.utils.ft.grid import Grid
 from macromax.bound import Bound, PeriodicBound
+from macromax.utils.ft.grid import Grid
+
+from .solver import Solution
+from .utils import ft
 
 log = logging.getLogger(__name__)
 

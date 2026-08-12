@@ -2,28 +2,145 @@
 # -*- coding: utf-8 -*-
 #
 # Example code showing light scattering by a layer of rutile (TiO2) particles.
+from __future__ import annotations
 
+import collections
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 import pathlib
+import time
+from typing import Sequence
 
 import macromax
 from macromax.bound import LinearBound
 from macromax.utils.ft import Grid
 from macromax.utils.display import complex2rgb, grid2extent
-try:
-    from examples import log
-except ImportError:
-    from macromax import log  # Fallback in case this script is not started as part of the examples package.
-from examples.utils.sphere_packing import pack
+from macromax import log
+
+
+class Sphere:
+    def __init__(self, radius: float = 1.0, position: np.ndarray = np.zeros(2), neighbors: list = None, fails: int = 0):
+        self.radius = radius  # The radius
+        self.position = np.asarray(position).ravel()  # The center position
+        self.__neighbors = collections.OrderedDict()
+        self.__sorted_neighbors = None
+        self.add_neighbors(neighbors)
+        self.fails = fails
+
+    @property
+    def neighbors(self) -> list:
+        if self.__sorted_neighbors is None:
+            self.__sorted_neighbors = [_[0] for _ in sorted(self.__neighbors.items(), key=lambda kv: kv[1])]
+        return self.__sorted_neighbors
+
+    def add_neighbors(self, new_neighbors):
+        if new_neighbors is not None:
+            if isinstance(new_neighbors, Sphere):
+                new_neighbors = [new_neighbors]
+            for neighbor in new_neighbors:
+                self.__neighbors[neighbor] = self.center_distance(neighbor)
+            self.__sorted_neighbors = None
+
+    @property
+    def neighbors_of_neighbors(self) -> list:
+        """Excludes this sphere and its neighborhood!"""
+        n_of_n = self.neighbors.copy()
+        [n_of_n.__iadd__(_.neighbors) for _ in self.neighbors]
+        n_of_n = set(n_of_n)
+        n_of_n -= set(self.neighbors)
+        n_of_n -= {self}
+        n_of_n = sorted(n_of_n, key = lambda _: _.center_distance(self))
+        return n_of_n
+
+    def center_distance(self, other_sphere: Sphere) -> float:
+        if other_sphere in self.__neighbors:
+            return self.__neighbors[other_sphere]
+        else:
+            return np.linalg.norm(self.position - other_sphere.position)
+
+    def shell_distance(self, other_sphere: Sphere) -> float:
+        return self.center_distance(other_sphere) - (self.radius + other_sphere.radius)
+
+    def overlap(self, other_sphere: Sphere) -> bool:
+        return self.shell_distance(other_sphere) < 0
+
+    def __repr__(self) -> str:
+        return f'Sphere({self.radius},{self.position.tolist()},{self.neighbors},{self.fails})'
+
+    def __str__(self) -> str:
+        return f'Sphere({self.radius},{self.position.tolist()})'
+
+    def __hash__(self) -> int:
+        """ Only hashes the radius and position! """
+        return hash(self.position.tobytes())
+
+
+def pack(grid: Grid, radius_mean: float = 1.0, radius_std: float = 0.0, seed: int | None = None) -> Sequence[Sphere]:
+    rng = np.random.Generator(np.random.PCG64(seed=seed))  # Set seed to make sure that this is reproducible
+
+    layer_extent = grid.extent
+
+    # radii = rng.normal(radius_mean, radius_std, nb_spheres)
+    # positions = grid.first + rng.uniform(0.0, 1.0, [nb_spheres, grid.ndim]) * (layer_extent - radii)
+
+    neighborhood_radius = 3 * (radius_mean + 5 * radius_std)
+
+    # Start with random sphere at a random place in the volume
+    radius = rng.normal(radius_mean, radius_std)
+    spheres = [Sphere(radius=radius, position=grid.first + radius + rng.uniform(0.0, 1.0, [1, grid.ndim]) * (layer_extent - 2 * radius))]
+
+    # Create a new sphere for the first iteration
+    new_sphere = Sphere(radius=rng.normal(radius_mean, radius_std))
+    while min(_.fails for _ in spheres) < 2 * (5 ** (grid.ndim - 1)):
+        # Pick a random radius
+        # new_sphere.radius = rng.normal(radius_mean, radius_std)
+        # Pick a potential neighbor
+        # log.info('Picking a potential neighbor.')
+        contact_sphere = min(spheres, key=lambda _: _.fails)
+        for trial_idx in range(2 * (5 ** (grid.ndim - 1))):
+            # Place sphere at random position but touching this sphere
+            random_direction = rng.normal(0.0, 1.0, grid.ndim)
+            random_direction /= np.linalg.norm(random_direction)
+            new_sphere.position = contact_sphere.position + random_direction * (contact_sphere.radius + new_sphere.radius)
+            # Check if inside box
+            if np.all(grid.first <= new_sphere.position - new_sphere.radius) \
+                    and np.all(new_sphere.position + new_sphere.radius < grid.first + grid.extent):
+                # Check for overlap with known neighbors
+                neighbor_overlap = any(_.overlap(new_sphere) for _ in contact_sphere.neighbors)
+                if not neighbor_overlap:
+                    # log.info('No overlap with neighbor.')
+                    if contact_sphere.radius + 2 * new_sphere.radius < neighborhood_radius:
+                        other_spheres = []
+                    else:
+                        # Check with all other spheres
+                        other_spheres = [_ for _ in spheres if _ is not contact_sphere and _ not in contact_sphere.neighbors]
+                    other_overlap = any(new_sphere.overlap(_) for _ in other_spheres)
+                    if not other_overlap:
+                        # log.info('No overlap with other either.')
+                        # All good! Now add the sphere to the set of spheres!
+                        nearby_spheres = [_ for _ in spheres if new_sphere.center_distance(_) - _.radius < neighborhood_radius]
+                        new_sphere.add_neighbors(nearby_spheres)  # Add reference back to contact sphere as well as all spheres in neighborhood
+                        for _ in nearby_spheres:
+                            _.add_neighbors(new_sphere)  # Add reference to new sphere for all neighbors
+                        spheres.append(new_sphere)  # Add the new sphere to the list
+                        if len(spheres) % 100 == 0:
+                            log.info(f'Packed {len(spheres)} spheres so far.')
+
+                        # Create a new sphere for the next iteration
+                        new_sphere = Sphere(radius=rng.normal(radius_mean, radius_std))
+                        continue  # Try to add another one
+
+            # Some overlap was detected somewhere
+            contact_sphere.fails += 1
+
+    return spheres
 
 
 def calculate_and_display_scattering(vectorial=True, anisotropic=True):
     if not vectorial:
         anisotropic = False
 
-    output_path = pathlib.Path('output').absolute()
+    output_path = pathlib.Path('results').absolute()
     output_filepath = pathlib.PurePath(output_path, 'rutile')
 
     #

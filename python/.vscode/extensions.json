@@ -1,0 +1,9 @@
+{
+    "recommendations": [
+        "oderwat.indent-rainbow",
+        "ms-python.python",
+        "ms-python.debugpy",
+        "charliermarsh.ruff",
+        "gruntfuggly.todo-tree"
+    ]
+}

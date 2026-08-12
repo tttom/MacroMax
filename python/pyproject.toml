@@ -8,9 +8,9 @@ dynamic = ["version"]
 description = "Library for solving macroscopic Maxwell's equations for electromagnetic waves in gain-free heterogeneous (bi-)(an)isotropic (non)magnetic materials. This is of particular interest to calculate the light field within complex, scattering, tissues."
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
-    { name = "Tom Vettenburg", email = "t.vettenburg@dundee.ac.uk" },
+    {name = "Tom Vettenburg", email = "t.vettenburg@dundee.ac.uk"},
 ]
 keywords = ["Maxwell", "electromagnetic", "light", "scattering", "heterogeneous", "anisotropy", "chiral", "magnetic",
     "propagation", "optics",
@@ -23,7 +23,9 @@ classifiers = [
 ]
 dependencies = [
     "coloredlogs>=15.0.1",
+    "matplotlib>=3.10.9",
     "numpy>=1.26.4",
+    "scikit-image>=0.25.2",
     "scipy>=0.13.1",
 ]
 
