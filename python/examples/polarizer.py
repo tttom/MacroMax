@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # Example code showing light propagating through a set of polarizers
 
@@ -9,10 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import macromax
-try:
-    from examples import log
-except ImportError:
-    from macromax import log  # Fallback in case this script is not started as part of the examples package.
+from macromax import log
 
 
 def show_polarizer(center_polarizer=True):

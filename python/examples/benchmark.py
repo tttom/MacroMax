@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 import numpy as np
 import time
@@ -7,10 +6,7 @@ import time
 import macromax
 from macromax.utils.ft import Grid
 from macromax.bound import LinearBound
-try:
-    from examples import log
-except ImportError:
-    from macromax import log  # Fallback in case this script is not started as part of the examples package.
+from macromax import log
 
 try:
     import multiprocessing

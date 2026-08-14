@@ -2,6 +2,9 @@
 
 ## Release series 0.2 - PyTorch integration
 
+### Version 0.2.3
+* Added ability to set the refractive index or permittivity on a Solution object.
+
 ### Version 0.2.2
 * Refactoring of the utils submodule
 * Switched to use pyproject.toml for the package configuration.
