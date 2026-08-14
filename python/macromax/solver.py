@@ -725,7 +725,7 @@ class Solution:
         epsilon = self.__BE.mul(self.__chiEE_base, self.__alpha.imag * self.__beta / 1.0j)
         if self.__magnetic:
             chiHH = self.__BE.mul(self.__chiHH, self.__alpha.imag / 1.0j)
-            mu_inv = self.__BE.subtract(1, chiHH) * self.__beta
+            mu_inv = self.__BE.mul(self.__BE.subtract(1.0, chiHH), self.__beta)
             mu = self.__BE.inv(mu_inv)
             chiEH_beta = self.__BE.mul(self.__chiEH, self.__alpha.imag * self.__beta / 1.0j)
             xi = 1j * self.__BE.mul(chiEH_beta, mu)
@@ -748,9 +748,9 @@ class Solution:
         epsilon = new_value
         chiHH = self.__BE.mul(self.__chiHH, self.__alpha.imag / 1.0j)
         if self.__magnetic:
-            mu_inv = self.__BE.subtract(1, chiHH) * self.__beta
+            mu_inv = self.__BE.mul(self.__BE.subtract(1, chiHH), self.__beta)
         else:
-            mu_inv = (1 - self.__BE.first(chiHH)) * self.__beta
+            mu_inv = self.__BE.mul(1 - self.__BE.first(chiHH), self.__beta)
         mu = self.__BE.inv(mu_inv)
         if self.__magnetic:
             chiEH_beta = self.__BE.mul(self.__chiEH, self.__alpha.imag * self.__beta / 1.0j)

@@ -1,11 +1,12 @@
 import unittest
-import numpy.testing as npt
 
+import numpy as np
+import numpy.testing as npt
+import scipy.constants as const
+
+from macromax.bound import LinearBound
 from macromax.solver import Solution, solve
 from macromax.utils.ft import Grid
-from macromax.bound import LinearBound
-import numpy as np
-import scipy.constants as const
 
 
 class TestSolution(unittest.TestCase):
@@ -187,7 +188,7 @@ class TestSolution(unittest.TestCase):
         fraction_in_boundary = np.maximum(0, fraction_in_boundary)
         extinction_coefficient = 0.1
         refractive_index = 1 + 1j * extinction_coefficient * fraction_in_boundary
-        permittivity = refractive_index**2  # [ F m^-1 = C V^-1 m^-1 ]
+        permittivity = refractive_index ** 2  # [ F m^-1 = C V^-1 m^-1 ]
 
         #
         # Define the illumination source
@@ -246,6 +247,28 @@ class TestSolution(unittest.TestCase):
         npt.assert_equal(solution.H.dtype == np.complex64, True, err_msg='solution.H.dtype not correct')
         npt.assert_equal(solution.S.dtype == np.float32, True, err_msg='solution.S.dtype not correct')
         # npt.assert_equal(solution.dtype == np.complex64, True, err_msg='dtype not correctly set')  # todo: backend dependent
+        
+        # Trigger update of refractive index and solve
+        refractive_index[..., [ wavelength <= _ <= 2 * wavelength for _ in x_range]] = 1.5
+        solution.refractive_index = refractive_index
+        solution = solve(x_range, vacuum_wavelength=wavelength, current_density=current_density, epsilon=permittivity, callback=lambda s: s.residue > 1e-6 and s.iteration < 1e4)
+        # Check convergence
+        npt.assert_equal(solution.residue < 1e-6, True, err_msg=f'The iteration did not converge as expected ({solution.residue} >= 1e-6).')
+        npt.assert_equal(solution.iteration <= 70, True, err_msg=f'The iteration did not converge as fast as expected ({solution.iteration} > 70).')
+        
+        # Reset again
+        refractive_index[..., [ wavelength <= _ <= 2 * wavelength for _ in x_range]] = 1
+        solution.refractive_index = refractive_index
+        solution = solve(x_range, vacuum_wavelength=wavelength, current_density=current_density, epsilon=permittivity, callback=lambda s: s.residue > 1e-6 and s.iteration < 1e4)
+        # Check field again
+        npt.assert_equal(solution.residue < 1e-6, True, err_msg=f'The iteration did not converge as expected ({solution.residue} >= 1e-6).')
+        npt.assert_equal(solution.iteration <= 70, True, err_msg=f'The iteration did not converge as fast as expected ({solution.iteration} > 70).')
+        
+        error_E = solution.E - reference_E
+        npt.assert_almost_equal(np.sqrt(np.mean(np.abs(error_E[:, selected])**2)) / np.sqrt(np.mean(np.abs(solution.E[:, selected])**2)),
+                                0, decimal=3, err_msg='Plane wave electric field incorrect.')
+        npt.assert_almost_equal(np.sqrt(np.mean(np.abs(error_E)**2)) / np.sqrt(np.mean(np.abs(solution.E)**2)),
+                                0, decimal=2, err_msg='Absorption in the boundaries not as expected.')
 
     def test_solve_anisotropic(self):
         #
