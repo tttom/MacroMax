@@ -1,10 +1,7 @@
+
 import numpy as np
-from pathlib import Path
-from examples import log
 
 from macromax.solver import Solution
-
-log = log.getChild(Path(__file__).stem)
 
 
 class Adaptive:
@@ -17,7 +14,7 @@ class Adaptive:
         """
 
         :param residue: The minimum residue required to continue the iteration.
-        :param iteration: The maximum interation count.
+        :param iteration: The maximum iteration count.
         """
         self.residue = residue
         self.iteration = iteration
@@ -50,7 +47,6 @@ class Adaptive:
             self.__iterations[0] = self.__iterations[1]
             self.__residues[0] = self.__residues[1]
             self.__iterations[1] = s.iteration + min(max(1, int(estimated_iterations_left + 0.5)), s.iteration)
-            # log.info(f'{s.iteration}: Final iteration estimate {s.iteration + estimated_iterations_left:0.1f}, checking at {self.__iterations[1]}')
         elif s.iteration >= self.iteration:
             return False
         return True

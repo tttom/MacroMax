@@ -1,6 +1,7 @@
 .. image:: _static/total_internal_reflection.png
 
 .. mdinclude:: ../../README.md
+.. mdinclude:: ../../CONTRIBUTING.md
 
 .. toctree::
     :maxdepth: -1

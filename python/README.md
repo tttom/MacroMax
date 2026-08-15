@@ -42,8 +42,9 @@ The examples require ````matplotlib```` for displaying the results. The code has
 ### Installing
 Installing the ````macromax```` package and its mandatory dependencies is as straightforward as running the following command in a terminal:
 ````sh
-pip install --upgrade macromax
+pip install -U macromax
 ````
+The `-U` option is to request an upgrade if `macromax` is already installed.
 While this is sufficient to get started, optional packages are useful to display the results and to speed-up the calculations.
 
 
@@ -78,9 +79,9 @@ installed by prepending the command with an exclamation mark as follows:
 For more details, check out the [Google Colab deployment example](https://github.com/corilim/MacroMax/tree/master/python/examples/Introduction%20to%20MacroMax.ipynb).
 
 Local GPUs can also be used provided that PyTorch has a compatible implementation. At the time of writing, these includes NVidia's CUDA-enabled GPU as well AMD's ROCm-enabled GPUs (on Linux). Prior to installing the PyTorch module following the [PyTorch Guide](https://pytorch.org/), install the appropriate  [CUDA](https://www.nvidia.co.uk/Download/index.aspx?lang=en-uk) or [ROCm drivers](https://docs.amd.com/) for your GPU.
-Note that for PyTorch to work correctly, Nvidia drivers need to be up-to-date and match the installed CUDA version. At the time of writing, for CUDA version 11.6, PyTorch can be installed as follows using pip:
+Note that for PyTorch to work correctly, Nvidia drivers need to be up-to-date and match the installed CUDA version. At the time of writing, for CUDA version 13.2, PyTorch can be installed as follows using pip:
 ````sh
-pip install --upgrade torch --extra-index-url https://download.pytorch.org/whl/cu116
+pip install -U torch --extra-index-url https://download.pytorch.org/whl/cu132
 ````
 Specifics for your CUDA version and operating system are listed on [PyTorch Guide](https://pytorch.org/).
 
@@ -313,8 +314,9 @@ current_density = source_polarization[:, np.newaxis] * (np.abs(x_range) < sample
 # Solve Maxwell's equations
 #
 # (the actual work is done in this line)
-solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
-                          refractive_index=refractive_index, bound=LinearBound(x_range, thickness=boundary_thickness)
+solution = macromax.solve(grid=x_range, vacuum_wavelength=wavelength, current_density=current_density,
+                          refractive_index=refractive_index, 
+                          bound=LinearBound(x_range, thickness=boundary_thickness)
                           )
 
 #
@@ -392,83 +394,3 @@ however, the drop-in fft and ifft replacements are used at the moment.
 * Moving the calculations to a GPU or a cloud-computing environment.
 Since the copying-overheads may quickly become a bottleneck, it is important
 to consider the memory requirements for the problem you want to solve.
-
-
-## Contributing
-The [Library API Documentation](https://macromax.readthedocs.io) can be found at [https://macromax.readthedocs.io].
-### Source code organization
-The source code is organized as follows:
-* [/](https://github.com/corilim/MacroMax/tree/master/python/) (root): Module description and distribution files.
-* [macromax/](https://github.com/corilim/MacroMax/tree/master/python/macromax/): The iterative solver.
-    * [macromax/utils/](https://github.com/corilim/MacroMax/tree/master/python/macromax/utils/): Helper functionality used in the solver and to use the solver.
-* [examples/](https://github.com/corilim/MacroMax/tree/master/python/examples/): Examples of how the solver can be used.
-* [tests/](https://github.com/corilim/MacroMax/tree/master/python/tests/): Automated unit tests of the solver's functionality. Use this after making modifications to the solver and extend it if new functionality is added.
-
-The library functions are contained in ````macromax/````:
-* [solver](https://github.com/corilim/MacroMax/tree/master/python/macromax/solver.py): Defines the ````solve(...)```` function and the ````Solution```` class.
-* [backend](https://github.com/corilim/MacroMax/tree/master/python/macromax/backend/numpy.py): Defines linear algebra functions to work efficiently with large arrays of 3x3 matrices and 3-vectors.
-* [utils/](https://github.com/corilim/MacroMax/tree/master/python/macromax/utils/): Defines utility functions that can be used to prepare and interpret function arguments.
-
-The included examples in the [examples/](https://github.com/corilim/MacroMax/tree/master/python/examples/) folder are:
-* [notebook_example.ipynb](https://github.com/corilim/MacroMax/tree/master/python/examples/notebook_example.ipynb): An iPython notebook demonstrating basic usage of the library.
-* [air_glass_air_1D.py](https://github.com/corilim/MacroMax/tree/master/python/examples/air_glass_air_1D.py): Calculation of the back reflection from an air-glass interface (one-dimensional calculation)
-* [air_glass_air_2D.py](https://github.com/corilim/MacroMax/tree/master/python/examples/air_glass_air_2D.py): Calculation of the refraction and reflection of light hitting a glass window at an angle (two-dimensional calculation)
-* [birefringent_crystal.py](https://github.com/corilim/MacroMax/tree/master/python/examples/birefringent_crystal.py): Demonstration of how an anisotropic permittivity can split a diagonally polarized Gaussian beam into ordinary and extraordinary beams.
-* [polarizer.py](https://github.com/corilim/MacroMax/tree/master/python/examples/polarizer.py): Calculation of light wave traversing a set of two and a set of three polarizers as a demonstration of anisotropic absorption (non-Hermitian permittivity)
-* [rutile.py](https://github.com/corilim/MacroMax/tree/master/python/examples/rutile.py): Scattering from disordered collection of birefringent rutile (TiO2) particles.
-* [benchmark.py](https://github.com/corilim/MacroMax/tree/master/python/examples/benchmark.py): Timing of a simple two-dimensional calculation for comparison between versions.
-
-### Testing
-Unit tests are contained in ````macromax/tests````. The ````BackEnd```` class in ````backend.py```` is well covered and
-specific tests have been written for the ````Solution```` class in ````solver.py````.
-
-To run the tests, make sure that the `pytest` package is installed, and
-run the following commands from the `Macromax/python/` directory:
-```sh
-pip install -U pytest
-pytest --ignore=tests/test_backend_tensorflow.py
-```
-
-Some tests are backend specific and will fail if e.g. PyTorch or TensorFlow is not installed; however, this should not affect the other tests.
-
-The benchmark script in the `examples/` folder can be used to compare performance for different problems and architectures.
-Performance issues can be debugged using profilers as `pprofile` and `memory_profiler`, installed with:
-````sh
-pip install -U pprofile memory_profiler 
-````
-
-### Documentation
-The `make` scripts in the `docs/` subdirectory automatically generate the documentation.
-This uses Sphinx and extensions that can be installed with
-````sh
-pip install -U docutils==0.20.1 Sphinx sphinx_autodoc_typehints sphinxcontrib_mermaid sphinx-rtd-theme recommonmark m2r2
-````
-The version of ``docutils`` needs to be pinned to avoid a bug with m2r2. Run `make linkcheck` to check for any dead web-links, and `make html` to check for errors in the generation of the
-documentation.
-
-Examples of use can be found in the `examples/` and `tests/` folders. The former is more didactic, while the latter is more complete.
-
-### Building and Distributing
-The [source code] consists of pure Python 3, hence only packaging is required for distribution. A package is generated by ````setup.py````.
-
-To prepare a package for distribution, increase the `__version__` number in [macromax/\_\_init\_\_.py](https://github.com/corilim/MacroMax/tree/master/python/macromax/__init__.py), and run:
-
-```sh
-pip install -U build
-python -m build -nsw
-pip install -U .
-```
-The final line installs the newly-forged `macromax` package for testing.
-
-The package can then be uploaded to a test repository as follows:
-```sh
-pip install -U twine
-twine upload -r testpypi dist/*
-```
-
-Installing from the test repository is done as follows:
-```sh
-pip install -U --extra-index-url https://test.pypi.org/simple/ macromax
-```
-
-To facilitate importing the code, IntelliJ IDEA/PyCharm project files can be found in ```MacroMax/python/```: ```MacroMax/python/python.iml``` and the folder ```MacroMax/python/.idea```.

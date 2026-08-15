@@ -686,6 +686,7 @@ class Solution:
         :return: A complex array indicating the amplitude and phase of the source vector field.
             The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar
             field, and 3 in case of a vector field.
+            
         """
         return self.__source_normalized[:, 0, ...] * (self.__beta / 1.0j * self.__alpha.imag)
 
@@ -888,7 +889,8 @@ class Solution:
         The time-averaged Poynting vector for every point in space.
         
         :return: A vector array with the first dimension containing :math:`S_x, S_y, and S_z`,
-        while the following dimensions are the spatial dimensions.
+            while the following dimensions are the spatial dimensions.
+            
         """
         E = self.E[:, np.newaxis, ...]
 
@@ -1013,7 +1015,7 @@ class Solution:
         return float(self.__previous_update_norm / (self.wavenumber ** 2))
 
     @property
-    def residue(self) -> float:
+    def relative_residue(self) -> float:
         """
         Returns the current relative residue of the inverse problem :math:`E = H^{-1}S`.
         The relative residue is return as the l2-norm fraction :math:`||E - H^{-1}S|| / ||E||`, where H represents the
@@ -1021,13 +1023,19 @@ class Solution:
         searches for the electric field, E, that minimizes the preconditioned inverse problem.
 
         :return: A non-negative real scalar that indicates the change in E with the previous iteration
-        normalized to the norm of the current E.
+            normalized to the norm of the current E.
+        
         """
         if self.__relative_residue is None:
             self.__relative_residue = self.__previous_update_norm / self.__BE.norm(self.__field_array) \
                 if self.__previous_update_norm > 0 else 0
 
         return float(self.__relative_residue)
+    
+    @property
+    def residue(self) -> float:
+        """This is an alias of `relative_residue` and will be removed in the future."""
+        return self.relative_residue
 
     def __iter__(self):
         """

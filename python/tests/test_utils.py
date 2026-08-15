@@ -1,9 +1,9 @@
 import unittest
+
 import numpy as np
 import numpy.testing as npt
 
 from macromax.utils import dim
-from macromax.utils.display import complex2rgb, grid2extent, hsv2rgb
 
 
 class TestUtils(unittest.TestCase):

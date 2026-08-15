@@ -107,3 +107,6 @@ class TestRegistration(unittest.TestCase):
         npt.assert_array_almost_equal(registered.image, self.ref_sub, decimal=2)
         npt.assert_array_almost_equal(registered.shift, [0.2, 1.3], decimal=2)
         npt.assert_almost_equal(registered.error, 0.0, decimal=2)
+
+if __name__ == '__main__':
+    unittest.main()
