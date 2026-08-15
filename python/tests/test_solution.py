@@ -417,4 +417,5 @@ class TestSolution(unittest.TestCase):
         npt.assert_equal(solution.S.dtype == np.float32, True, err_msg='solution.S.dtype not correct')
         # npt.assert_equal(solution.dtype == np.complex64, True, err_msg='dtype not correctly set')  # todo: backend dependent
 
-
+if __name__ == '__main__':
+    unittest.main()

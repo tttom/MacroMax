@@ -394,3 +394,6 @@ class BaseTestBackEnd(unittest.TestCase):
         M = self.BE.astype(M)
         div_M = self.BE.div(M)
         npt.assert_almost_equal(self.BE.asnumpy(div_M), np.zeros([3, 1, *self.grid.shape]), decimal=6)
+
+if __name__ == '__main__':
+    unittest.main()

@@ -66,12 +66,15 @@
         export MPLBACKEND="TkAgg"
         export DISPLAY=":0.0"
         export PS1="\n\[\033[0;32m\][\[\e]0;\u@\h:\w\a\]\u@nix-shell@\h:\w]\$ \[\033[0m\]"
-        uv venv .venv --allow-existing --managed-python  # This should already exist if created with: uv init --managed-python --build-backend hatch macromax
+        uv venv .venv --alow-existing --managed-python  # This should already exist if created with: uv init --managed-python --build-backend hatch macromax
         uv lock --upgrade
-        uv sync --frozen --extra torch
+        uv sync --extra torch --group docs --group examples
         source .venv/bin/activate
         echo "Welcome to the $(python -V) FHS/venv shell, with interpreter $(which python)"
         code .
+        # uv run --isolated --no-project --with dist/*.whl tests/test_smoke.py
+        # uv build
+        # uv run python docs/make.py
       '';
     };
   in

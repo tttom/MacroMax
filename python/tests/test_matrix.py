@@ -4,7 +4,7 @@ import numpy.testing as npt
 import numpy as np
 import scipy.sparse.linalg as sla
 
-from tests import log
+from macromax import log
 from macromax.utils import ft
 from macromax.utils.ft import Grid
 from macromax.bound import LinearBound
@@ -483,3 +483,6 @@ class TestMatrix(unittest.TestCase):
                                  err_msg=f'{desc}: The dtype of the DepositionMatrix ({dep_mat_all.dtype}) does not equal that of the wrapped ScatteringMatrix ({s.dtype}).')
                 npt.assert_array_equal(dep_mat_all.shape, ((1 + 2 * vectorial) * s.grid.size, s.shape[1]),
                                        err_msg=f'{desc}: The shape of the DepositionMatrix should be {(s.grid.size, s.shape[1])}, not {dep_mat_all.shape}.')
+
+if __name__ == '__main__':
+    unittest.main()
