@@ -56,6 +56,9 @@ jobs:
       name: pypi
     permissions:
       id-token: write
+    defaults:
+      run:
+        working-directory: ./python
     steps:
       - name: Set up Python
         uses: actions/setup-python@v7.0.0
