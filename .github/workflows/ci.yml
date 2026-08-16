@@ -15,6 +15,9 @@ jobs:
         python-version:
           - "3.13"
           - "3.14"
+    defaults:
+      run:
+        working-directory: ./python
     steps:
       - name: Checkout source code
         uses: actions/checkout@v7.0.1
@@ -30,10 +33,6 @@ jobs:
           version: "latest"
           enable-cache: true
 
-      - name: Enter python source directory
-        run: |
-            cd python
-      
       - name: Install dependencies from pyproject.toml
         run: uv sync --python ${{ matrix.python-version }} --locked --all-extras --dev
 
