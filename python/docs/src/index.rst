@@ -1,13 +1,19 @@
 .. image:: _static/total_internal_reflection.png
 
-.. mdinclude:: ../../README.md
-.. mdinclude:: ../../CONTRIBUTING.md
+.. include:: readme.rst
 
 .. toctree::
-    :maxdepth: -1
+    :maxdepth: 3
     :caption: Contents:
 
-    api/modules
+    usage <readme>
+    API <api/modules>
+    contributing
     modindex
     genindex
     changes
+
+=======
+License
+=======
+.. include:: ../../LICENSE.txt

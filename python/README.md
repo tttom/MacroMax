@@ -392,3 +392,6 @@ however, the drop-in fft and ifft replacements are used at the moment.
 * Moving the calculations to a GPU or a cloud-computing environment.
 Since the copying-overheads may quickly become a bottleneck, it is important
 to consider the memory requirements for the problem you want to solve.
+
+## Modifying and extending the library
+The [CONTRIBUTING](CONTRIBUTING.md) page provided an overview of the source code and how to build it and its documentation. We welcome any contributions, suggestions, bug reports, or better yet, pull requests. If you like to get involved, please get in touch. 

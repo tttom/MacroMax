@@ -59,10 +59,10 @@ profile = [
 ]
 docs = [
     "added_value>=0.24.0",
-    "m2r2>=0.3.4",
     "mkdocs-material >= 9.7.6",
     "mkdocstrings-python >= 2.0.5",
     "mkdocs-jupyter>=0.17.3",
+    "myst-parser>=5.1.0",
     "recommonmark>=0.7.1",
     "sphinx-autodoc-typehints>=3.12.1",
     "sphinx_rtd_theme>=3.1.0",
