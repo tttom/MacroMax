@@ -1,3 +1,6 @@
+"""
+A simple test to check if there are no obvious issues.
+"""
 import unittest
 
 import numpy as np
@@ -109,29 +112,6 @@ class TestSmoke(unittest.TestCase):
         npt.assert_equal(solution.D.dtype == np.complex64, True, err_msg='solution.D.dtype not correct')
         npt.assert_equal(solution.H.dtype == np.complex64, True, err_msg='solution.H.dtype not correct')
         npt.assert_equal(solution.S.dtype == np.float32, True, err_msg='solution.S.dtype not correct')
-        # npt.assert_equal(solution.dtype == np.complex64, True, err_msg='dtype not correctly set')  # todo: backend dependent
-        
-        # Trigger update of refractive index and solve
-        refractive_index[..., [ wavelength <= _ <= 2 * wavelength for _ in x_range]] = 1.5
-        solution.refractive_index = refractive_index
-        solution = solve(x_range, vacuum_wavelength=wavelength, current_density=current_density, epsilon=permittivity, callback=lambda s: s.residue > 1e-6 and s.iteration < 1e4)
-        # Check convergence
-        npt.assert_equal(solution.residue < 1e-6, True, err_msg=f'The iteration did not converge as expected ({solution.residue} >= 1e-6).')
-        npt.assert_equal(solution.iteration <= 70, True, err_msg=f'The iteration did not converge as fast as expected ({solution.iteration} > 70).')
-        
-        # Reset again
-        refractive_index[..., [ wavelength <= _ <= 2 * wavelength for _ in x_range]] = 1
-        solution.refractive_index = refractive_index
-        solution = solve(x_range, vacuum_wavelength=wavelength, current_density=current_density, epsilon=permittivity, callback=lambda s: s.residue > 1e-6 and s.iteration < 1e4)
-        # Check field again
-        npt.assert_equal(solution.residue < 1e-6, True, err_msg=f'The iteration did not converge as expected ({solution.residue} >= 1e-6).')
-        npt.assert_equal(solution.iteration <= 70, True, err_msg=f'The iteration did not converge as fast as expected ({solution.iteration} > 70).')
-        
-        error_E = solution.E - reference_E
-        npt.assert_almost_equal(np.sqrt(np.mean(np.abs(error_E[:, selected])**2)) / np.sqrt(np.mean(np.abs(solution.E[:, selected])**2)),
-                                0, decimal=3, err_msg='Plane wave electric field incorrect.')
-        npt.assert_almost_equal(np.sqrt(np.mean(np.abs(error_E)**2)) / np.sqrt(np.mean(np.abs(solution.E)**2)),
-                                0, decimal=2, err_msg='Absorption in the boundaries not as expected.')
 
 if __name__ == '__main__':
     unittest.main()

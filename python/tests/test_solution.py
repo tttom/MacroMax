@@ -248,7 +248,7 @@ class TestSolution(unittest.TestCase):
         npt.assert_equal(solution.S.dtype == np.float32, True, err_msg='solution.S.dtype not correct')
         # npt.assert_equal(solution.dtype == np.complex64, True, err_msg='dtype not correctly set')  # todo: backend dependent
         
-        # Trigger update of refractive index and solve
+        # Update of refractive index and solve
         refractive_index[..., [ wavelength <= _ <= 2 * wavelength for _ in x_range]] = 1.5
         solution.refractive_index = refractive_index
         solution = solve(x_range, vacuum_wavelength=wavelength, current_density=current_density, epsilon=permittivity, callback=lambda s: s.residue > 1e-6 and s.iteration < 1e4)

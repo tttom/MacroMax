@@ -961,9 +961,6 @@ def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) ->
     config_list += [
         {'type': 'torch', 'device': 'cuda'},
         {'type': 'torch', 'device': 'cpu'},
-        # {'type': 'tensorflow', 'device': 'tpu'},
-        # {'type': 'tensorflow', 'device': 'gpu'},
-        # {'type': 'opencl_vulkan', 'device': 'gpu'},
         {'type': 'numpy'},  # always have numpy as fall-back
     ]
 
@@ -1003,22 +1000,6 @@ def load(nb_pol_dims: int, grid: Grid, dtype, config_list: List[Dict] = None) ->
                 except Exception as re:
                     log.warning(f'Could not initialize PyTorch with {"any device" if device is None else device}: {re}.')
                     raise ImportError(str(re))
-            elif config_type == 'tensorflow':
-                try:
-                    import tensorflow
-                    from .tensorflow import BackEndTensorFlow
-                    address = c.get('address', None)
-                    backend = BackEndTensorFlow(nb_pol_dims, grid, dtype, device=device, address=address)
-                    log.info(f'Using back-end "tensorflow" with device {device} on address {address}.')
-                except Exception as re:
-                    log.warning(f'Could not initialize TensorFlow with {"any device" if device is None else device}: {re}.')
-                    import traceback
-                    log.warning(traceback.format_exc())
-                    raise ImportError(str(re))
-            elif config_type == 'opencl_vulkan':
-                from .opencl_vulkan import BackEndOpenCLVulkan
-                backend = BackEndOpenCLVulkan(nb_pol_dims, grid, dtype)
-                log.info('Using back-end "vulkan".')
             elif config_type == 'numpy':
                 from .numpy import BackEndNumpy
                 backend = BackEndNumpy(nb_pol_dims, grid, dtype)

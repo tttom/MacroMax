@@ -96,8 +96,6 @@ The default backend can be set at the start of your code, or by creating a text 
 ````
 to choose PyTorch when a compatible GPU is available, and NumPy otherwise. Although this machine learning library can be used without a hardware accelerator, we found that NumPy (with FFTW) can be faster when no GPU is available. This backend selection rule is used by default.
 
-Experimental support exists for alternative backend implementations such as [TensorFlow](https://www.tensorflow.org/). Please refer to the [backend source code](https://github.com/corilim/MacroMax/tree/master/python/macromax/backend) for the latest work in progress. Pull requests are always welcome.
-
 #### Additional packages
 The package comes with a submodule containing example code that should run as-is on most desktop installations of Python.
 Some systems may require the installation of the ubiquitous ````matplotlib```` graphics library:

@@ -39,9 +39,10 @@ uv sync --extra torch --group docs --group examples
 where the extras are optional.
 Then run the tests as follows from the root of the [Git](https://git-scm.com/) repository:
 ```sh
-uv run pytest --ignore=tests/test_backend_tensorflow.py
+uv run --frozen pytest --ignore=tests/test_matrix.py
 ```
-Some tests are backend specific and will fail if e.g. PyTorch or TensorFlow is not installed; however, this should not affect the other tests.
+Running all tests can take several minutes, in particular the `test_matrix` takes significant time and is therefore ignored in the above.
+Some tests are backend-specific and will fail if e.g. PyTorch is not installed; however, this should not affect the other tests.
 
 The benchmark script in the `examples/` folder can be used to compare performance for different problems and architectures.
 Performance issues can be debugged using profilers as `pprofile` and `memory_profiler`, installed with the default 
@@ -69,34 +70,25 @@ The [source code] consists of pure Python 3, hence only packaging is required fo
 
 To prepare a package for distribution:
 
-0. Make sure all tests pass.
+0. Make sure all tests pass and that the documentation builds, as described above.
+
+0. Add the description of the new version at the top of the CHANGES.md file.
 
 0. Build the source and wheel distributions:
 ```sh
 uv build
 ```
 
-0. Add the description of the new version at the top of the CHANGES.md file.
-
-0. Commit and push your last changes.
+0. If the build succeeds, commit and push your final changes:
 ```sh
 git commit -am "Description of the changes."
 git push
 ```
 
-0. Tag the git commit with the next version number:
+0. Tag the git commit with the next version and a release candidate number:
 ```sh
-git tag v_._._
-git push v_._._
+git tag v_._._rc1
+git push v_._._rc1
 ```
 
-The package can then be uploaded to a test repository as follows:
-```sh
-uv pip install -U twine
-twine upload -r testpypi dist/*
-```
-
-Installing from the test repository is done as follows:
-```sh
-pip install -U --extra-index-url https://test.pypi.org/simple/ macromax
-```
+0. Check that the package on PyPI works with pip install and check the documentation on readthedocs.com.
