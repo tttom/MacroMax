@@ -64,12 +64,14 @@ jobs:
         uses: actions/download-artifact@v8.0.1
         with:
           name: dist
-          path: dist/
+          path: python/dist/
 
       - name: Generate PEP 740 attestations
         uses: astral-sh/attest-action@v0.0.6
+        with:
+          paths: |
+            python/dist/*
 
       - name: Publish
         run: uv publish
-        working-directory: /
         
