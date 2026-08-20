@@ -4,6 +4,7 @@ in the :meth:`Solution.__iter__` method of the :class:`Solution` class. The conv
 provided to construct a :class:`Solution` object and iterate it to convergence using its :meth:`Solution.solve` method.
 """
 import logging
+from math import inf
 from typing import Callable, Optional, Sequence, Union
 
 import numpy as np
@@ -27,7 +28,8 @@ def solve(grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = N
           refractive_index: array_like = None,
           bound: Bound = None,
           initial_field: array_like = 0.0, dtype = None,
-          callback: Callable = lambda s: s.iteration < 1e4 and s.residue > 1e-4):
+          callback: Callable = lambda s: s.iteration < 1e4 and s.residue > 1e-4, 
+          rtol: float = 0, maxiter: int | float = inf):
     """
     Function to find a solution for Maxwell's equations in a media specified by the epsilon, xi,
     zeta, and mu distributions in the presence of a current source.
@@ -67,9 +69,16 @@ def solve(grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = N
     :param callback: optional function that will be called with as argument this solver.
         This function can be used to check and display progress. It must return a boolean value of True to
         indicate that further iterations are required.
+    :param rtol: The relative tolerance for when to stop the iteration (ignored if callback provided).
+        When the step-size of the iteration drops below this value, the iteration is stopped.
+    :param maxiter: The maximum number of iterations, a non-negative integer or infinity (ignored if callback provided).
         
     :return: The Solution object that has the E and H fields, as well as iteration information.
-    """
+    """    
+    if callback is None:
+        def callback(_: Solution) -> bool:
+            return _.iteration < maxiter and _.residue > rtol
+    
     return Solution(grid=grid, vectorial=vectorial,
                     wavenumber=wavenumber, angular_frequency=angular_frequency, vacuum_wavelength=vacuum_wavelength,
                     current_density=current_density, source_distribution=source_distribution,
@@ -1005,15 +1014,22 @@ class Solution(object):
 
             yield self
 
-    def solve(self, callback: Callable = lambda _: _.iteration < 1e4 and _.residue > 1e-4):
+    def solve(self, callback: Callable = lambda _: _.iteration < 1e4 and _.residue > 1e-4, *, rtol: float = 0, maxiter: int | float = inf):
         """
         Runs the algorithm until the convergence criterion is met or until the maximum number of iterations is reached.
 
         :param callback: optional callback function that overrides the one set for the solver.
             E.g. callback=lambda s: s.iteration < 100
+        :param rtol: The relative tolerance for when to stop the iteration (ignored if callback provided).
+            When the step-size of the iteration drops below this value, the iteration is stopped.
+        :param maxiter: The maximum number of iterations, a non-negative integer or infinity (ignored if callback provided).
 
         :return: This Solution object, which can be used to query e.g. the final field E using Solution.E.
         """
+        if callback is None:
+            def callback(_: Solution) -> bool:
+                return _.iteration < maxiter and _.residue > rtol
+                
         for sol in self:
             # sol is the current iteration result
             # now execute the user-specified callback function
