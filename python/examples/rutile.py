@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # Example code showing light scattering by a layer of rutile (TiO2) particles.
 from __future__ import annotations

@@ -1,0 +1,41 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.13"
+          - "3.14"
+    defaults:
+      run:
+        working-directory: ./python
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Install dependencies from pyproject.toml
+        run: uv sync --python ${{ matrix.python-version }} --locked --all-extras --dev
+
+      - name: Run all but the slowest tests
+        run: uv run --frozen pytest --ignore tests/test_matrix.py
+      

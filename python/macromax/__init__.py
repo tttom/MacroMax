@@ -18,6 +18,7 @@ Public attributes:
     :mod:`backend <macromax.backend>`: The sub-package with the back-end specifications.
 
 """
+import importlib.metadata
 import logging
 import pathlib
 import sys
@@ -64,7 +65,7 @@ try:
     __fh.formatter = __file_formatter
     # add the handler to the logger
     log.addHandler(__fh)
-except IOError:
+except OSError:
     console_log_handler.level = logging.DEBUG
     log.warning('Could not create log file. Redirecting messages to console output.')
 
@@ -76,6 +77,6 @@ from .matrix import ScatteringMatrix  # Import order is important here!
 from .solver import Solution, solve
 from .utils.ft.grid import Grid
 
-__version__ = '0.2.3'
+__version__ = importlib.metadata.version(__name__)
 
 __all__ = ['__version__', 'solve', 'Solution', 'ScatteringMatrix', 'Grid', 'log', 'backend']

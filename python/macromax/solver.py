@@ -3,11 +3,14 @@ This module calculates the solution to the wave equations. More specifically, th
 in the :meth:`Solution.__iter__` method of the :class:`Solution` class. The convenience function :func:`solve` is
 provided to construct a :class:`Solution` object and iterate it to convergence using its :meth:`Solution.solve` method.
 """
+from __future__ import annotations
+
 import logging
+from collections.abc import Callable
 from math import inf
-from typing import Callable, Optional, Sequence, Union
 
 import numpy as np
+import numpy.typing as npt
 import scipy.constants as const
 import scipy.optimize
 
@@ -18,18 +21,18 @@ from . import backend
 
 log = logging.getLogger(__name__)
 
-array_like = Union[complex, Sequence, np.ndarray]
 
-
-def solve(grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = None,
-          wavenumber: Optional[float] = 1.0, angular_frequency: Optional[float] = None, vacuum_wavelength: Optional[float] = None,
-          current_density: array_like = None, source_distribution: array_like = None,
-          epsilon: array_like = None, xi: array_like = 0.0, zeta: array_like = 0.0, mu: array_like = 1.0,
-          refractive_index: array_like = None,
-          bound: Bound = None,
-          initial_field: array_like = 0.0, dtype = None,
-          callback: Callable = lambda s: s.iteration < 1e4 and s.residue > 1e-4, 
-          rtol: float = 0, maxiter: int | float = inf):
+def solve(
+    grid: Grid | npt.ArrayLike, vectorial: bool | None = None,
+    wavenumber: float | None = 1.0, angular_frequency: float | None = None, vacuum_wavelength: float | None = None,
+    current_density: npt.ArrayLike = None, source_distribution: npt.ArrayLike = None,
+    epsilon: npt.ArrayLike = None, xi: npt.ArrayLike = 0.0, zeta: npt.ArrayLike = 0.0, mu: npt.ArrayLike = 1.0,
+    refractive_index: npt.ArrayLike = None,
+    bound: Bound | None = None,
+    initial_field: npt.ArrayLike = 0.0, dtype = None,
+    callback: Callable[[Solution], bool] = lambda s: s.iteration < 1e4 and s.residue > 1e-4, 
+    rtol: float = 0, maxiter: int | float = inf
+    ):
     """
     Function to find a solution for Maxwell's equations in a media specified by the epsilon, xi,
     zeta, and mu distributions in the presence of a current source.
@@ -38,7 +41,7 @@ def solve(grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = N
         in a plaid grid of sample points for the material and solution. In the one-dimensional case, a simple increasing
         Sequence of uniformly-spaced numbers may be provided as an alternative. The length of the ranges determines the
         data_shape, to which the source_distribution, epsilon, xi, zeta, mu, and initial_field must broadcast when
-        specified as ndarrays.
+        specified as npt.NDArrays.
     :param vectorial: a boolean indicating if the source and solution are 3-vectors-fields (True) or scalar fields (False).
     :param wavenumber: the wavenumber in vacuum = 2 pi / vacuum_wavelength.
         The wavelength in the same units as used for the other inputs/outputs.
@@ -86,14 +89,16 @@ def solve(grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = N
                     initial_field=initial_field, dtype=dtype).solve(callback)
 
 
-class Solution(object):
-    def __init__(self, grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = None,
-                 wavenumber: Optional[float] = 1.0, angular_frequency: Optional[float] = None, vacuum_wavelength: Optional[float] = None,
-                 current_density: array_like = None, source_distribution: array_like = None,
-                 epsilon: array_like = None, xi: array_like = 0.0, zeta: array_like = 0.0, mu: array_like = 1.0,
-                 refractive_index: array_like = None,
-                 bound: Bound = None,
-                 initial_field: array_like = 0.0, dtype=None):
+class Solution:
+    def __init__(
+        self, grid: Grid | npt.ArrayLike, vectorial: bool | None = None,
+        wavenumber: float | None = 1, angular_frequency: float | None = None, vacuum_wavelength: float | None = None,
+        current_density: npt.ArrayLike = None, source_distribution: npt.ArrayLike = None,
+        epsilon: npt.ArrayLike = None, xi: npt.ArrayLike = 0.0, zeta: npt.ArrayLike = 0.0, mu: npt.ArrayLike = 1.0,
+        refractive_index: npt.ArrayLike = None,
+        bound: Bound | None = None,
+        initial_field: npt.ArrayLike = 0.0, dtype=None
+        ):
         """
         Class a solution that can be further iterated towards a solution for Maxwell's equations in a media specified by
         the epsilon, xi, zeta, and mu distributions.
@@ -170,8 +175,10 @@ class Solution(object):
             if current_density is None:
                 if vectorial is None:
                     vectorial = True
-                current_density = np.zeros((1 + 2 * vectorial, *self.grid.shape),
-                                           dtype=dtype if dtype is not None else np.complex128)
+                current_density = np.zeros(
+                    (1 + 2 * vectorial, *self.grid.shape),
+                    dtype=dtype if dtype is not None else np.complex128
+                )
             current_density = np.asarray(func2arr(current_density))
             source_distribution = current_density * (-1j * self.angular_frequency * const.mu_0)  # [ V m^-3 ]
         else:
@@ -255,10 +262,10 @@ class Solution(object):
             source_distribution, epsilon, xi, zeta, mu, self.grid.step, self.wavenumber
         )
         # Now we can forget epsilon, xi, zeta, mu, and source_distribution. Their information is encapsulated
-        # in the newly created operator method __chi_op
+        # in the newly created operator method __chi_op, referring to self.__chiEE_base, self.__chiEH, self.__chiHE, self.__chiHH, self.__alpha, and self.__beta
         del mu, zeta, xi, epsilon
         self.__BE.clear_cache()
-        self.__residue = None  # Invalid residue
+        self.__relative_residue = None  # Invalid residue
 
     def __prepare_preconditioner(self, source_distribution, epsilon, xi, zeta, mu, sample_pitch, wavenumber):
         """
@@ -274,8 +281,7 @@ class Solution(object):
         :param sample_pitch: A vector with numbers indicating the sample distance in each dimension.
         :param wavenumber: The wavenumber, k,  of the coherent illumination considered for this problem.
 
-        :returns None.
-            Sets the private attributes:
+        :returns nothing but sets the private attributes:
             - self.__magnetic
             - self.__beta
             - self.__source_normalized
@@ -295,9 +301,10 @@ class Solution(object):
         zeta = self.__BE.to_matrix_field(zeta)
         mu = self.__BE.to_matrix_field(mu)
 
-        # Determine if the media is magnetic
-        self.__magnetic = not (self.__BE.allclose(xi) and self.__BE.allclose(zeta)
-                               and self.__BE.allclose(mu, self.__BE.first(mu)))
+        # Determine whether the media is magnetic
+        self.__magnetic = not (
+            self.__BE.allclose(xi) and self.__BE.allclose(zeta) and self.__BE.allclose(mu, self.__BE.first(mu))
+        )
         if self.magnetic:
             log.debug('Material has magnetic properties.')
         else:
@@ -324,8 +331,9 @@ class Solution(object):
         def has_loss(a) -> bool:
             return has_gain(-a)
 
-        transpose = (has_gain(epsilon) or has_gain(xi) or has_gain(zeta) or has_gain(mu)
-                     ) and not (has_loss(epsilon) or has_loss(xi) or has_loss(zeta) or has_loss(mu))
+        transpose = (
+            has_gain(epsilon) or has_gain(xi) or has_gain(zeta) or has_gain(mu)
+        ) and not (has_loss(epsilon) or has_loss(xi) or has_loss(zeta) or has_loss(mu))
 
         if not transpose and (has_gain(epsilon) or has_gain(xi) or has_gain(zeta) or has_gain(mu)):
             def max_gain(a):
@@ -380,10 +388,6 @@ class Solution(object):
         del epsilon, xi_mu_inv_zeta
         self.__BE.clear_cache()
 
-        # TODO: These were put in calc_deltaEE_beta2 to save memory [but slowdown startup (performed 2x in this fun)]
-        # epsilon_xi_mu_inv_zeta_transpose = self.__BE.adjoint(epsilon_xi_mu_inv_zeta)
-        # epsilon_xi_mu_inv_zeta2 = self.__BE.mul(epsilon_xi_mu_inv_zeta_transpose, epsilon_xi_mu_inv_zeta)
-
         # The above must be positive definite
         def calc_DeltaEE_beta2(alpha_, beta_):  # todo: relatively slow during startup
             alpha_beta = self.__BE.astype(self.__BE.real(alpha_) * beta_)
@@ -418,16 +422,20 @@ class Solution(object):
 
             log.debug('Finding optimal alpha and beta...')
             try:
-                alpha_beta_vec = scipy.optimize.fmin(target_function_vec, [0, 1],
-                                                     initial_simplex=[[0, 1], [1, 1], [0, 0.9]],
-                                                     disp=False, full_output=False,
-                                                     ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100,
-                                                     maxfun=200)
+                alpha_beta_vec = scipy.optimize.fmin(
+                    target_function_vec, [0, 1],
+                    initial_simplex=[[0, 1], [1, 1], [0, 0.9]],
+                    disp=False, full_output=False,
+                    ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100,
+                    maxfun=200
+                )
             except TypeError:  # Some older scipy implementations don't seem to have the initial_simplex argument
-                alpha_beta_vec = scipy.optimize.fmin(target_function_vec, [0, 1],
-                                                     disp=False, full_output=False,
-                                                     ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100,
-                                                     maxfun=200)
+                alpha_beta_vec = scipy.optimize.fmin(
+                    target_function_vec, [0, 1],
+                    disp=False, full_output=False,
+                    ftol=alpha_tolerance, xtol=alpha_tolerance, maxiter=100,
+                    maxfun=200
+                )
             self.__beta = beta_from_vec(alpha_beta_vec)
 
             alpha = alpha_beta_vec[0] + 1.0j * self.__BE.asnumpy(max_singular_value_sum(alpha_beta_vec[0], self.__beta))
@@ -483,7 +491,6 @@ class Solution(object):
         # Update the operators that are stored as private attributes
         self.__update_operators(alpha)
         self.__BE.clear_cache()
-
 
 
     def __update_operators(self, alpha):
@@ -681,18 +688,19 @@ class Solution(object):
         return self.__bound
 
     @property
-    def source_distribution(self) -> np.ndarray:
+    def source_distribution(self) -> npt.NDArray:
         """
         The source distribution, i k0 mu_0 times the current density j.
 
         :return: A complex array indicating the amplitude and phase of the source vector field.
             The dimensions of the array are [1|3, self.grid.shape], where the first dimension is 1 in case of a scalar
             field, and 3 in case of a vector field.
+            
         """
         return self.__source_normalized[:, 0, ...] * (self.__beta / 1.0j * self.__alpha.imag)
 
     @source_distribution.setter
-    def source_distribution(self, new_source_dist: array_like):
+    def source_distribution(self, new_source_dist: npt.ArrayLike):
         """
         Set the source distribution, i k0 mu_0 times the current density j.
 
@@ -710,9 +718,76 @@ class Solution(object):
         del new_source_dist
         self.__BE.clear_cache()
         self.__previous_update_norm = np.inf
-
+        
     @property
-    def j(self) -> np.ndarray:
+    def refractive_index(self) -> npt.NDArray:
+        """The refractive index, excluding that of the bound."""
+        return self.epsilon ** 0.5
+    
+    @refractive_index.setter
+    def refractive_index(self, new_value):
+        """Set the refractive index. This automatically adds that of the bound and triggers an update of the preconditioner."""
+        self.epsilon = new_value ** 2
+    
+    @property
+    def epsilon(self) -> npt.NDArray:
+        """The permittivity, excluding that of the bound."""
+        epsilon = self.__BE.mul(self.__chiEE_base, self.__alpha.imag * self.__beta / 1.0j)
+        if self.__magnetic:
+            chiHH = self.__BE.mul(self.__chiHH, self.__alpha.imag / 1.0j)
+            mu_inv = self.__BE.mul(self.__BE.subtract(1.0, chiHH), self.__beta)
+            mu = self.__BE.inv(mu_inv)
+            chiEH_beta = self.__BE.mul(self.__chiEH, self.__alpha.imag * self.__beta / 1.0j)
+            xi = 1j * self.__BE.mul(chiEH_beta, mu)
+            chiHE_beta = self.__BE.mul(self.__chiHE, self.__alpha.imag * self.__beta / 1.0j)
+            xi_mu_inv_zeta = self.__BE.mul(xi, -1.0j * chiHE_beta)
+            epsilon = epsilon + xi_mu_inv_zeta
+            
+        if isinstance(self.__bound, Electric):  # Subtract the bound
+            bound_chi_epsilon = self.__BE.astype(self.__bound.electric_susceptibility)
+            if np.any(np.asarray(epsilon.shape[:-self.grid.ndim]) > 1):
+                bound_chi_epsilon = self.__BE.eye * bound_chi_epsilon
+            epsilon = self.__BE.astype(epsilon - bound_chi_epsilon)
+            del bound_chi_epsilon
+            
+        return epsilon
+    
+    @epsilon.setter
+    def epsilon(self, new_value):
+        """Set the permittivity. This automatically adds that of the bound and triggers an update of the preconditioner."""
+        epsilon = new_value
+        chiHH = self.__BE.mul(self.__chiHH, self.__alpha.imag / 1.0j)
+        if self.__magnetic:
+            mu_inv = self.__BE.mul(self.__BE.subtract(1, chiHH), self.__beta)
+        else:
+            mu_inv = self.__BE.mul(1 - self.__BE.first(chiHH), self.__beta)
+        mu = self.__BE.inv(mu_inv)
+        if self.__magnetic:
+            chiEH_beta = self.__BE.mul(self.__chiEH, self.__alpha.imag * self.__beta / 1.0j)
+            xi = 1j * self.__BE.mul(chiEH_beta, mu)
+            chiHE_beta = self.__BE.mul(self.__chiHE, self.__alpha.imag * self.__beta / 1.0j)
+            zeta = -1j * self.__BE.mul(mu, chiHE_beta)
+        else:
+            xi = 0
+            zeta = 0
+        
+        if isinstance(self.__bound, Electric):
+            bound_chi_epsilon = self.__BE.astype(self.__bound.electric_susceptibility)
+            if np.any(np.asarray(epsilon.shape[:-self.grid.ndim]) > 1):
+                bound_chi_epsilon = self.__BE.eye * bound_chi_epsilon
+            epsilon = self.__BE.astype(epsilon - bound_chi_epsilon)
+            del bound_chi_epsilon
+        if isinstance(self.__bound, Magnetic):
+            bound_chi_mu = self.__BE.astype(self.__bound.magnetic_susceptibility)
+            if np.any(np.asarray(mu.shape[:-self.grid.ndim]) > 1):
+                bound_chi_mu = self.__BE.eye * bound_chi_mu
+            mu = self.__BE.astype(mu - bound_chi_mu)
+            del bound_chi_mu
+            
+        self.__prepare_preconditioner(self.source_distribution, epsilon=epsilon, xi=xi, zeta=zeta, mu=mu, sample_pitch=self.grid.step, wavenumber=self.wavenumber)
+        
+    @property
+    def j(self) -> npt.NDArray:
         """
         The free current density, j, of the source vector field.
 
@@ -723,7 +798,7 @@ class Solution(object):
         return self.__BE.asnumpy(self.source_distribution / (-1.0j * self.angular_frequency * const.mu_0))
 
     @j.setter
-    def j(self, new_j: array_like):
+    def j(self, new_j: npt.ArrayLike):
         """
         Set the free current density, j, of the source vector field.
 
@@ -734,7 +809,7 @@ class Solution(object):
         self.source_distribution = self.__BE.astype(new_j) * (-1.0j * self.angular_frequency * const.mu_0)
 
     @property
-    def E(self) -> np.ndarray:
+    def E(self) -> npt.NDArray:
         """
         The electric field for every point in the sample space (SI units).
 
@@ -757,7 +832,7 @@ class Solution(object):
         self.__previous_update_norm = np.inf
 
     @property
-    def B(self) -> np.ndarray:
+    def B(self) -> npt.NDArray:
         """
         The magnetic field for every point in the sample space (SI units).
         This is calculated from H and E.
@@ -770,7 +845,7 @@ class Solution(object):
         return self.__BE.asnumpy(B)[:, 0, ...]
 
     @property
-    def D(self) -> np.ndarray:
+    def D(self) -> npt.NDArray:
         """
         The displacement field for every point in the sample space (SI units).
         This is calculated from E and H.
@@ -788,7 +863,7 @@ class Solution(object):
         return self.__BE.asnumpy(D)[:, 0, ...]
 
     @property
-    def H(self) -> np.ndarray:
+    def H(self) -> npt.NDArray:
         """
         The magnetizing field for every point in the sample space (SI units).
         This is calculated from E.
@@ -797,17 +872,18 @@ class Solution(object):
             while the following dimensions are the spatial dimensions.
         """
         if self.magnetic:
-            # Use stored matrices to safe the space
-            # Use stored matrices to safe the space
+            # Use stored matrices to safe space
             mu_inv = self.__BE.subtract(1.0, self.__chiHH * (-1.0j * self.__alpha.imag)) * self.__beta
 
             # the curl in the following includes factor k0^-1 by the definition of __PO above
-            H = self.__BE.astype(1.0j / (const.mu_0 * const.c) * (
-                - self.__BE.mul(mu_inv, self.__BE.curl(self.__BE.astype(self.E[:, np.newaxis, ...])))
-                + self.__beta * self.__BE.mul(self.__chiHE * (-1.0j * self.__alpha.imag),
-                                              self.E[:, np.newaxis, ...])
+            H = self.__BE.astype(
+                1.0j / (const.mu_0 * const.c) * (
+                    - self.__BE.mul(mu_inv, self.__BE.curl(self.__BE.astype(self.E[:, np.newaxis, ...])))
+                    + self.__beta * self.__BE.mul(
+                        self.__chiHE * (-1.0j * self.__alpha.imag), self.E[:, np.newaxis, ...]
+                    )
+                )
             )
-                                 )
         else:
             mu_inv = (1.0 - self.__BE.first(self.__chiHH) * (-1.0j * self.__alpha.imag)) * self.__BE.astype(self.__beta)
             mu_H = (-1.0j / (const.mu_0 * const.c)) * self.__BE.curl(
@@ -817,12 +893,13 @@ class Solution(object):
         return self.__BE.asnumpy(H)[:, 0, ...]
 
     @property
-    def S(self) -> np.ndarray:
+    def S(self) -> npt.NDArray:
         """
         The time-averaged Poynting vector for every point in space.
         
         :return: A vector array with the first dimension containing :math:`S_x, S_y, and S_z`,
-        while the following dimensions are the spatial dimensions.
+            while the following dimensions are the spatial dimensions.
+            
         """
         E = self.E[:, np.newaxis, ...]
 
@@ -832,7 +909,7 @@ class Solution(object):
         return poynting_vector[:, 0, ...]
     
     @property
-    def divS(self) -> np.ndarray:
+    def divS(self) -> npt.NDArray:
         """
         The divergence of the time-averaged Poynting vector for every point in space.
         
@@ -841,7 +918,7 @@ class Solution(object):
         return self.__BE.asnumpy(self.__BE.div(self.S[:, np.newaxis])[0, 0])
 
     @property
-    def energy_density(self) -> np.ndarray:
+    def energy_density(self) -> npt.NDArray:
         """
         Returns the energy density, u.
 
@@ -859,7 +936,7 @@ class Solution(object):
         return u
 
     @property
-    def stress_tensor(self) -> np.ndarray:
+    def stress_tensor(self) -> npt.NDArray:
         """
         Maxwell's stress tensor, sigma, for every point in space.
 
@@ -874,14 +951,14 @@ class Solution(object):
         H2 = np.sum(np.abs(H) ** 2, axis=0)
         result += self.__BE.outer(H, H) * const.mu_0
 
-        result -= (0.5 * self.__BE.eye) * self.__BE.astype((const.epsilon_0 * E2 + H2 * const.mu_0))
+        result -= (0.5 * self.__BE.eye) * self.__BE.astype(const.epsilon_0 * E2 + H2 * const.mu_0)
         result = 0.5 * result  # TODO: Do we want the Abraham or Minkowski form?
         result = self.__BE.asnumpy(result)
 
         return result.real
 
     @property
-    def f(self) -> np.ndarray:
+    def f(self) -> npt.NDArray:
         """
         The electromagnetic force density (force per SI unit volume, not per voxel).
 
@@ -898,7 +975,7 @@ class Solution(object):
         return force[:, 0]
 
     @property
-    def torque(self) -> np.ndarray:
+    def torque(self) -> npt.NDArray:
         """
         The electromagnetic force density (force per SI unit volume, not per voxel).
 
@@ -947,7 +1024,7 @@ class Solution(object):
         return float(self.__previous_update_norm / (self.wavenumber ** 2))
 
     @property
-    def residue(self) -> float:
+    def relative_residue(self) -> float:
         """
         Returns the current relative residue of the inverse problem :math:`E = H^{-1}S`.
         The relative residue is return as the l2-norm fraction :math:`||E - H^{-1}S|| / ||E||`, where H represents the
@@ -955,13 +1032,19 @@ class Solution(object):
         searches for the electric field, E, that minimizes the preconditioned inverse problem.
 
         :return: A non-negative real scalar that indicates the change in E with the previous iteration
-        	normalized to the norm of the current E.
+            normalized to the norm of the current E.
+        
         """
-        if self.__residue is None:
-            self.__residue = self.__previous_update_norm / self.__BE.norm(self.__field_array) \
+        if self.__relative_residue is None:
+            self.__relative_residue = self.__previous_update_norm / self.__BE.norm(self.__field_array) \
                 if self.__previous_update_norm > 0 else 0
 
-        return float(self.__residue)
+        return float(self.__relative_residue)
+    
+    @property
+    def residue(self) -> float:
+        """This is an alias of `relative_residue` and will be removed in the future."""
+        return self.relative_residue
 
     def __iter__(self):
         """
@@ -980,7 +1063,7 @@ class Solution(object):
         self.iteration = 0  # reset iteration counter
         while True:
             self.iteration += 1
-            self.__residue = None  # Invalidate residue
+            self.__relative_residue = None  # Invalidate residue
             log.debug(f'Starting iteration {self.iteration}...')
 
             # Calculate update to the field (self.__field_array, d_field, and self.__source are scaled by k0^2)
@@ -999,7 +1082,7 @@ class Solution(object):
             # Check if the iteration is diverging
             if relative_update_norm < 1:
                 # Update solution
-                self.__field_array += d_field              # X[G(XE + s) - E] + E
+                self.__field_array += d_field  # X[G(XE + s) - E] + E
                 # Keep update norm for next iteration's convergence check
                 self.__previous_update_norm = current_update_norm
                 # log.debug(f'Updated field in iteration {self.iteration}.')
@@ -1014,7 +1097,7 @@ class Solution(object):
 
             yield self
 
-    def solve(self, callback: Callable = lambda _: _.iteration < 1e4 and _.residue > 1e-4, *, rtol: float = 0, maxiter: int | float = inf):
+    def solve(self, callback: Callable[[Solution], bool] = lambda _: _.iteration < 1e4 and _.residue > 1e-4, rtol: float = 0, maxiter: int | float = inf):
         """
         Runs the algorithm until the convergence criterion is met or until the maximum number of iterations is reached.
 

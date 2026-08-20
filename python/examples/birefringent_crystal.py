@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # Example code showing double refraction in a birefringent crystal
 
@@ -12,10 +11,7 @@ import macromax
 import macromax.bound
 from macromax.utils.ft import Grid
 from macromax.utils.display import complex2rgb, grid2extent
-try:
-    from examples import log
-except ImportError:
-    from macromax import log  # Fallback in case this script is not started as part of the examples package.
+from macromax import log
 
 
 def show_birefringence():

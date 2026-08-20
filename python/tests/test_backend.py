@@ -1,10 +1,11 @@
 import unittest
-import numpy.testing as npt
 
-from macromax.backend.numpy import BackEndNumpy
-from macromax import Grid
 import numpy as np
+import numpy.testing as npt
 import scipy
+
+from macromax import Grid
+from macromax.backend.numpy import BackEndNumpy
 
 
 class BaseTestBackEnd(unittest.TestCase):
@@ -209,7 +210,7 @@ class BaseTestBackEnd(unittest.TestCase):
         npt.assert_equal(self.BE.asnumpy(self.BE.mul(A, B)), self.BE.asnumpy((A[:, :, 0, 0, 0] @ B[:, :, 0, 0, 0])[:, :, np.newaxis, np.newaxis, np.newaxis]))
 
     def test_mat_ldivide(self):
-        A = np.arange(9).reshape((3, 3, 1, 1, 1))**2
+        A = np.arange(9).reshape((3, 3, 1, 1, 1)) ** 2
         A = self.BE.astype(A)
         npt.assert_equal(self.BE.asnumpy(self.BE.ldivide(2, A)), self.BE.asnumpy(0.5 * A))
         B = np.array([[1.0, 2j, 3], [-4j, 5, 6], [7, 8, 9]])[:, :, np.newaxis, np.newaxis, np.newaxis]
@@ -220,11 +221,11 @@ class BaseTestBackEnd(unittest.TestCase):
         A = np.arange(9).reshape((3, 3, 1, 1, 1))**2
         A = self.BE.astype(A)
         A_inv = self.BE.ldivide(A, 1.0)
-        npt.assert_array_almost_equal(self.BE.mul(A_inv, A), self.BE.eye, decimal=6)
+        npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.mul(A_inv, A)), self.BE.asnumpy(self.BE.eye), decimal=6)
         B = np.array([[1.0, 2j, 3], [-4j, 5, 6], [7, 8, 9]])[:, :, np.newaxis, np.newaxis, np.newaxis]
         B = self.BE.astype(B)
         B_inv = self.BE.ldivide(B, 1.0)
-        npt.assert_array_almost_equal(self.BE.mul(B_inv, B), self.BE.eye)
+        npt.assert_array_almost_equal(self.BE.asnumpy(self.BE.mul(B_inv, B)), self.BE.asnumpy(self.BE.eye))
 
     # def test_curl(self):
     #     # Test not implemented yet
@@ -393,3 +394,6 @@ class BaseTestBackEnd(unittest.TestCase):
         M = self.BE.astype(M)
         div_M = self.BE.div(M)
         npt.assert_almost_equal(self.BE.asnumpy(div_M), np.zeros([3, 1, *self.grid.shape]), decimal=6)
+
+if __name__ == '__main__':
+    unittest.main()

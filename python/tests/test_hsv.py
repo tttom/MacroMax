@@ -1,6 +1,7 @@
 import unittest
-import numpy.testing as npt
+
 import numpy as np
+import numpy.testing as npt
 
 from macromax.utils.display import hsv2rgb, rgb2hsv
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # Example code showing reflection at a glass-air interface in one dimension
 
@@ -9,10 +8,7 @@ import numpy as np
 import time
 
 import macromax
-try:
-    from examples import log
-except ImportError:
-    from macromax import log  # Fallback in case this script is not started as part of the examples package.
+from macromax import log
 
 
 def show_air_glass_transition(impedance_matched=False, birefringent=False):

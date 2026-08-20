@@ -72,22 +72,19 @@
 #   InverseHelmholtzNet in parallel. The latter can be seen to converge in a fraction of the time.
 #
 
-import torch
-from torch import nn
+import pathlib
+from typing import Union
+
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.constants as const
-from typing import Union
-import matplotlib.pyplot as plt
-import pathlib
+import torch
+from torch import nn
 
+from macromax import log
 from macromax.bound import LinearBound
 from macromax.utils import Grid
 from macromax.utils.display import complex2rgb, grid2extent
-
-try:
-    from examples import log
-except ImportError:
-    from macromax import log  # Fallback in case this script is not started as part of the examples package.log.setLevel(logging.INFO)
 
 array_like = Union[np.ndarray, torch.Tensor]
 
@@ -326,8 +323,9 @@ class ScatteringNet(ModifiedWaveModuleBase):
 # """
 #
 if __name__ == '__main__':
-    # The convergence rate is written to ./output/convergence.pdf
-    output_filepath = pathlib.PurePath(pathlib.Path('output').absolute(), 'convergence.pdf')
+    # The convergence rate is written to ./results/convergence.pdf
+    output_filepath = pathlib.Path('results') / 'convergence.pdf'
+    output_filepath.parent.mkdir(parents=True, exist_ok=True)
 
     log.info('Defining the optical system...')
     wavelength = 500e-9

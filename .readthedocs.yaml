@@ -1,13 +1,17 @@
 version: 2
 
 build:
-  os: ubuntu-22.04
+  os: ubuntu-lts-latest
   tools:
-    python: '3.12'
+    python: 'latest'
 
 python:
   install:
-    - requirements: python/docs/requirements.txt
+    - method: uv
+      command: sync
+      path: python
+      groups:
+        - docs
 
 sphinx:
   configuration: 'python/docs/source/conf.py'

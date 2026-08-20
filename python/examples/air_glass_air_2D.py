@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # Example code showing reflection and refraction at a glass pane, in two dimensions
 
+import pathlib
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
-import time
-import pathlib
 
 import macromax
-from macromax.utils.ft import Grid
-from macromax.utils.display import complex2rgb, grid2extent
 from macromax.bound import LinearBound
-try:
-    from examples import log
-except ImportError:
-    from macromax import log  # Fallback in case this script is not started as part of the examples package.
+from macromax.utils.display import complex2rgb, grid2extent
+from macromax.utils.ft import Grid
+
+from macromax import log
 macromax.log.level = -1
 
 

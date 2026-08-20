@@ -11,16 +11,17 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import pathlib
-import re
 import sys
 from datetime import datetime
 
 import sphinx.ext.apidoc
 
+import macromax
 
-code_path = pathlib.Path(__file__).parent.parent.absolute()
-sys.path.insert(0, code_path.as_posix())  # To generate documentation locally
-sys.path.insert(0, code_path.parent.as_posix())  # ReadTheDocs seems to require the repository root instead
+root_path = pathlib.Path(__file__).parent.parent.parent.absolute()
+code_path = pathlib.Path(macromax.__file__).parent
+
+sys.path.insert(0, root_path.as_posix())  # To generate documentation locally
 
 
 # -- Project information -----------------------------------------------------
@@ -28,32 +29,31 @@ sys.path.insert(0, code_path.parent.as_posix())  # ReadTheDocs seems to require 
 project = 'MacroMax'
 author = 'Tom Vettenburg'
 copyright = f'{datetime.now().year}, {author}'
-version = release = re.search(r'.*version.*=\s[\'"]*([^\'"]*)[\'"]', (code_path.parent.absolute() / 'macromax' / '__init__.py').read_text())[1]
-# TODO: Switch to storing the version in pyproject.toml so that this is cleaner.
+version = macromax.__version__
 
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ['m2r2',  # or m2r
-              'sphinx.ext.duration',
-              'sphinx.ext.doctest',
-              'sphinx.ext.autodoc',
-              'sphinx.ext.todo',
-              'sphinx.ext.coverage',
-              'sphinx.ext.viewcode',
-              'sphinx.ext.autosummary',
-              'sphinx.ext.napoleon',  # Used to write beautiful docstrings
-              'sphinx.ext.mathjax',
-              'sphinx_autodoc_typehints',  # Used to insert typehints into the final docs
-              'sphinxcontrib.mermaid',  # Used to build graphs
-              'sphinx.ext.intersphinx',
-              'sphinx_rtd_theme',
-              'sphinx.ext.imgconverter',
-              'sphinxcontrib.cairosvgconverter',
-              'matplotlib.sphinxext.roles',  # to get mpltype text role for matplotlib
-              ]
+extensions = [
+    'myst_parser',
+    'sphinx.ext.duration',
+    'sphinx.ext.doctest',
+    'sphinx.ext.autodoc',
+    'sphinx.ext.todo',
+    'sphinx.ext.coverage',
+    'sphinx.ext.viewcode',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.napoleon',  # Used to write beautiful docstrings
+    'sphinx.ext.mathjax',
+    'sphinx_autodoc_typehints',  # Used to insert typehints into the final docs
+    'sphinxcontrib.mermaid',  # Used to build graphs
+    'sphinx.ext.intersphinx',
+    'sphinx_rtd_theme',
+    'sphinx.ext.imgconverter',
+    'matplotlib.sphinxext.roles',  # to get mpltype text role for matplotlib
+]
 
 source_suffix = ['.rst', '.md']
 
@@ -68,22 +68,25 @@ autodoc_default_options = {
     'special-members': True,
     'inherited-members': True,
     'undoc-members': True,
-    'exclude-members': '__dict__, __weakref__, __abstractmethods__, __annotations__, __parameters__, __module__, __getitem__, __str__, __repr__, __hash__, ' +
-                       '__slots__, __orig_bases__, __subclasshook__, __class_getitem__, __contains__, __reversed__',  # , __eq__, __add__, __sub__, __neg__, __mul__, __imul__, __matmul__, __div__, __idiv__, __rdiv__, __truediv__',
+    'exclude-members': '__abstractmethods__, __annotations__, __class_getitem__, __contains__, ' +
+    '__dict__, __getitem__, __hash__, __module__, __orig_bases__, __parameters__, __repr__, ' +
+    '__reversed__, __slots__, __static_attributes__, __str__, __subclasshook__, __weakref__',
     'show-inheritance': True,
 }
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
-intersphinx_mapping = {'python': ('https://docs.python.org/3', None),
-                       'numpy': ('https://numpy.org/doc/stable/', None),
-                       'scipy': ('https://docs.scipy.org/doc/scipy/', None),
-                       'coloredlogs': ('https://coloredlogs.readthedocs.io/en/latest/', None),
-                       'matplotlib': ('https://matplotlib.org/stable/', None),
-                       'torch': ('https://pytorch.org/docs/stable/', None),
-                       'joblib': ('https://joblib.readthedocs.io/en/latest/', None),
-                       }
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/', None),
+    'coloredlogs': ('https://coloredlogs.readthedocs.io/en/latest/', None),
+    'matplotlib': ('https://matplotlib.org/stable/', None),
+    'torch': ('https://pytorch.org/docs/stable/', None),
+    'jax': ('https://docs.jax.dev/en/latest/', None),
+    'joblib': ('https://joblib.readthedocs.io/en/latest/', None),
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -118,19 +121,20 @@ html_theme_options = {
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
 
-autodoc_mock_imports = ['torch', 'tensorflow']
+autodoc_mock_imports = ['jax', 'torch']
 
 # Building the API Documentation...
-code_path = pathlib.Path(__file__).parent.parent.parent.resolve()
-docs_path = code_path / 'docs'
-apidoc_path = docs_path / 'source/api'  # a temporary directory
+docs_path = root_path / 'docs'
+apidoc_path = docs_path / 'src/api'  # a temporary directory
 print(f'Building api-doc scaffolding in {apidoc_path}...')
-sphinx.ext.apidoc.main(['-f', '-d', '4', '-M',
-                        '-o', f'{apidoc_path}',
-                        f"{code_path}/macromax",
-                        f"{code_path}/macromax/utils/ft/ft*",  # apidocs fails on ft_implementation for some reason
-                        ]
-                       )
+sphinx.ext.apidoc.main(
+    [
+        '-f', '-d', '4', '-M',
+        '-o', str(apidoc_path),
+        str(code_path),
+        f"{code_path}/utils/ft/ft*",  # apidocs fails on ft_implementation for some reason
+    ]
+)
 
 
 # -- Options for EPUB3 output -------------------------------------------------
