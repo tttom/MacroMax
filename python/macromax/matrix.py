@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable, Sequence
-from collections.abc import Callable, Sequence
 from math import prod
 from numbers import Complex, Real
 
@@ -19,10 +18,8 @@ from .utils import ft
 log = logging.getLogger(__name__)
 
 array_like = Complex | Sequence | np.ndarray | LinearOperator
-array_like = Complex | Sequence | np.ndarray | LinearOperator
 
 
-class CachingMatrix:
 class CachingMatrix:
     def __init__(self, caching: bool = True):
         """A mixin for Matrices that can cache the output.
@@ -49,10 +46,6 @@ class CachingMatrix:
     def caching(self, new_value: bool):
         self.__caching = new_value
 
-    def _cache(
-        self, right: array_like, value_function: Callable[[array_like], np.ndarray] | None = None,
-        out: array_like | None = None
-        ) -> np.ndarray:
     def _cache(
         self, right: array_like, value_function: Callable[[array_like], np.ndarray] | None = None,
         out: array_like | None = None
@@ -107,8 +100,6 @@ class CachingMatrix:
 
 class Matrix(LinearOperator):
     """A class to represent rectangular or square matrices that can be multiplied from the left or right, and pseudo-inverted."""
-
-    def __init__(self, array: array_like | None = None, shape: Sequence[int] | None = None, dtype=np.complex128):
     def __init__(self, array: array_like | None = None, shape: Sequence[int] | None = None, dtype=np.complex128):
         """
         Constructs a matrix from a rectangular numpy.ndarray, array-like object, or a function or method that returns one.
@@ -238,7 +229,6 @@ class Matrix(LinearOperator):
 class SquareMatrix(Matrix):
     """A class to represent square matrices that can be inverted with or without regularization."""
     def __init__(self, array: array_like | None = None, side: int | None = None, dtype=np.complex128):
-    def __init__(self, array: array_like | None = None, side: int | None = None, dtype=np.complex128):
         """
         Constructs a matrix from a square array, array-like object, or a function or method that returns one.
 
@@ -267,7 +257,6 @@ class SquareMatrix(Matrix):
 
 class LiteralScatteringMatrix(SquareMatrix):
     """A class to represent scattering matrices constructed from an array of complex numbers."""
-    def __init__(self, array: array_like | None = None, side: int | None = None, dtype=np.complex128):
     def __init__(self, array: array_like | None = None, side: int | None = None, dtype=np.complex128):
         """
         Constructs a scattering matrix from a square array, array-like object, or a function or method that returns one.
@@ -366,15 +355,6 @@ class LiteralScatteringMatrix(SquareMatrix):
 
 class ScatteringMatrix(LiteralScatteringMatrix):
     """A class representing scattering matrices."""
-    def __init__(
-        self, grid: Grid | Sequence | np.ndarray, vectorial: bool | None = True,
-        wavenumber: Real | None = None, angular_frequency: Real | None = None, vacuum_wavelength: Real | None = None,
-        epsilon: array_like | None = None, xi: array_like | None = 0.0, zeta: array_like | None = 0.0, mu: array_like | None = 1.0,
-        refractive_index: array_like | None = None,
-        bound: Bound = None, dtype=None,
-        callback: Callable = lambda s: s.iteration < 1e4 and s.residue > 1e-6,
-        caching: bool = True, array: array_like | None = None
-        ):
     def __init__(
         self, grid: Grid | Sequence | np.ndarray, vectorial: bool | None = True,
         wavenumber: Real | None = None, angular_frequency: Real | None = None, vacuum_wavelength: Real | None = None,
@@ -985,12 +965,6 @@ class DepositionMatrix(Matrix, CachingMatrix):
         output_operator: LinearOperator | Callable[[array_like], np.ndarray] | None = None,
         caching: bool = True
         ):
-    def __init__(
-        self, scattering_matrix: ScatteringMatrix,
-        input_operator: LinearOperator | None = None,
-        output_operator: LinearOperator | Callable[[array_like], np.ndarray] | None = None,
-        caching: bool = True
-        ):
         """
         Creates a matrix based on the internally scattered fields of a ScatteringMatrix.
 
@@ -1028,13 +1002,6 @@ class DepositionMatrix(Matrix, CachingMatrix):
             input_size = (1 + 2 * scattering_matrix.vectorial) * scattering_matrix.grid.size
             output_shape = output_operator(np.zeros(input_size)).shape
             if len(output_shape) > 1:
-                def output_operator(_):
-                    return output_operator(_).ravel()
-            output_operator = LinearOperator(
-                shape=(np.prod(output_shape, dtype=int), input_size),
-                matvec=output_operator,
-                dtype=scattering_matrix.dtype
-            )
                 def output_operator(_):
                     return output_operator(_).ravel()
             output_operator = LinearOperator(
