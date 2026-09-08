@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable, Sequence
 from math import prod
 from numbers import Complex, Real
-from typing import Callable, Optional, Sequence, Union
 
 import numpy as np
 import scipy.constants as const
@@ -17,10 +17,10 @@ from .utils import ft
 
 log = logging.getLogger(__name__)
 
-array_like = Union[Complex, Sequence, np.ndarray, LinearOperator]
+array_like = Complex | Sequence | np.ndarray | LinearOperator
 
 
-class CachingMatrix(object):
+class CachingMatrix:
     def __init__(self, caching: bool = True):
         """A mixin for Matrices that can cache the output.
 
@@ -46,8 +46,10 @@ class CachingMatrix(object):
     def caching(self, new_value: bool):
         self.__caching = new_value
 
-    def _cache(self, right: array_like, value_function: Optional[Callable[[array_like], np.ndarray]] = None,
-               out: Optional[array_like] = None) -> np.ndarray:
+    def _cache(
+        self, right: array_like, value_function: Callable[[array_like], np.ndarray] | None = None,
+        out: array_like | None = None
+        ) -> np.ndarray:
         """
         Retrieve a cached value or calculate it using the specified function as necessary.
         Usage: `left = self._cache(right, calc_left)`
@@ -59,7 +61,6 @@ class CachingMatrix(object):
         :return: The result of value_function(right), potentially retrieved from the cache.
         """
         right = np.asarray(right)
-        input_shape = right.shape
         right = right.reshape(-1, right.shape[-1] if right.ndim > 1 else 1)  # Make into a 2D array
 
         zero_columns = []
@@ -100,7 +101,7 @@ class CachingMatrix(object):
 class Matrix(LinearOperator):
     """A class to represent rectangular or square matrices that can be multiplied from the left or right, and pseudo-inverted."""
 
-    def __init__(self, array: Optional[array_like] = None, shape: Optional[Sequence[int]] = None, dtype=np.complex128):
+    def __init__(self, array: array_like | None = None, shape: Sequence[int] | None = None, dtype=np.complex128):
         """
         Constructs a matrix from a rectangular numpy.ndarray, array-like object, or a function or method that returns one.
 
@@ -228,7 +229,7 @@ class Matrix(LinearOperator):
 
 class SquareMatrix(Matrix):
     """A class to represent square matrices that can be inverted with or without regularization."""
-    def __init__(self, array: Optional[array_like] = None, side: Optional[int] = None, dtype=np.complex128):
+    def __init__(self, array: array_like | None = None, side: int | None = None, dtype=np.complex128):
         """
         Constructs a matrix from a square array, array-like object, or a function or method that returns one.
 
@@ -257,7 +258,7 @@ class SquareMatrix(Matrix):
 
 class LiteralScatteringMatrix(SquareMatrix):
     """A class to represent scattering matrices constructed from an array of complex numbers."""
-    def __init__(self, array: Optional[array_like] = None, side: Optional[int] = None, dtype=np.complex128):
+    def __init__(self, array: array_like | None = None, side: int | None = None, dtype=np.complex128):
         """
         Constructs a scattering matrix from a square array, array-like object, or a function or method that returns one.
 
@@ -355,13 +356,15 @@ class LiteralScatteringMatrix(SquareMatrix):
 
 class ScatteringMatrix(LiteralScatteringMatrix):
     """A class representing scattering matrices."""
-    def __init__(self, grid: Union[Grid, Sequence, np.ndarray], vectorial: Optional[bool] = True,
-                 wavenumber: Optional[Real] = None, angular_frequency: Optional[Real] = None, vacuum_wavelength: Optional[Real] = None,
-                 epsilon: Optional[array_like] = None, xi: Optional[array_like] = 0.0, zeta: Optional[array_like] = 0.0, mu: Optional[array_like] = 1.0,
-                 refractive_index: Optional[array_like] = None,
-                 bound: Bound = None, dtype=None,
-                 callback: Callable = lambda s: s.iteration < 1e4 and s.residue > 1e-6,
-                 caching: bool = True, array: Optional[array_like] = None):
+    def __init__(
+        self, grid: Grid | Sequence | np.ndarray, vectorial: bool | None = True,
+        wavenumber: Real | None = None, angular_frequency: Real | None = None, vacuum_wavelength: Real | None = None,
+        epsilon: array_like | None = None, xi: array_like | None = 0.0, zeta: array_like | None = 0.0, mu: array_like | None = 1.0,
+        refractive_index: array_like | None = None,
+        bound: Bound = None, dtype=None,
+        callback: Callable = lambda s: s.iteration < 1e4 and s.residue > 1e-6,
+        caching: bool = True, array: array_like | None = None
+        ):
         """
         Construct a scattering matrix object for a medium specified by a refractive index distribution or the
         corresponding epsilon, xi, zeta, and mu distributions. Each electromagnetic field distribution entering the
@@ -377,16 +380,16 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         * First the N/2 modes propagating along the positive x-axis are considered, then those propagating in the reverse direction.
 
         * In each direction, M different angles (k-vectors) can be considered. We choose propagating modes on a
-          uniformly-spaced plaid grid that includes the origin (corresponding to the k-vector along the x-axis). Modes
-          not propagating along the x-axis, i.e. in the y-z-plane are not considered. The angles are ordered in
-          raster-scan order from negative k_y to positive k_y (slow) and from negative k_z to positive k_z (fast).
-          The grid axes dimensions correspond to x(0), y(1), z(2).
+            uniformly-spaced plaid grid that includes the origin (corresponding to the k-vector along the x-axis). Modes
+            not propagating along the x-axis, i.e. in the y-z-plane are not considered. The angles are ordered in
+            raster-scan order from negative k_y to positive k_y (slow) and from negative k_z to positive k_z (fast).
+            The grid axes dimensions correspond to x(0), y(1), z(2).
 
         * When polarization is considered, each angle has a pair of modes, one for each polarization. The first mode has
-          the polarization oriented along the rotated y'-axis and the second mode along the rotated z'-axis. To avoid
-          ambiguity for normal incidence, the Cartesian-coordinate system is rotated along the shortest possible path,
-          i.e. along the axis that is normal to the original x-axis and the mode's k-vector. All rotations are around the
-          origin of the coordinate system, incurring no phase shift there.
+            the polarization oriented along the rotated y'-axis and the second mode along the rotated z'-axis. To avoid
+            ambiguity for normal incidence, the Cartesian-coordinate system is rotated along the shortest possible path,
+            i.e. along the axis that is normal to the original x-axis and the mode's k-vector. All rotations are around the
+            origin of the coordinate system, incurring no phase shift there.
 
         Vectors can be converted to field distributions on the complete grid using the methods:
 
@@ -443,10 +446,12 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         self.__callback = callback
 
         # Define the solver that will be recycled for every input vector
-        self.__solution = Solution(grid=self.grid, vectorial=self.vectorial,
-                                   wavenumber=wavenumber, angular_frequency=angular_frequency, vacuum_wavelength=vacuum_wavelength,
-                                   epsilon=epsilon, xi=xi, zeta=zeta, mu=mu, refractive_index=refractive_index, bound=bound,
-                                   dtype=dtype)
+        self.__solution = Solution(
+            grid=self.grid, vectorial=self.vectorial,
+            wavenumber=wavenumber, angular_frequency=angular_frequency, vacuum_wavelength=vacuum_wavelength,
+            epsilon=epsilon, xi=xi, zeta=zeta, mu=mu, refractive_index=refractive_index, bound=bound,
+            dtype=dtype
+        )
 
         # Determine the independent input and output modes that are propagating in raster-scan order
         propagating = np.ones(1, dtype=bool)
@@ -476,8 +481,10 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         front_detector_plane = int((bound.thickness[0, 0] + self.__solution.wavelength) / grid.step[0]) + 1
         back_detector_plane = self.grid.shape[0] - int((bound.thickness[0, -1] + self.__solution.wavelength) / grid.step[0]) - 1
         nb_detection_layers = 1  # int(self.__solution.wavelength / self.grid.step[0] + 0.5)  # TODO: Why doesn't this improve accuracy?
-        self.__detector_volumes_indices = [_ + ft.ifftshift(np.arange(nb_detection_layers) - nb_detection_layers // 2)
-                                           for _ in (back_detector_plane, front_detector_plane)]  # swap order so the empty space results in the identity
+        self.__detector_volumes_indices = [
+            _ + ft.ifftshift(np.arange(nb_detection_layers) - nb_detection_layers // 2)
+            for _ in (back_detector_plane, front_detector_plane)
+        ]  # swap order so the empty space results in the identity
 
         self.__caching: bool = caching
         self.__cached_columns = dict()  # Stores a column vector for each integer column index that has been calculated.
@@ -545,8 +552,15 @@ class ScatteringMatrix(LiteralScatteringMatrix):
         """
         # Convert vector to an nd-array
         nb_sides = 2
-        input_vector = np.array(input_vector, dtype=self.dtype).reshape([nb_sides, self.__mode_direction_indices.size,
-                                                                         1 + self.vectorial])  # TODO: standardize on [side, pol, transverse] instead?
+        input_vector = np.array(
+            input_vector, 
+            dtype=self.dtype
+        ).reshape(
+            [nb_sides, 
+            self.__mode_direction_indices.size,
+            1 + self.vectorial
+            ]
+        )  # TODO: standardize on [side, pol, transverse] instead?
         input_vector = np.moveaxis(input_vector, -1, 1)  # New order: [side, polarization, transverse_mode]
 
         # Adjust magnitude to get unity E-fields
@@ -919,10 +933,12 @@ class BackwardTransmissionMatrix(QuarterMatrix):
 
 class DepositionMatrix(Matrix, CachingMatrix):
     """A rectangular matrix that relates free-space input vectors to an arbitrary subset of fields in the interior."""
-    def __init__(self, scattering_matrix: ScatteringMatrix,
-                 input_operator: Optional[LinearOperator] = None,
-                 output_operator: Union[LinearOperator, Callable[[array_like], np.ndarray], None] = None,
-                 caching: bool = True):
+    def __init__(
+        self, scattering_matrix: ScatteringMatrix,
+        input_operator: LinearOperator | None = None,
+        output_operator: LinearOperator | Callable[[array_like], np.ndarray] | None = None,
+        caching: bool = True
+        ):
         """
         Creates a matrix based on the internally scattered fields of a ScatteringMatrix.
 
@@ -942,21 +958,24 @@ class DepositionMatrix(Matrix, CachingMatrix):
                                             dtype=scattering_matrix.dtype
                                             )
         if output_operator is None:
-            output_operator = LinearOperator(shape=(scattering_matrix.shape[0], (1 + 2 * scattering_matrix.vectorial) * scattering_matrix.grid.size),
-                                             matvec=lambda _: scattering_matrix.detfield2detvec(
-                                                 _.reshape([1 + 2 * scattering_matrix.vectorial, *scattering_matrix.grid.shape])
-                                             ),
-                                             dtype=scattering_matrix.dtype
-                                             )
+            output_operator = LinearOperator(
+                shape=(scattering_matrix.shape[0], (1 + 2 * scattering_matrix.vectorial) * scattering_matrix.grid.size),
+                matvec=lambda _: scattering_matrix.detfield2detvec(
+                    _.reshape([1 + 2 * scattering_matrix.vectorial, *scattering_matrix.grid.shape])
+                    ),
+                dtype=scattering_matrix.dtype
+            )
         elif isinstance(output_operator, Callable):
             input_size = (1 + 2 * scattering_matrix.vectorial) * scattering_matrix.grid.size
             output_shape = output_operator(np.zeros(input_size)).shape
             if len(output_shape) > 1:
-                output_operator = lambda _: output_operator(_).ravel()
-            output_operator = LinearOperator(shape=(np.prod(output_shape, dtype=int), input_size),
-                                             matvec=output_operator,
-                                             dtype=scattering_matrix.dtype
-                                             )
+                def output_operator(_):
+                    return output_operator(_).ravel()
+            output_operator = LinearOperator(
+                shape=(np.prod(output_shape, dtype=int), input_size),
+                matvec=output_operator,
+                dtype=scattering_matrix.dtype
+            )
         self.__scattering_matrix = scattering_matrix
         self.__input_op = input_operator
         self.__output_op = output_operator

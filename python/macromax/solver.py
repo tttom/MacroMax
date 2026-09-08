@@ -448,7 +448,7 @@ class Solution:
             def target_function_vec(alpha_):
                 return calc_sigmaEE(alpha_, self.__beta)  # beta is fixed to mu_inv so that chi_HH==0
 
-            log.debug('beta = %0.4g, finding optimal alpha...' % self.__beta)
+            log.debug(f'beta = {self.__beta:0.4g}, finding optimal alpha...')
             try:
                 alpha_real, min_value = scipy.optimize.fmin(target_function_vec, 0.0, initial_simplex=[[0.0], [1.0]],
                                                             disp=False, full_output=True,
@@ -855,8 +855,7 @@ class Solution:
         """
         # D = (J - self.__PO.curl(self.H[:, np.newaxis, ...]) * self.wavenumber) / (1.0j * self.angular_frequency)  # curl includes k0 by definition of __PO
         D = self.__BE.curl(self.H[:, np.newaxis, ...])
-        D *= self.wavenumber
-        D -= (self.__beta / (1.0j * self.angular_frequency * const.mu_0)) * (
+        D -= complex(self.__beta / (1j * self.angular_frequency * const.mu_0)) * (
                     self.__source_normalized * (self.__alpha.imag / 1.0j))
         D *= 1j / self.angular_frequency
 
