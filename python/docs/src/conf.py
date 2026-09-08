@@ -123,16 +123,17 @@ html_static_path = ['_static']
 
 autodoc_mock_imports = ['jax', 'torch']
 
+suppress_warnings = ['sphinx_autodoc_typehints.forward_reference', 'myst.xref_missing']  # apidocs fails on ft_implementation with WARNING: Cannot resolve forward reference in type annotations of "macromax.utils.ft.fftshift" (module numpy.fft._helper): name 'ShapeT' is not defined [sphinx_autodoc_typehints.forward_reference]
+
 # Building the API Documentation...
 docs_path = root_path / 'docs'
 apidoc_path = docs_path / 'src/api'  # a temporary directory
 print(f'Building api-doc scaffolding in {apidoc_path}...')
 sphinx.ext.apidoc.main(
     [
-        '-f', '-d', '4', '-M',
+        '-f', '-d', '4', '-M', '--remove-old',
         '-o', str(apidoc_path),
         str(code_path),
-        f"{code_path}/utils/ft/ft*",  # apidocs fails on ft_implementation for some reason
     ]
 )
 

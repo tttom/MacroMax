@@ -19,7 +19,6 @@ With the exception of `ft.fft()` and `ft.ifft()`, all functions take the `axes` 
 
 Note that axis indices should be unique and non-negative. **Negative or repeated axis indices are not compatible with all back-end implementations!**
 """
-import logging
 import os
 
 from numpy.fft import fftshift, ifftshift

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from typing import Union, Sequence
-import numpy as np
 import warnings
+from collections.abc import Sequence
+from typing import Union
+
+import numpy as np
 
 from macromax.utils import dim
 
@@ -14,11 +16,13 @@ class Grid(Sequence):
 
     See also :class:`MutableGrid`
     """
-    def __init__(self, shape=None, step=None, *, extent=None, first=None, center=None, last=None, include_last=False,
-                 ndim: int = None,
-                 flat: Union[bool, Sequence, np.ndarray] = False,
-                 origin_at_center: Union[bool, Sequence, np.ndarray] = True,
-                 center_at_index: Union[bool, Sequence, np.ndarray] = True):
+    def __init__(
+        self, shape=None, step=None, *, extent=None, first=None, center=None, last=None, include_last=False,
+        ndim: int = None,
+        flat: bool | Sequence | np.ndarray = False,
+        origin_at_center: bool | Sequence | np.ndarray = True,
+        center_at_index: bool | Sequence | np.ndarray = True
+        ):
         """
         Construct an immutable `Grid` object.
 
@@ -30,15 +34,15 @@ class Grid(Sequence):
 
         Specific invariants:
 
-            - ```shape * step == extent == last + step - first``` if `include_last`
-            - ```shape * step == extent == last - first``` if `not include_last`
-            - ```center == first + shape // 2 * step``` if `center_at_index`
-            - ```center == first + (shape - 1) / 2 * step``` if `not center_at_index`
+            - ``shape * step == extent == last + step - first`` if `include_last`
+            - ``shape * step == extent == last - first`` if `not include_last`
+            - ``center == first + shape // 2 * step`` if `center_at_index`
+            - ``center == first + (shape - 1) / 2 * step`` if `not center_at_index`
 
         General invariants:
 
-            - ```shape * step == extent == last + step * include_last - first```
-            - ```center == first + (shape // 2 * center_at_index + (shape - 1) / 2 * (1 - center_at_index)) * step```
+            - ``shape * step == extent == last + step * include_last - first``
+            - ``center == first + (shape // 2 * center_at_index + (shape - 1) / 2 * (1 - center_at_index)) * step``
 
         :param shape: An integer vector array with the shape of the sampling grid.
         :param step: A vector array with the spacing of the sampling grid. This defaults to 1 if no two of first,
