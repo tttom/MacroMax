@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 #
-import numpy as np
 import time
 
+import numpy as np
+
 import macromax
-from macromax.utils.ft import Grid
-from macromax.bound import LinearBound
 from macromax import log
+from macromax.bound import LinearBound
+from macromax.utils.ft import Grid
 
 try:
     import multiprocessing

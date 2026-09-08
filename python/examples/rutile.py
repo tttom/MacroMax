@@ -4,17 +4,18 @@
 from __future__ import annotations
 
 import collections
-import matplotlib.pyplot as plt
-import numpy as np
 import pathlib
 import time
 from typing import Sequence
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 import macromax
-from macromax.bound import LinearBound
-from macromax.utils.ft import Grid
-from macromax.utils.display import complex2rgb, grid2extent
 from macromax import log
+from macromax.bound import LinearBound
+from macromax.utils.display import complex2rgb, grid2extent
+from macromax.utils.ft import Grid
 
 
 class Sphere:

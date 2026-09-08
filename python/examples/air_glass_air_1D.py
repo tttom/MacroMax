@@ -3,9 +3,10 @@
 # Example code showing reflection at a glass-air interface in one dimension
 
 
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 
 import macromax
 from macromax import log

@@ -3,15 +3,16 @@
 # Example code showing double refraction in a birefringent crystal
 
 
+import time
+
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 
 import macromax
 import macromax.bound
-from macromax.utils.ft import Grid
-from macromax.utils.display import complex2rgb, grid2extent
 from macromax import log
+from macromax.utils.display import complex2rgb, grid2extent
+from macromax.utils.ft import Grid
 
 
 def show_birefringence():

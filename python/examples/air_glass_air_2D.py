@@ -9,11 +9,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import macromax
+from macromax import log
 from macromax.bound import LinearBound
 from macromax.utils.display import complex2rgb, grid2extent
 from macromax.utils.ft import Grid
 
-from macromax import log
 macromax.log.level = -1
 
 

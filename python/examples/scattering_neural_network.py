@@ -73,7 +73,6 @@
 #
 
 import pathlib
-from typing import Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -86,7 +85,7 @@ from macromax.bound import LinearBound
 from macromax.utils import Grid
 from macromax.utils.display import complex2rgb, grid2extent
 
-array_like = Union[np.ndarray, torch.Tensor]
+array_like = np.ndarray | torch.Tensor
 
 display_progress = True  # Enable / disable output figures
 
@@ -102,7 +101,7 @@ torch.manual_seed(0)  # Fix for reproducibility
 
 class DirectLayer(nn.Module):
     """A Simple layer with the same number of inputs as outputs and single connections between neurons."""
-    def __init__(self, weight: Union[complex, array_like]):
+    def __init__(self, weight: complex | array_like):
         """
         The weights of the direct connections, default: all 1.
 
@@ -269,8 +268,10 @@ class PreconditionedHelmholtzNet(ModifiedWaveModuleBase):
     This is a more efficient implementation than the equivalent class:
     class PreconditionedHelmholtzNet(nn.Sequential):
         def __init__(self, permittivity: array_like, grid: Grid = None, k0: float = 1.0):
-            super().__init__(HelmholtzNet(permittivity, grid, k0),
-                             PreconditioningNet(permittivity, grid, k0))
+            super().__init__(
+                HelmholtzNet(permittivity, grid, k0),
+                PreconditioningNet(permittivity, grid, k0)
+            )
 
     """
     def __init__(self, permittivity: array_like, grid: Grid = None, k0: float = 1.0):
@@ -470,8 +471,10 @@ if __name__ == '__main__':
             plot(true_inference_errors, color='#006000', linewidth=2, linestyle=':', label='True inference $\\epsilon_j$')
             plot(true_input_training_errors, color='#ff0000', linewidth=3, linestyle='-', label='True input training $\\epsilon_E$')
             plot(true_input_inference_errors, color='#006000', linewidth=3, linestyle='-', label='True input inference $\\epsilon_E$')
-            axs[_].set(xlabel='iteration', ylabel='relative error', title='convergence',
-                       xlim=[1, len(prec_training_errors)], ylim=[0 if _ == 0 else 1e-6, 1])
+            axs[_].set(
+                xlabel='iteration', ylabel='relative error', title='convergence',
+                xlim=[1, len(prec_training_errors)], ylim=[0 if _ == 0 else 1e-6, 1]
+            )
             axs[_].legend()
 
         plt.savefig(output_filepath.as_posix(), bbox_inches='tight', format='pdf')
