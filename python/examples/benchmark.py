@@ -65,10 +65,11 @@ def calculate(dtype=np.complex64, magnetic=False, birefringent=False, vectorial=
     bound = LinearBound(grid, thickness=boundary_thickness, max_extinction_coefficient=0.3)
 
     start_time = time.perf_counter()
-    solution = macromax.solve(grid, vacuum_wavelength=wavelength, source_distribution=source, bound=bound,
-                              epsilon=permittivity, mu=permeability, dtype=dtype,
-                              callback=lambda s: s.iteration < 1000 and s.residue > 1e-6
-                              )
+    solution = macromax.solve(
+        grid=grid, vacuum_wavelength=wavelength, source_distribution=source, bound=bound,
+        epsilon=permittivity, mu=permeability, dtype=dtype,
+        callback=lambda s: s.iteration < 1000 and s.residue > 1e-6
+    )
     total_time = time.perf_counter() - start_time
 
     log.info(f'Total time: {total_time:0.3f} s for {solution.iteration} iterations:' +

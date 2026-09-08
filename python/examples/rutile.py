@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
-#
-# Example code showing light scattering by a layer of rutile (TiO2) particles.
+"""
+Example code showing light scattering by a layer of rutile (TiO2) particles.
+"""
 from __future__ import annotations
 
 import collections
 import pathlib
 import time
-from typing import Sequence
+from collections.abc import Sequence
+
+import matplotlib.pyplot as plt
+import numpy as np
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -97,7 +101,7 @@ def pack(grid: Grid, radius_mean: float = 1.0, radius_std: float = 0.0, seed: in
         # Pick a potential neighbor
         # log.info('Picking a potential neighbor.')
         contact_sphere = min(spheres, key=lambda _: _.fails)
-        for trial_idx in range(2 * (5 ** (grid.ndim - 1))):
+        for _trial_idx in range(2 * (5 ** (grid.ndim - 1))):
             # Place sphere at random position but touching this sphere
             random_direction = rng.normal(0.0, 1.0, grid.ndim)
             random_direction /= np.linalg.norm(random_direction)
@@ -157,7 +161,7 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
     grid = Grid(np.array([128, 256]) * scale, wavelength / 16)
     incident_angle = 0 * np.pi / 180
 
-    log.info('Calculating fields over a %0.1fμm x %0.1fμm area...' % tuple(grid.extent * 1e6))
+    log.info('Calculating fields over a {:0.1f}μm x {:0.1f}μm area...'.format(*tuple(grid.extent / 1e-6)))
 
     def rot_Z(a): return np.array([[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]])
     incident_k = rot_Z(incident_angle) * k0 @ np.array([0, 1, 0])
@@ -174,9 +178,11 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
     # Place randomly oriented TiO2 particles
     start_time = time.perf_counter()
     permittivity, orientation, grain_pos, grain_rad, grain_dir = \
-        generate_birefringent_random_layer(grid, layer_thickness=layer_thickness, radius_mean=0.5e-6,
-                                           radius_std=0.1e-6, normal_dim=1,
-                                           birefringent=anisotropic, medium_refractive_index=medium_refractive_index)
+        generate_birefringent_random_layer(
+            grid=grid, layer_thickness=layer_thickness, radius_mean=0.5e-6,
+            radius_std=0.1e-6, normal_dim=1,
+            birefringent=anisotropic, medium_refractive_index=medium_refractive_index
+        )
     log.info(f'{time.perf_counter() - start_time:0.6}s to generate layer with {grain_pos.shape[0]} grains.')
 
     if not anisotropic:
@@ -196,12 +202,15 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
         ax.set_ylabel(r'x [$\mu$m]')
         ax.set_aspect('equal')
 
-    images = [axs[dim_idx][0].imshow(complex2rgb(np.zeros(grid.shape), 1, inverted=True),
-                                     extent=grid2extent(grid) * 1e6)
-              for dim_idx in range(3)]
+    images = [
+        axs[dim_idx][0].imshow(
+            complex2rgb(np.zeros(grid.shape), 1, inverted=True),
+            extent=grid2extent(grid) * 1e6
+        )
+        for dim_idx in range(3)
+    ]
 
     epsilon_abs = np.abs(permittivity[0, 0]) - 1
-    # rgb_image = colors.hsv_to_rgb(np.stack((np.mod(direction / (2*np.pi), 1), 1+0*direction, epsilon_abs), axis=2))
     axs[0][1].imshow(complex2rgb(epsilon_abs * np.exp(1j * orientation), normalization=True, inverted=True),
                      zorder=0, extent=grid2extent(grid) * 1e6)
     add_circles_to_axes(axs[0][1])
@@ -246,9 +255,9 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
         times.append(time.perf_counter())
         residues.append(s.residue)
 
-        if np.mod(s.iteration, 10) == 0:
+        if s.iteration % 10 == 0:
             log.info(f'Iteration {s.iteration}: relative residue = {s.residue * 100:0.1f}%, residue = {s.residue * 100:0.1f}%')
-        if np.mod(s.iteration, 100) == 0:
+        if s.iteration % 100 == 0:
             display(s)
 
         return s.residue > 1e-4 and s.iteration < 1e4
@@ -258,10 +267,11 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
     # The actual work is done here.
     #
     start_time = time.perf_counter()
-    solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, callback=update_function, dtype=np.complex64,
-                              bound=LinearBound(grid, thickness=boundary_thickness, max_extinction_coefficient=0.5)
-                              )
+    solution = macromax.solve(
+        grid=grid, vacuum_wavelength=wavelength, current_density=current_density,
+        epsilon=permittivity, callback=update_function, dtype=np.complex64,
+        bound=LinearBound(grid, thickness=boundary_thickness, max_extinction_coefficient=0.5)
+    )
 
     # Display how the method converged
     times = np.array(times) - start_time
@@ -274,7 +284,7 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
         forward_poynting_vector[(grid[1].ravel() > layer_thickness / 2) &
                                 (grid[1].ravel() < grid[1].ravel()[-1] - boundary_thickness)]
     forward_poynting_vector_after_layer = forward_poynting_vector_after_layer[int(len(forward_poynting_vector_after_layer)/2)]
-    log.info('Forward Poynting vector: %g' % forward_poynting_vector_after_layer)
+    log.info(f'Forward Poynting vector: {forward_poynting_vector_after_layer:g}')
     fig_S = plt.figure(frameon=False, figsize=(12, 9))
     ax_S = fig_S.add_subplot(111)
     ax_S.plot(grid[1].ravel() * 1e6, forward_poynting_vector)
@@ -286,14 +296,18 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
     display(solution)
     plt.show(block=False)
     # Save the individual images
-    log.info('Saving results to %s...' % output_filepath.as_posix())
+    log.info(f'Saving results to {output_filepath}...')
     output_path.mkdir(parents=True, exist_ok=True)
-    plt.imsave(output_filepath.as_posix() + '_orientation.png',
-               complex2rgb(epsilon_abs * np.exp(1j * orientation), normalization=True, inverted=True),
-               vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600)
+    plt.imsave(
+        output_filepath.as_posix() + '_orientation.png',
+        complex2rgb(epsilon_abs * np.exp(1j * orientation), normalization=True, inverted=True),
+        vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600
+    )
     for dim_idx in range(solution.E.shape[0]):
-        plt.imsave(output_filepath.as_posix() + '_E%s.png' % chr(ord('x') + dim_idx), complex2rgb(solution.E[dim_idx], 1, inverted=True),
-                   vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600)
+        plt.imsave(
+            output_filepath.as_posix() + f"_E{'xyz'[dim_idx]}.png", complex2rgb(solution.E[dim_idx], 1, inverted=True),
+            vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600
+        )
     # Save the figure
     plt.ioff()
     fig.savefig(output_filepath.as_posix() + '.pdf', bbox_inches='tight', format='pdf')
@@ -302,8 +316,10 @@ def calculate_and_display_scattering(vectorial=True, anisotropic=True):
     return times, residues, forward_poynting_vector
 
 
-def generate_birefringent_random_layer(grid, layer_thickness, radius_mean, radius_std=0.0, normal_dim=0,
-                                       birefringent=True, medium_refractive_index=1.0):
+def generate_birefringent_random_layer(
+    grid, layer_thickness, radius_mean, radius_std=0.0, normal_dim=0,
+    birefringent=True, medium_refractive_index=1.0
+    ):
     random_seed = 0
     rng = np.random.RandomState(seed=random_seed)  # Make sure that this is exactly reproducible
 
@@ -333,7 +349,8 @@ def generate_birefringent_random_layer(grid, layer_thickness, radius_mean, radiu
         :param A: An array of which the matrices in the final two dimensions are to be orthonormalized.
         :return: A reference to the same array, now orthonormalized.
         """
-        conj_inner = lambda a, b: np.sum(np.conj(a) * b, axis=-1, keepdims=True)
+        def conj_inner(a, b):
+            return np.sum(np.conj(a) * b, axis=-1, keepdims=True)
         nb_dims = A.shape[-2]
         for dim_idx in range(nb_dims-1):
             ref = A[..., dim_idx, np.newaxis, :]
@@ -378,9 +395,9 @@ def generate_birefringent_random_layer(grid, layer_thickness, radius_mean, radiu
 
 if __name__ == '__main__':
     start_time = time.perf_counter()
-    times, residues, forward_poynting_vector = calculate_and_display_scattering(vectorial=False)  # calc time small 2.9s, large: 23.5s (320 MB)
+    # times, residues, forward_poynting_vector = calculate_and_display_scattering(vectorial=False)  # calc time small 2.9s, large: 23.5s (320 MB)
     times, residues, forward_poynting_vector = calculate_and_display_scattering(anisotropic=False)  # calc time small 11.2s, large: 96.1 (480MB)
-    times, residues, forward_poynting_vector = calculate_and_display_scattering(anisotropic=True)  # calc time small 55.9s, large: 198.8s (740MB)
+    # times, residues, forward_poynting_vector = calculate_and_display_scattering(anisotropic=True)  # calc time small 55.9s, large: 198.8s (740MB)
     log.info(f'Total time: {time.perf_counter() - start_time:0.3f}s.')
 
     # Display how the method converged

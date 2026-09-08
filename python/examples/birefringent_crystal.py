@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-#
-# Example code showing double refraction in a birefringent crystal
-
+"""
+Example code showing double refraction in a birefringent crystal
+"""
+import time
 
 import time
 
@@ -17,7 +18,7 @@ from macromax.utils.ft import Grid
 
 def show_birefringence():
     #
-    # Medium settings
+    # Define the material
     #
     data_shape = np.array([128, 256]) * 2
     wavelength = 500e-9
@@ -54,41 +55,49 @@ def show_birefringence():
         ax.set_ylabel(r'x [$\mu$m]')
         ax.set_aspect('equal')
 
-    images = [axs[dim_idx][0].imshow(complex2rgb(np.zeros(data_shape), 1),
-                                     extent=np.array([*grid[1].ravel()[[0, -1]], *grid[0].ravel()[[0, -1]]]) * 1e6, origin='lower')
-              for dim_idx in range(3)]
-    axs[0][1].imshow(complex2rgb(permittivity[0, 0], 1),
-                     extent=grid2extent(grid, origin_lower=True) * 1e6, origin='lower')
-    axs[2][1].imshow(complex2rgb(current_density[0], 1),
-                     extent=grid2extent(grid, origin_lower=True) * 1e6, origin='lower')
+    images = [
+        axs[dim_idx][0].imshow(
+            complex2rgb(np.zeros(data_shape), 1),
+            extent=np.array([*grid[1].ravel()[[0, -1]], *grid[0].ravel()[[0, -1]]]) / 1e-6, origin='lower')
+        for dim_idx in range(3)
+    ]
+    axs[0][1].imshow(
+        complex2rgb(permittivity[0, 0], 1),
+        extent=grid2extent(grid, origin_lower=True) / 1e-6, origin='lower'
+    )
+    axs[2][1].imshow(
+        complex2rgb(current_density[0], 1),
+        extent=grid2extent(grid, origin_lower=True) / 1e-6, origin='lower'
+    )
     axs[0][1].set_title(r'$\chi$')
     axs[1][1].axis('off')
     axs[2][1].set_title('source and S')
     Y, X = np.broadcast_arrays(*grid)
     arrow_sep = np.array([1, 1], dtype=int) * 30
-    quiver = axs[2][1].quiver(X[::arrow_sep[0], ::arrow_sep[1]]*1e6, Y[::arrow_sep[0], ::arrow_sep[1]]*1e6,
-                              X[::arrow_sep[0], ::arrow_sep[1]]*0, Y[::arrow_sep[0], ::arrow_sep[1]]*0,
-                              pivot='mid', scale=1.0, scale_units='x', units='x', color=np.array([1, 0, 1, 0.5]))
+    quiver = axs[2][1].quiver(
+        X[::arrow_sep[0], ::arrow_sep[1]]*1e6, Y[::arrow_sep[0], ::arrow_sep[1]]*1e6,
+        X[::arrow_sep[0], ::arrow_sep[1]]*0, Y[::arrow_sep[0], ::arrow_sep[1]]*0,
+        pivot='mid', scale=1.0, scale_units='x', units='x', color=np.array([1, 0, 1, 0.5])
+    )
 
     for dim_idx in range(3):
         for col_idx in range(2):
             axs[dim_idx][col_idx].autoscale(False, tight=True)
 
     #
-    # Display the current solution
+    # Display the solution
     #
     def display(s):
-        log.info("Displaying iteration %d: error %0.1f%%" % (s.iteration, 100 * s.residue))
+        log.info(f'Displaying iteration {s.iteration:d}: error {s.residue:.1%}')
         nb_dims = s.E.shape[0]
         for dim_idx in range(nb_dims):
             images[dim_idx].set_data(complex2rgb(s.E[dim_idx], 1))
-            figure_title = '$E_' + 'xyz'[dim_idx] + "$ it %d: rms error %0.1f%% " % (s.iteration, 100 * s.residue)
+            figure_title = f"$E_{'xyz'[dim_idx]}$"
             axs[dim_idx][0].set_title(figure_title)
 
         S = s.S
         S /= np.sqrt(np.max(np.sum(np.abs(S) ** 2, axis=0))) / (sample_pitch[0] * arrow_sep[0])  # Normalize
-        U = S[0, ...]
-        V = S[1, ...]
+        U, V = S[:2]
         quiver.set_UVC(V[::arrow_sep[0], ::arrow_sep[1]]*1e6, U[::arrow_sep[0], ::arrow_sep[1]]*1e6)
 
         plt.draw()
@@ -98,18 +107,19 @@ def show_birefringence():
     # Display the (intermediate) result
     #
     def update_function(s):
-        if np.mod(s.iteration, 10) == 0:
+        if s.iteration % 10 == 0:
             log.info(f'Iteration {s.iteration}: update = {s.residue * 100:0.1f}%.')
-        if np.mod(s.iteration, 10) == 0:
+        if s.iteration % 10 == 0:
             display(s)
 
         return s.residue > 1e-3 and s.iteration < 1e4
 
         # The actual work is done here:
     start_time = time.perf_counter()
-    solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, bound=bound, callback=update_function, dtype=np.complex64
-                              )
+    solution = macromax.solve(
+        grid=grid, vacuum_wavelength=wavelength, current_density=current_density,
+        epsilon=permittivity, bound=bound, callback=update_function, dtype=np.complex64
+    )
     log.info(f'Calculation time: {time.perf_counter() - start_time:0.3f}s.')
 
     # Show final result

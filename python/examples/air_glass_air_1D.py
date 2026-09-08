@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
-#
-# Example code showing reflection at a glass-air interface in one dimension
-
-
-import time
-
+"""
+Example code showing reflection at a glass-air interface in one dimension
+"""
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -22,106 +19,70 @@ def show_air_glass_transition(impedance_matched=False, birefringent=False):
     x_range = sample_pitch * np.arange(nb_samples) - 5e-6
 
     # define the source
-    current_density = (np.abs(x_range) < sample_pitch / 2)  # point source at x=0
-    current_density = source_polarization * current_density
+    current_density = source_polarization * (abs(x_range) < sample_pitch / 2)  # point source at x=0
 
     # define the medium
     epsilon_material = np.array([1.5, 1.48, 1.5]) ** 2
     has_object = (x_range >= 10e-6) & (x_range < 200e-6)
     permittivity = np.ones(len(x_range), dtype=np.complex64)
-    # absorbing boundary
-    boundary_thickness = 5e-6
-    bound = macromax.bound.LinearBound(x_range, thickness=boundary_thickness, max_extinction_coefficient=0.25)
+    bound = macromax.bound.LinearBound(x_range, thickness=5e-6)  # absorbing boundary
 
     nb_pol_dims = 1 + 2 * birefringent
     permittivity = np.eye(nb_pol_dims)[:, :, np.newaxis] * permittivity
     for dim_idx in range(nb_pol_dims):
         permittivity[dim_idx, dim_idx, has_object] += epsilon_material[dim_idx]
 
-    if impedance_matched:
-        # Impedance matched everywhere
-        permeability = permittivity
-    else:
-        # Non-impedance matched glass
-        permeability = 1.0  # The display function below wouldn't expect a scalar
+    permeability = permittivity if impedance_matched else 1
+
+    #
+    # Calculate the electric field
+    #
+    solution = macromax.solve(
+        grid=x_range, vacuum_wavelength=wavelength, current_density=current_density,
+        refractive_index=permittivity**0.5, mu=permeability, bound=bound, 
+        callback=lambda s: s.residue > 1e-5 and s.iteration < 1e4, dtype=np.complex64
+    )
+
+    #
+    # Show the result now
+    #
+    E = solution.E[1, :]
+    # H = solution.H[2, :]
+    S = solution.S[0, :]
+    u = solution.energy_density
+
+    field_to_display = E  # The source is polarized along this dimension
+    max_val_to_display = np.maximum(np.amax(abs(field_to_display)), np.finfo(field_to_display.dtype).eps)
+    poynting_normalization = np.amax(abs(S)) / max_val_to_display
+    energy_normalization = np.amax(abs(u)) / max_val_to_display
 
     # Prepare the display
     fig, ax = plt.subplots(2, 1, frameon=False, figsize=(12, 9), sharex='all')
-    abs_line = ax[0].plot(x_range * 1e6, x_range * 0, color=[0, 0, 0])[0]
-    poynting_line = ax[0].plot(x_range * 1e6, x_range * 0, color=[1, 0, 1])[0]
-    energy_line = ax[0].plot(x_range * 1e6, x_range * 0, color=[0, 1, 1])[0]
-    real_line = ax[0].plot(x_range * 1e6, x_range * 0, color=[0, 0.7, 0])[0]
-    imag_line = ax[0].plot(x_range * 1e6, x_range * 0, color=[1, 0, 0])[0]
+    ax[0].plot(x_range * 1e6, abs(field_to_display) ** 2 / max_val_to_display, color=[0, 0, 0])[0]
+    ax[0].plot(x_range * 1e6, np.real(S) / poynting_normalization, color=[1, 0, 1])[0]
+    ax[0].plot(x_range * 1e6, np.real(u) / energy_normalization, color=[0, 1, 1])[0]
+    ax[0].plot(x_range * 1e6, np.real(field_to_display), color=[0, 0.7, 0])[0]
+    ax[0].plot(x_range * 1e6, np.imag(field_to_display), color=[1, 0, 0])[0]
     ax[0].set_xlabel('x  [$\\mu$m]')
     ax[0].set_ylabel('E, S  [a.u.]')
     ax[0].set_xlim(x_range[[0, -1]] * 1e6)
-
+    ax[0].set_ylim(np.array((-1, 1)) * np.maximum(np.amax(abs(field_to_display)), np.amax(abs(field_to_display) ** 2 / max_val_to_display)) * 1.05)
     ax[1].plot(x_range[-1] * 2e6, 0, color=[0, 0, 0], label='|E|')
     ax[1].plot(x_range[-1] * 2e6, 0, color=[1, 0, 1], label='S')
     ax[1].plot(x_range[-1] * 2e6, 0, color=[0, 1, 1], label='u')
     ax[1].plot(x_range[-1] * 2e6, 0, color=[0, 0.7, 0], label='$E_{real}$')
     ax[1].plot(x_range[-1] * 2e6, 0, color=[1, 0, 0], label='$E_{imag}$')
-    ax[1].plot(x_range * 1e6, permittivity[0, 0].real, color=[0, 0, 1], linewidth=2.0, label='$\\epsilon_{real}$')
-    ax[1].plot(x_range * 1e6, permittivity[0, 0].imag, color=[0, 0.5, 0.5], linewidth=2.0, label='$\\epsilon_{imag}$')
+    ax[1].plot(x_range * 1e6, permittivity[0, 0].real, color=[0, 0, 1], linewidth=2.0, label=r'$\epsilon_{real}$')
+    ax[1].plot(x_range * 1e6, permittivity[0, 0].imag, color=[0, 0.5, 0.5], linewidth=2.0, label=r'$\epsilon_{imag}$')
     if impedance_matched:
-        ax[1].plot(x_range * 1e6, permeability[0, 0].real, color=[0.5, 0.25, 0], label='$\\mu_{real}$')
-        ax[1].plot(x_range * 1e6, permeability[0, 0].imag, color=[0.5, 1, 0], label='$\\mu_{imag}$')
-    ax[1].set_xlabel('x  [$\\mu$m]')
-    ax[1].set_ylabel('$\\epsilon$, $\\mu$')
+        ax[1].plot(x_range * 1e6, permeability[0, 0].real, color=[0.5, 0.25, 0], label=r'$\mu_{real}$')
+        ax[1].plot(x_range * 1e6, permeability[0, 0].imag, color=[0.5, 1, 0], label=r'$\mu_{imag}$')
+    ax[1].set_xlabel(r'x  [$\mu$m]')
+    ax[1].set_ylabel(r'$\epsilon$, $\mu$')
     ax[1].set_xlim(x_range[[0, -1]] * 1e6)
     ax[1].legend(loc='upper right')
 
-    plt.ion()
-
-    def display(s):
-        E = s.E[1, :]
-        # H = s.H[2, :]
-        S = s.S[0, :]
-        u = s.energy_density
-
-        log.info("1D: Displaying iteration %0.0f: error %0.1f%%" % (s.iteration, 100 * s.residue))
-        field_to_display = E  # The source is polarized along this dimension
-        max_val_to_display = np.maximum(np.max(np.abs(field_to_display)), np.finfo(field_to_display.dtype).eps)
-        poynting_normalization = np.max(np.abs(S)) / max_val_to_display
-        energy_normalization = np.max(np.abs(u)) / max_val_to_display
-
-        abs_line.set_ydata(np.abs(field_to_display) ** 2 / max_val_to_display)
-        poynting_line.set_ydata(np.real(S) / poynting_normalization)
-        energy_line.set_ydata(np.real(u) / energy_normalization)
-        real_line.set_ydata(np.real(field_to_display))
-        imag_line.set_ydata(np.imag(field_to_display))
-        ax[0].set_ylim(np.array((-1, 1)) * np.maximum(np.max(np.abs(field_to_display)), np.max(abs(field_to_display) ** 2 / max_val_to_display)) * 1.05 )
-        figure_title = "Iteration %d, " % s.iteration
-        ax[0].set_title(figure_title)
-
-        plt.pause(0.001)
-
-    #
-    # What to do after each iteration
-    #
-    def update_function(s):
-        if np.mod(s.iteration, 100) == 0:
-            log.info("Iteration %0.0f: rms error %0.1f%%" % (s.iteration, 100 * s.residue))
-        if np.mod(s.iteration, 100) == 0:
-            display(s)
-
-        return s.residue > 1e-5 and s.iteration < 1e4
-
-        # The actual work is done here:
-    start_time = time.perf_counter()
-    solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
-                              refractive_index=permittivity**0.5, mu=permeability, bound=bound, callback=update_function, dtype=np.complex64
-                              )
-    log.info("Calculation time: %0.3fs." % (time.perf_counter() - start_time))
-
-    # Show final result
-    log.info('Displaying final result.')
-    display(solution)
-    plt.show(block=False)
-
-
 if __name__ == '__main__':
-    start_time = time.perf_counter()
     show_air_glass_transition(impedance_matched=False, birefringent=False)
-    log.info(f'Total time: {time.perf_counter() - start_time:0.3f}s.')
+    log.info('Displaying final result. Close window to exit.')
     plt.show(block=True)

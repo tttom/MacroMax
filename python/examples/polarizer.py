@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-#
-# Example code showing light propagating through a set of polarizers
-
+"""
+Example code showing light propagating through a set of polarizers
+"""
 import time
 
 import matplotlib.pyplot as plt
@@ -28,7 +28,8 @@ def show_polarizer(center_polarizer=True):
     # define the medium
     eps_pol = np.eye(3, dtype=np.complex64)
     eps_pol[2, 2] = 1.0 + 0.1j
-    rot_x = lambda a: np.array([[1, 0, 0], [0, np.cos(a), np.sin(a)], [0, -np.sin(a), np.cos(a)]], dtype=np.complex64)
+    def rot_x(a):
+        return np.array([[1, 0, 0], [0, np.cos(a), np.sin(a)], [0, -np.sin(a), np.cos(a)]], dtype=np.complex64)
 
     permittivity = np.tile(np.eye(3, dtype=np.complex64)[:, :, np.newaxis], [1, 1, nb_samples])
     for pos_idx, pos in enumerate(x_range):
@@ -78,9 +79,9 @@ def show_polarizer(center_polarizer=True):
         for plot_idx in range(3):
             ax = axs[plot_idx][0]
             field_to_display = E[plot_idx, :]
-            max_val_to_display = np.maximum(np.max(np.abs(field_to_display)), np.finfo(field_to_display.dtype).eps)
+            max_val_to_display = np.maximum(np.amax(abs(field_to_display)), np.finfo(field_to_display.dtype).eps)
 
-            abs_line[plot_idx].set_ydata(np.abs(field_to_display) ** 2 / max_val_to_display)
+            abs_line[plot_idx].set_ydata(abs(field_to_display) ** 2 / max_val_to_display)
             real_line[plot_idx].set_ydata(np.real(field_to_display))
             imag_line[plot_idx].set_ydata(np.imag(field_to_display))
             if np.amax(np.abs(field_to_display)) > np.finfo(field_to_display.dtype).eps:
@@ -96,17 +97,16 @@ def show_polarizer(center_polarizer=True):
     # What to do after each iteration
     #
     def update_function(s):
-        if np.mod(s.iteration, 100) == 0:
+        if s.iteration % 100 == 0:
             log.info(f'Iteration {s.iteration}: update = {s.residue * 100:0.1f}%')
-        if np.mod(s.iteration, 100) == 0:
             display(s)
-
         return s.iteration < 1e4 and s.residue > 1e-4
 
         # The actual work is done here:
-    solution = macromax.solve(x_range, vacuum_wavelength=wavelength, current_density=current_density,
-                              epsilon=permittivity, bound=bound, callback=update_function
-                              )
+    solution = macromax.solve(
+        x_range, vacuum_wavelength=wavelength, current_density=current_density,
+        epsilon=permittivity, bound=bound, callback=update_function
+    )
 
     # Show final result
     log.info('Displaying final result.')

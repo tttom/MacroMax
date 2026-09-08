@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-#
-# Example code showing reflection and refraction at a glass pane, in two dimensions
-
+"""
+Example code showing reflection and refraction at a glass pane, in two dimensions
+"""
 import pathlib
 import time
 
@@ -24,7 +24,7 @@ def calculate_and_display(vectorial=True):
     #
     # Calculation settings
     #
-    oversampling_factor = 1  # increasing should be similar to sinc-interpolation
+    oversampling_factor = 2  # increasing should be similar to sinc-interpolation
     wavelength = 500e-9
     boundary_thickness = 2e-6  # or use something like ([2e-6], [0]) to get absorbing boundaries in axis 0 and periodic boundaries in the other axis
     beam_diameter = 5e-6
@@ -61,14 +61,18 @@ def calculate_and_display(vectorial=True):
         ax.set_xlabel(r'y [$\mu$m]')
         ax.set_ylabel(r'x [$\mu$m]')
         ax.set_aspect('equal')
-        rectangle = plt.Rectangle(np.array((grid[1].ravel()[0], -plate_thickness / 2))*1e6,
-                                  (grid.extent[1])*1e6, plate_thickness*1e6,
-                                  edgecolor=np.array((0, 1, 1, 0.50)), linewidth=1, fill=True,
-                                  facecolor=np.array((0, 1, 1, 0.10)))
+        rectangle = plt.Rectangle(
+            np.array((grid[1].ravel()[0], -plate_thickness / 2))*1e6,
+            (grid.extent[1])*1e6, plate_thickness*1e6,
+            edgecolor=np.array((0, 1, 1, 0.50)), linewidth=1, fill=True,
+            facecolor=np.array((0, 1, 1, 0.10))
+        )
         ax.add_artist(rectangle)
 
-    images = [ax.imshow(complex2rgb(np.zeros(grid.shape), 1, inverted=True), extent=grid2extent(grid) / 1e-6)
-              for ax in axs.ravel()]
+    images = [
+        ax.imshow(complex2rgb(np.zeros(grid.shape), 1, inverted=True), extent=grid2extent(grid) / 1e-6)
+        for ax in axs.ravel()
+    ]
 
     axs.ravel()[-1].set_title('$||E||^2$')
 
@@ -111,7 +115,7 @@ def calculate_and_display(vectorial=True):
         times.append(time.perf_counter())
         residues.append(s.residue)
 
-        if np.mod(s.iteration, 10) == 0:
+        if s.iteration % 10 == 0:
             log.info(f'Iteration {s.iteration}: rms error {100 * s.residue:0.3f}%%')
             display(s)
 
@@ -119,10 +123,11 @@ def calculate_and_display(vectorial=True):
 
     # The actual work is done here:
     start_time = time.perf_counter()
-    solution = macromax.solve(grid, vacuum_wavelength=wavelength, current_density=current_density,
-                              refractive_index=refractive_index, bound=bound,
-                              callback=update_function, dtype=np.complex64
-                              )
+    solution = macromax.solve(
+        grid=grid, vacuum_wavelength=wavelength, current_density=current_density,
+        refractive_index=refractive_index, bound=bound,
+        callback=update_function, dtype=np.complex64
+    )
 
     # Display how the method converged
     times = np.array(times) - start_time
@@ -133,11 +138,13 @@ def calculate_and_display(vectorial=True):
     display(solution)
     plt.show(block=False)
     # Save the individual images
-    log.info('Saving results to %s...' % output_filepath.as_posix())
+    log.info(f'Saving results to {output_filepath}...')
     output_path.mkdir(parents=True, exist_ok=True)
     for axis in range(solution.E.shape[0]):
-        plt.imsave(output_filepath.as_posix() + f'_E{"xyz"[axis]}.png', complex2rgb(solution.E[axis], 1, inverted=True),
-                   vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600)
+        plt.imsave(
+            output_filepath.as_posix() + f'_E{"xyz"[axis]}.png', complex2rgb(solution.E[axis], 1, inverted=True),
+            vmin=0.0, vmax=1.0, cmap=None, format='png', origin=None, dpi=600
+        )
     # Save the figure
     plt.ioff()
     fig.savefig(output_filepath.as_posix() + '.pdf', bbox_inches='tight', format='pdf')
